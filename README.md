@@ -5,14 +5,14 @@ Project Name: TrailSync Mountain Trekking Booking and Tracking System
 Purpose: 
 
 # System Architecture
----
+
 The project follows a **Test-Driven Development** approach, where each feature is tested first, the implementation is then developed to make the test pass, and the code is then refactored. 
 
 # Core Features
----
+
 
 # Tech Stack
----
+
 Frontend: React.js for Web app & Flutter for cross-platform app development
 
 Backend: Node.js 
