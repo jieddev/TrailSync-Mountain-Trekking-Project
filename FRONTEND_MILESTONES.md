@@ -16,7 +16,7 @@ The frontend is being developed separately from the backend. The backend collabo
 
 - [ ] React
 - [ ] Vite
-- [ ] JavaScript
+- [ ] TypeScript
 - [ ] Tailwind CSS
 - [ ] Firebase Authentication
 - [ ] ESLint
@@ -27,13 +27,13 @@ The frontend is being developed separately from the backend. The backend collabo
 
 Handled by the backend collaborator:
 
-- Node.js
-- Express.js
-- PostgreSQL
-- Firebase Authentication token verification
-- Backend API
-- Database
-- Server-side business logic
+- [ ] Node.js
+- [ ] Express.js
+- [ ] PostgreSQL
+- [ ] Firebase Authentication token verification
+- [ ] Backend API
+- [ ] Database
+- [ ] Server-side business logic
 
 ---
 
@@ -107,7 +107,7 @@ The coding agent should follow these rules throughout the implementation:
 
 ## Goal
 
-Establish the React/Vite/Tailwind frontend foundation and clean project structure.
+Establish the React/Vite/TypeScript/Tailwind frontend foundation and clean project structure.
 
 ### Tasks
 
@@ -117,6 +117,9 @@ Establish the React/Vite/Tailwind frontend foundation and clean project structur
 - [x] Configure Tailwind CSS.
 - [x] Establish the initial frontend directory structure.
 - [ ] Use a feature-oriented structure.
+- [ ] Configure TypeScript.
+- [ ] Ensure the Vite React application uses TypeScript.
+- [ ] Verify TypeScript configuration and compiler behavior.
 - [x] Configure ESLint.
 - [x] Configure Prettier.
 - [x] Remove unnecessary Vite starter/demo code.
@@ -128,7 +131,7 @@ Establish the React/Vite/Tailwind frontend foundation and clean project structur
 
 ### Expected Result
 
-A clean React + Vite + Tailwind frontend foundation that is ready for authentication UI development.
+A clean React + Vite + TypeScript + Tailwind frontend foundation that is ready for authentication UI development.
 
 ---
 
@@ -195,7 +198,7 @@ Create a clean boundary between the React UI and authentication implementation.
 ### Tasks
 
 - [ ] Create the authentication service.
-- [ ] Establish `src/features/auth/services/authService.js`.
+- [ ] Establish `src/features/auth/services/authService.ts`.
 - [ ] Define a registration function.
 - [ ] Define a login function.
 - [ ] Define a logout function.
@@ -341,7 +344,9 @@ The application should conceptually support:
 Loading
    ↓
 Authenticated
+
    or
+
 Unauthenticated
 ```
 
@@ -582,4 +587,4 @@ Do not implement future phases unless explicitly requested.
 
 **Current Phase:** Phase 1
 
-**Status:** In progress
+**Status:** In progress — React/Vite/Tailwind foundation is complete; TypeScript setup remains to be completed before Phase 1 is fully complete.

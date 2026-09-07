@@ -1,12 +1,16 @@
-# Software Engineering Principles & Best Practices
+# TrailSync Software Engineering Principles & AI Coding Guidelines
 
 ## Purpose
 
-This document defines the general software engineering principles that should guide development across projects and tasks.
+This document defines the software engineering principles and coding rules that should guide development of **TrailSync**.
 
-It is intended to be read by both developers and AI coding agents before implementing or modifying software.
+It is intended to be followed by:
 
-These principles are **project-agnostic**. They should remain useful across different languages, frameworks, architectures, and types of applications.
+- Developers
+- Codex
+- Claude
+- Other AI coding agents
+- Future contributors
 
 The goal is to produce software that is:
 
@@ -17,7 +21,7 @@ The goal is to produce software that is:
 - Testable
 - Adaptable
 - Appropriately performant
-- Appropriate to the project's size and requirements
+- Appropriate to the project's actual size and requirements
 
 These principles should be applied with judgment rather than mechanically.
 
@@ -52,24 +56,21 @@ A small, understandable solution is often better than a highly abstract solution
 
 Prefer simple solutions over unnecessarily complicated ones.
 
-Good engineering should reduce unnecessary cognitive load.
-
 ### Principles
 
 - Prefer straightforward code.
 - Prefer obvious control flow.
-- Prefer simple data structures when they are sufficient.
 - Prefer readable solutions over clever solutions.
 - Avoid unnecessary abstraction.
 - Avoid unnecessary layers.
-- Avoid unnecessarily complicated design patterns.
+- Avoid unnecessary design patterns.
 - Avoid deeply nested logic.
 - Avoid clever one-liners when they reduce readability.
-- Avoid introducing complexity without a demonstrated need.
+- Avoid complexity without a demonstrated need.
 
 Before adding complexity, ask:
 
-> "What problem does this complexity solve?"
+> **What problem does this complexity solve?**
 
 If there is no meaningful answer, do not add it.
 
@@ -77,21 +78,21 @@ If there is no meaningful answer, do not add it.
 
 # 3. YAGNI — You Aren't Gonna Need It
 
-Do not build functionality simply because it might be useful in the future.
-
 Build for known requirements.
+
+Do not build functionality simply because it might be useful later.
 
 Avoid:
 
-- Future features that have not been requested
+- Unrequested features
 - Unused abstractions
 - Unused configuration systems
-- Unused extension points
 - Unused API endpoints
 - Unused database structures
+- Hypothetical scalability systems
 - Generalized frameworks for one use case
 
-When future requirements actually appear, the system can be refactored appropriately.
+When a future requirement actually appears, refactor appropriately.
 
 > **Do not pay today's complexity cost for tomorrow's hypothetical problem.**
 
@@ -99,88 +100,70 @@ When future requirements actually appear, the system can be refactored appropria
 
 # 4. DRY — Don't Repeat Yourself
 
-Avoid unnecessary duplication of knowledge and business logic.
+Avoid unnecessary duplication of important knowledge and business logic.
 
 Good candidates for reuse include:
 
 - Business rules
 - Validation rules
 - Shared constants
-- Common API behavior
+- API behavior
 - Reusable UI components
-- Repeated utilities
-- Shared configuration
+- Utilities
+- Configuration
 
 However:
 
 > **Do not create an abstraction simply because two pieces of code look similar.**
 
-Duplication is sometimes preferable to a bad abstraction.
+Duplication can sometimes be safer than a bad abstraction.
 
 DRY should primarily eliminate duplicated **knowledge**, not every instance of similar syntax.
 
 ---
 
-# 5. SOLID Principles
+# 5. SOLID
 
-SOLID principles should be applied when they improve the design.
+Apply SOLID principles when they improve the design.
 
-Do not force SOLID into small or simple code where it adds unnecessary complexity.
+Do not force SOLID patterns into simple code merely to make the architecture appear sophisticated.
 
----
-
-## 5.1 Single Responsibility Principle
+### Single Responsibility
 
 A module should have a clear responsibility.
 
 Avoid modules that simultaneously handle:
 
 - UI rendering
-- Database access
+- API communication
 - Authentication
 - Validation
 - Business rules
-- External API communication
+- Database access
 - Logging
-- Unrelated application logic
+- Unrelated logic
 
-Separate responsibilities when doing so improves clarity and maintainability.
+### Open/Closed
 
----
+Use extension-friendly designs when behavior is genuinely expected to grow.
 
-## 5.2 Open/Closed Principle
+Do not build elaborate extension systems prematurely.
 
-Software should be reasonably open to extension without requiring unnecessary modification of stable code.
+### Liskov Substitution
 
-Use this principle when behavior is genuinely expected to grow.
-
-Do not build elaborate extension systems before there is a real need.
-
----
-
-## 5.3 Liskov Substitution Principle
-
-When abstractions or inheritance are used, implementations should behave consistently with the expectations of the abstraction.
-
-Avoid misleading inheritance relationships.
+When inheritance is used, implementations must behave consistently with the abstraction.
 
 Prefer composition when it represents the problem more naturally.
 
----
+### Interface Segregation
 
-## 5.4 Interface Segregation Principle
+Prefer focused interfaces and service boundaries instead of large "god interfaces."
 
-Avoid forcing consumers to depend on functionality they do not need.
-
-Prefer focused interfaces and service boundaries over large "god interfaces."
-
----
-
-## 5.5 Dependency Inversion Principle
+### Dependency Inversion
 
 High-level business logic should not be tightly coupled to low-level implementation details.
 
-For example:
+Conceptually:
 
 ```text
 Business Logic
@@ -190,22 +173,20 @@ Service / Abstraction
 Infrastructure
 ```
 
-rather than spreading infrastructure-specific code throughout the application.
+Infrastructure may include:
 
-Examples of infrastructure include:
-
-- Databases
+- PostgreSQL
+- Firebase
 - HTTP clients
-- Authentication providers
-- File systems
 - External APIs
+- File systems
 - Cloud services
 
 ---
 
 # 6. Separation of Concerns
 
-Different responsibilities should remain appropriately separated.
+Keep different responsibilities appropriately separated.
 
 A common structure is:
 
@@ -219,50 +200,553 @@ Domain / Business Logic
 Infrastructure
 ```
 
-Not every project needs every layer.
+Not every feature requires every layer.
 
-The important idea is that unrelated responsibilities should not become tightly coupled.
+The important principle is:
 
----
-
-# 7. Composition Over Inheritance
-
-Prefer composition when possible.
-
-Composition generally makes behavior easier to:
-
-- Reuse
-- Test
-- Replace
-- Understand
-- Modify
-
-Avoid deep inheritance hierarchies.
-
-Inheritance should represent a genuine "is-a" relationship rather than simply being used as a code-reuse mechanism.
+> **Unrelated responsibilities should not become unnecessarily coupled.**
 
 ---
 
-# 8. Single Source of Truth
+# 7. TrailSync Architecture
 
-Important information should have one authoritative source.
+TrailSync should use architecture proportional to the project's requirements.
 
-Avoid maintaining multiple independent representations of the same state when they can become inconsistent.
+The backend architecture should follow:
 
-Examples:
+> **Modular Monolith + Domain-Driven Design principles + Clean/Hexagonal Architecture boundaries**
 
+This does not mean creating excessive layers or abstractions.
+
+The backend should be organized around meaningful business capabilities such as:
+
+```text
+auth
+users
+trails
+bookings
+guides
+dispatch
+trekking
+tracking
+checkpoints
+weather
+safety
+certificates
+analytics
+```
+
+Only introduce a module when there is meaningful functionality belonging to that domain.
+
+Do not create modules merely because the architecture diagram looks cleaner.
+
+---
+
+# 8. TrailSync Technology Boundaries
+
+## Frontend
+
+TrailSync uses:
+
+- React
+- Vite
+- TypeScript
+- Tailwind CSS
+- Firebase Authentication
+- ESLint
+- Prettier
+
+## Backend
+
+The backend uses:
+
+- Node.js
+- Express.js
+- PostgreSQL
+- Firebase Authentication token verification
+
+## Mobile
+
+The guide application uses:
+
+- Flutter
+
+---
+
+# 9. Frontend / Backend Boundary
+
+The frontend is responsible for:
+
+- UI
+- Components
+- Pages
+- Client-side validation
+- Firebase client authentication
 - Authentication state
-- Configuration
-- Business rules
-- Application settings
-- User permissions
-- API contracts
+- API requests
+- Loading states
+- Error states
+- Frontend routing
+- Frontend tests
 
-When multiple sources are unavoidable, define clearly which one is authoritative.
+The backend is responsible for:
+
+- Express routes
+- API controllers
+- Business logic
+- PostgreSQL
+- Database queries
+- Server-side validation
+- Authorization
+- Firebase ID-token verification
+- Business-critical state transitions
+- Backend tests
+
+The frontend must **never communicate directly with PostgreSQL**.
+
+The intended flow is:
+
+```text
+React
+  ↓
+Firebase Authentication
+  ↓
+Firebase ID Token
+  ↓
+Express API
+  ↓
+Firebase Token Verification
+  ↓
+PostgreSQL
+```
 
 ---
 
-# 9. Separation of State
+# 10. Firebase Authentication Boundary
+
+Firebase Authentication is responsible for identity authentication.
+
+The frontend may use Firebase Authentication to:
+
+- Register users
+- Log users in
+- Log users out
+- Observe authentication state
+- Obtain Firebase ID tokens
+
+The backend is responsible for verifying Firebase ID tokens.
+
+Do not treat frontend authentication state as proof of authorization.
+
+Authentication and authorization are different concerns.
+
+```text
+Authentication
+"Who are you?"
+
+Authorization
+"What are you allowed to do?"
+```
+
+---
+
+# 11. Do Not Trust the Client
+
+Anything originating from a client can potentially be manipulated.
+
+Never rely on frontend code alone for:
+
+- Authorization
+- Permissions
+- Pricing
+- Financial calculations
+- Role assignment
+- Ownership checks
+- Business-critical state transitions
+- Capacity enforcement
+- Guide assignment
+- Safety decisions
+
+Client-side validation improves user experience.
+
+Server-side validation provides authority.
+
+---
+
+# 12. Business Logic Must Be Explicit
+
+Important TrailSync business rules should be easy to locate.
+
+Examples include:
+
+- Booking rules
+- Pricing rules
+- Capacity rules
+- Guide dispatch rules
+- FIFO queue behavior
+- Trek status transitions
+- Checkpoint requirements
+- Weather lockout rules
+- Safety rules
+- Certificate eligibility
+- User permissions
+
+Do not bury important business rules inside React components.
+
+The backend should remain authoritative for business-critical rules.
+
+---
+
+# 13. TrailSync Booking Model
+
+The current business model is:
+
+> **One booking represents one trekking group.**
+
+A booking may contain one or multiple participants.
+
+Therefore, do not assume:
+
+```text
+One booking = One hiker
+```
+
+Instead, conceptually:
+
+```text
+Booking
+   ↓
+Multiple Participants
+```
+
+A solo visitor is still treated as a booking/group.
+
+Do not hardcode pricing or participant limits until the actual tourism rules have been confirmed.
+
+If pricing or capacity rules are unknown:
+
+> **Mark them as unresolved rather than inventing values.**
+
+---
+
+# 14. Guide Assignment
+
+Guide assignment currently occurs during **physical check-in**, not online booking.
+
+Therefore:
+
+```text
+Online Booking
+      ↓
+Guide = NULL
+      ↓
+Physical Check-in
+      ↓
+FIFO Dispatch
+      ↓
+Guide Assigned
+```
+
+The hiker does not currently choose a guide.
+
+Do not implement guide selection unless the project requirements are explicitly changed.
+
+---
+
+# 15. FIFO Guide Dispatch
+
+Guide scheduling should follow the project's defined FIFO rules.
+
+Conceptually:
+
+```text
+AVAILABLE
+    ↓
+QUEUED
+    ↓
+ASSIGNED
+    ↓
+ON TRAIL
+    ↓
+COMPLETED
+    ↓
+CHECKED OUT
+    ↓
+END OF QUEUE
+```
+
+A guide who completes a trek and checks out should return to the end of the active queue according to the agreed business rules.
+
+Do not silently change FIFO behavior because another scheduling approach appears more sophisticated.
+
+---
+
+# 16. Capacity Rules
+
+Do not invent the official daily carrying capacity.
+
+Capacity should be configurable by authorized tourism personnel when appropriate.
+
+Do not hardcode arbitrary values such as:
+
+```text
+MAX_HIKERS = 50
+```
+
+unless the actual project requirement explicitly establishes that value.
+
+Also distinguish between:
+
+- Package capacity
+- Actual participant count
+- Environmental carrying capacity
+
+These concepts must not automatically be treated as the same thing.
+
+---
+
+# 17. State Transitions
+
+Entities with important lifecycles should have explicit states.
+
+For example:
+
+```text
+BOOKED
+   ↓
+CHECKED_IN
+   ↓
+GUIDE_ASSIGNED
+   ↓
+TREK_STARTED
+   ↓
+IN_PROGRESS
+   ↓
+COMPLETED
+```
+
+Other states may include:
+
+```text
+CANCELLED
+NO_SHOW
+SUSPENDED
+EMERGENCY
+```
+
+Do not allow arbitrary state changes.
+
+Define valid transitions.
+
+State-transition rules should be enforced by the strongest appropriate layer, especially on the backend.
+
+---
+
+# 18. GPS Tracking Model
+
+TrailSync does **not** claim to know the exact location of every individual hiker.
+
+The current tracking model is:
+
+```text
+Trekking Group
+      ↓
+Assigned Guide
+      ↓
+Guide's Smartphone GPS
+      ↓
+TrailSync
+      ↓
+Coordinator Map
+```
+
+The guide's device represents the trekking group.
+
+Use terminology such as:
+
+> **Near-real-time GPS monitoring of trekking groups through assigned guide devices.**
+
+Do not describe this as exact real-time tracking of every individual tourist.
+
+---
+
+# 19. Near-Real-Time vs Real-Time
+
+Do not claim true real-time behavior when the system uses periodic GPS updates.
+
+If GPS points are sent periodically, describe the feature as:
+
+> **Near-real-time GPS tracking**
+
+rather than:
+
+> **Real-time GPS tracking**
+
+The exact interval should come from the project requirements and actual implementation.
+
+---
+
+# 20. Offline GPS and Synchronization
+
+When the guide's device loses connectivity:
+
+```text
+GPS Location
+     ↓
+Local Storage
+     ↓
+Connection Restored
+     ↓
+Synchronization
+     ↓
+Backend
+```
+
+Use a **store-and-forward** approach when appropriate.
+
+The system should preserve locally captured GPS data instead of discarding it simply because connectivity is unavailable.
+
+However:
+
+> **Offline synchronization is delayed synchronization, not real-time communication.**
+
+Do not claim otherwise.
+
+---
+
+# 21. Offline Data
+
+If offline functionality is implemented:
+
+- Clearly define what works offline.
+- Clearly define what requires connectivity.
+- Store necessary local data safely.
+- Queue appropriate unsynchronized operations.
+- Handle reconnection.
+- Prevent duplicate synchronization.
+- Preserve important locally captured data.
+- Consider conflicting changes.
+
+Do not introduce complicated synchronization architecture without a demonstrated need.
+
+---
+
+# 22. External Services
+
+External services may fail.
+
+TrailSync may depend on services such as:
+
+- Firebase Authentication
+- Weather APIs
+- Mapping/GPS services
+- Notification services
+
+Always consider:
+
+- Network failures
+- Timeouts
+- Rate limits
+- Invalid responses
+- Authentication expiration
+- Service outages
+- API changes
+
+Where appropriate, isolate external services behind service boundaries.
+
+---
+
+# 23. Weather and Safety Rules
+
+Weather and safety behavior should be treated as business-critical functionality.
+
+Do not bury safety rules inside UI components.
+
+Weather thresholds should not be arbitrarily hardcoded if the project requires them to be configurable.
+
+If authorized tourism personnel need to change thresholds, the system should support configuration rather than requiring code changes.
+
+Never allow AI or frontend logic to independently override authoritative safety rules.
+
+---
+
+# 24. AI Features
+
+AI should be treated as an optional supporting capability unless the project explicitly requires it.
+
+AI may assist with:
+
+- Analytics
+- Summaries
+- Recommendations
+- Advisories
+- Pattern detection
+
+AI should **not independently make safety-critical decisions** when deterministic rules or authorized personnel should control the decision.
+
+For example:
+
+```text
+Weather Data
+     ↓
+Deterministic Safety Rules
+     ↓
+Official Decision
+```
+
+AI may assist with interpretation or recommendations where appropriate, but it should not silently override the authoritative system rules.
+
+---
+
+# 25. Abstraction
+
+Create abstractions when they hide meaningful complexity.
+
+Good:
+
+```text
+AuthenticationService
+WeatherService
+NotificationService
+PaymentService
+```
+
+Bad:
+
+```text
+GenericManager
+UniversalProcessor
+BaseService
+AbstractHandler
+```
+
+created without a real need.
+
+> **Abstract based on demonstrated behavior, not imagined future requirements.**
+
+---
+
+# 26. Avoid Premature Abstraction
+
+Use this progression:
+
+```text
+Understand the problem
+        ↓
+Implement clearly
+        ↓
+Observe repetition / complexity
+        ↓
+Identify the real abstraction
+        ↓
+Refactor
+```
+
+Do not attempt to predict the perfect abstraction before the problem is understood.
+
+---
+
+# 27. State Management
 
 Not every piece of state belongs in global state.
 
@@ -277,151 +761,210 @@ First determine what kind of state something is:
 
 Use the simplest appropriate mechanism.
 
-> **Do not introduce global state management merely because a library exists.**
+Do not introduce a global state-management library merely because one exists.
 
 ---
 
-# 10. Abstraction
+# 28. React Principles
 
-Abstraction is useful when it hides meaningful complexity.
+React components should primarily focus on presentation and user interaction.
 
-Bad abstraction:
+Avoid putting large amounts of:
+
+- API logic
+- Authentication logic
+- Business rules
+- Complex data transformations
+- Infrastructure code
+
+directly inside components.
+
+Prefer meaningful boundaries such as:
 
 ```text
-GenericManager
-UniversalProcessor
-BaseService
-AbstractHandler
+Component
+    ↓
+Hook / Service
+    ↓
+API / Authentication
 ```
 
-created only because the architecture appears more professional.
+Do not create hooks or services simply for the sake of having more files.
 
-Good abstraction:
+---
+
+# 29. TypeScript
+
+Use TypeScript to improve correctness and maintainability.
+
+Prefer meaningful types for:
+
+- API responses
+- API requests
+- Authentication state
+- Domain data
+- Component props
+- Important application state
+
+Avoid:
+
+```typescript
+any
+```
+
+when a meaningful type can reasonably be defined.
+
+However, do not create hundreds of unnecessary types for trivial values.
+
+Types should communicate meaningful contracts.
+
+---
+
+# 30. API Contracts
+
+Frontend and backend communication must use an explicit API contract.
+
+The contract should define:
+
+- Endpoint
+- HTTP method
+- Authentication
+- Headers
+- Parameters
+- Request body
+- Response body
+- Status codes
+- Error format
+
+### Critical Rule
+
+> **Never invent an API contract when the backend already exists or is being developed by another collaborator.**
+
+If the backend contract is unclear:
 
 ```text
-AuthenticationService
-PaymentGateway
-WeatherService
-NotificationService
+Unknown
+   ↓
+Identify missing information
+   ↓
+Ask collaborator
+   ↓
+Confirm contract
+   ↓
+Implement frontend
 ```
 
-where the abstraction represents a meaningful concept.
-
-### Rule
-
-> Abstract based on demonstrated behavior, not imagined future requirements.
+The actual agreed backend contract takes precedence over an earlier proposed design.
 
 ---
 
-# 11. Avoid Premature Abstraction
+# 31. Database Principles
 
-Do not abstract too early.
+PostgreSQL is the TrailSync application database.
 
-A useful progression is:
+The frontend must never access PostgreSQL directly.
 
-```text
-Understand the problem
-        ↓
-Implement clearly
-        ↓
-Observe repetition / complexity
-        ↓
-Identify the real abstraction
-        ↓
-Refactor
-```
+Database design should:
 
-This is often safer than attempting to predict the perfect abstraction before understanding the problem.
+- Use meaningful relationships.
+- Use appropriate primary keys.
+- Use foreign keys where appropriate.
+- Protect data integrity.
+- Use migrations.
+- Use transactions when necessary.
+- Add indexes based on actual query requirements.
+- Avoid unnecessary duplication.
+- Design around actual business requirements.
 
----
-
-# 12. Separation of Business Logic
-
-Business rules should be explicit and easy to locate.
-
-Examples include:
-
-- Pricing rules
-- Permission rules
-- Booking rules
-- Scheduling rules
-- Status transitions
-- Eligibility requirements
-- Validation rules
-- Safety rules
-
-Do not bury important business rules inside unrelated UI code or infrastructure code.
-
-The backend should remain authoritative for security-sensitive and business-critical rules when a client/server architecture is involved.
+Do not design the database around hypothetical future scale.
 
 ---
 
-# 13. Do Not Trust the Client
+# 32. Transactions and Concurrency
 
-Anything originating from a client can potentially be manipulated.
+Use transactions when multiple related operations must succeed or fail together.
 
-Never rely on frontend code alone for:
+Consider concurrency for:
 
-- Authorization
-- Permissions
-- Pricing
-- Financial calculations
-- Security decisions
-- Role assignment
-- Ownership checks
-- Business-critical state transitions
+- Bookings
+- Capacity limits
+- Guide queue operations
+- Payments
+- Synchronization
+- Multiple users modifying the same resource
 
-Client-side validation improves user experience.
+Use appropriate mechanisms such as:
 
-Server-side validation provides authority.
+- Transactions
+- Unique constraints
+- Database constraints
+- Idempotency
+- Locks
+- Versioning
+
+Only use the mechanism required by the actual problem.
 
 ---
 
-# 14. Validation
+# 33. Idempotency
 
-Validate data at the appropriate boundaries.
+Operations that may be retried should be designed carefully.
+
+This is particularly important for:
+
+- Payments
+- API retries
+- Offline synchronization
+- Background jobs
+- Network requests
+
+Do not assume a network request executes exactly once.
+
+---
+
+# 34. Validation
+
+Validate data at appropriate boundaries.
 
 ### Client-side validation
 
-Purpose:
+Used for:
 
-- Improve UX
-- Give immediate feedback
-- Prevent obviously invalid submissions
+- Immediate feedback
+- Better UX
+- Preventing obviously invalid submissions
 
 ### Server-side validation
 
-Purpose:
+Used for:
 
-- Protect the system
-- Protect data integrity
-- Enforce business rules
-- Protect security boundaries
+- Security
+- Data integrity
+- Business rules
+- Authorization boundaries
 
-Important validation should not exist only on the client.
+Important validation must not exist only on the frontend.
 
 ---
 
-# 15. Error Handling
+# 35. Error Handling
 
-Errors are part of normal software behavior.
-
-Handle them intentionally.
+Errors are normal application behavior.
 
 Good error handling should:
 
 - Distinguish expected failures from unexpected failures.
-- Provide useful information to developers.
-- Provide understandable information to users.
+- Give useful information to developers.
+- Give understandable information to users.
 - Avoid exposing sensitive internal details.
-- Preserve useful debugging context.
+- Preserve debugging context.
 - Avoid silently ignoring important failures.
 
 Avoid:
 
 ```javascript
 try {
-  doSomething();
+  doSomething()
 } catch (error) {}
 ```
 
@@ -429,29 +972,33 @@ unless there is an intentional reason to ignore the error.
 
 ---
 
-# 16. Fail Explicitly
+# 36. Fail Explicitly
 
-When something cannot safely continue, fail clearly rather than silently producing incorrect behavior.
+When the application cannot safely continue, fail clearly.
 
 Prefer:
 
 ```text
-Invalid state → explicit error
+Invalid state
+     ↓
+Explicit error
 ```
 
 over:
 
 ```text
-Invalid state → silently continue with incorrect data
+Invalid state
+     ↓
+Silently continue with incorrect data
 ```
 
 Incorrect software that appears to work can be more dangerous than software that clearly fails.
 
 ---
 
-# 17. Defensive Programming
+# 37. Defensive Programming
 
-Consider what can go wrong at system boundaries.
+Consider realistic failures at system boundaries.
 
 Examples:
 
@@ -463,9 +1010,9 @@ Examples:
 - Unexpected API responses
 - Empty collections
 - Null/undefined values
-- File-system failures
 - Database failures
 - Concurrent operations
+- Offline conditions
 
 Do not add defensive code for every imaginable scenario.
 
@@ -473,30 +1020,28 @@ Focus on realistic and consequential failure modes.
 
 ---
 
-# 18. Naming
+# 38. Naming
 
-Good naming is one of the cheapest and most effective forms of documentation.
+Good naming is one of the cheapest forms of documentation.
 
-Prefer names that communicate intent.
+Prefer:
 
-Good:
-
-```javascript
-isAuthenticated;
-isLoading;
-hasPermission;
-getUserProfile;
-calculateTotalPrice;
+```typescript
+isAuthenticated
+isLoading
+hasPermission
+getUserProfile
+calculateTotalPrice
 ```
 
-Poor:
+Avoid:
 
-```javascript
-flag;
-data;
-temp;
-x;
-doStuff;
+```text
+data
+temp
+x
+flag
+doStuff
 ```
 
 Avoid unnecessary abbreviations.
@@ -505,87 +1050,77 @@ Consistency matters more than personal preference.
 
 ---
 
-# 19. Functions
+# 39. Functions
 
 Functions should have clear responsibilities.
 
 Prefer functions that:
 
-- Have descriptive names
-- Have understandable inputs
-- Produce predictable outputs
-- Have limited side effects
-- Avoid excessive parameters
-- Avoid deeply nested logic
+- Have descriptive names.
+- Have understandable inputs.
+- Produce predictable outputs.
+- Have limited side effects.
+- Avoid excessive parameters.
+- Avoid deeply nested logic.
 
 Do not obsess over arbitrary function-length limits.
 
-A function should be as large as necessary to express one coherent responsibility, but no larger than necessary.
+A function should be large enough to express one coherent responsibility, but no larger than necessary.
 
 ---
 
-# 20. Pure Functions
+# 40. Pure Functions and Side Effects
 
-Prefer pure functions when practical.
+Prefer pure functions where practical.
 
-A pure function:
+A pure function generally follows:
 
 ```text
-same input → same output
+Same input → Same output
 ```
 
 and does not unexpectedly modify external state.
 
-Pure functions are generally easier to:
+Pure functions are easier to:
 
 - Understand
 - Test
 - Reuse
 - Debug
 
-However, side effects are necessary in real applications.
+Side effects are necessary in real applications.
 
 The goal is not to eliminate side effects.
 
-The goal is to **control and isolate them**.
+> **The goal is to control and isolate them.**
 
----
+Examples of side effects:
 
-# 21. Side Effects
-
-Make important side effects explicit.
-
-Examples:
-
-- Database writes
 - API requests
-- File operations
 - Authentication
+- Database writes
+- File operations
 - Logging
 - Notifications
 - State mutation
 
-Keep side effects close to the appropriate application boundary.
-
-Avoid hiding significant side effects inside functions that appear to simply calculate or transform data.
-
 ---
 
-# 22. Comments
+# 41. Comments
 
-Comments should explain **why**, not simply restate what the code already says.
+Comments should explain **why**, not simply restate what the code does.
 
 Bad:
 
 ```javascript
 // Increment counter
-counter++;
+counter++
 ```
 
 Good:
 
 ```javascript
-// The external API allows a maximum of 100 records per request.
+// The external API limits each request to 100 records.
 ```
 
 Useful comments explain:
@@ -594,24 +1129,16 @@ Useful comments explain:
 - Non-obvious behavior
 - Workarounds
 - External limitations
-- Important architectural decisions
+- Architectural decisions
 - Safety-critical behavior
 
-If code requires excessive comments to explain itself, consider improving the code.
+If code requires excessive comments to explain itself, improve the code where practical.
 
 ---
 
-# 23. Readability
+# 42. Readability
 
-Code should be optimized for human comprehension.
-
-Prefer:
-
-```javascript
-const isEligible = user.age >= minimumAge;
-```
-
-over a clever but difficult-to-read expression.
+Optimize code for human comprehension.
 
 Consider:
 
@@ -622,13 +1149,15 @@ Consider:
 - Function boundaries
 - Abstraction level
 
-before considering micro-optimizations.
+Prefer readable code over clever code.
+
+Do not sacrifice readability for insignificant micro-optimizations.
 
 ---
 
-# 24. Consistency
+# 43. Consistency
 
-Once a project establishes a convention, follow it.
+Once the project establishes a convention, follow it.
 
 Be consistent with:
 
@@ -637,45 +1166,36 @@ Be consistent with:
 - Formatting
 - Error handling
 - API structure
-- Component structure
-- Import style
+- React component structure
+- Imports
 - State management
-- Testing style
+- Testing
+- TypeScript usage
 
-Do not introduce a new style for every feature.
-
----
-
-# 25. Convention Over Configuration
-
-Prefer established project conventions where they make sense.
-
-Do not repeatedly introduce custom patterns when the framework or project already has a clear convention.
-
-However, do not blindly follow framework conventions when they conflict with actual requirements.
+Do not introduce a completely different style for every feature.
 
 ---
 
-# 26. Dependency Management
+# 44. Dependency Management
 
 Dependencies have long-term costs.
 
 Before adding a dependency, ask:
 
 1. Does the project actually need it?
-2. Can the problem be solved simply with existing tools?
+2. Can the problem be solved with existing tools?
 3. Is the dependency maintained?
 4. Does it introduce security concerns?
-5. Does it significantly increase complexity or bundle size?
+5. Does it increase complexity or bundle size?
 6. Will the development team understand how it works?
 
 Avoid dependencies for trivial functionality.
 
 ---
 
-# 27. Security
+# 45. Security
 
-Security should be considered from the beginning.
+Security must be considered from the beginning.
 
 Never:
 
@@ -700,159 +1220,73 @@ Use:
 
 ---
 
-# 28. Least Privilege
+# 46. Configuration and Secrets
 
-Give users, services, and components only the permissions they actually need.
-
-Do not give broad permissions simply because they are convenient.
-
-Least privilege should apply to:
-
-- Users
-- Roles
-- API credentials
-- Database accounts
-- Services
-- Cloud resources
-- Application components
-
----
-
-# 29. Configuration and Secrets
-
-Configuration and secrets must be treated differently.
+Configuration and secrets are different.
 
 Configuration may include:
 
 - API URLs
 - Feature settings
 - Environment names
+- Public Firebase configuration values
 
 Secrets may include:
 
 - Passwords
 - Private keys
 - Database credentials
-- Authentication secrets
+- Server-side authentication secrets
 - Private API keys
 
-Never assume that frontend environment variables are secret.
+Never assume frontend environment variables are secret.
 
-Anything shipped to a browser can potentially be inspected by the user.
-
----
-
-# 30. API Contracts
-
-When frontend and backend communicate, use an explicit API contract.
-
-Define:
-
-- Endpoint
-- HTTP method
-- Authentication
-- Headers
-- Parameters
-- Request body
-- Response body
-- Status codes
-- Error format
-
-Never invent an API contract when the backend already exists.
-
-If the contract is unclear, clarify it before implementing dependent functionality.
+> **Anything shipped to a browser can potentially be inspected by the user.**
 
 ---
 
-# 31. Database Principles
+# 47. Accessibility
 
-When working with databases:
+For user interfaces:
 
-- Use meaningful relationships.
-- Use appropriate primary keys.
-- Use foreign keys where appropriate.
-- Protect data integrity.
-- Use migrations.
-- Use transactions when operations must succeed or fail together.
-- Add indexes based on actual query requirements.
-- Avoid unnecessary duplication.
-- Avoid storing derived data unless justified.
-- Design around actual business requirements.
+- Use semantic HTML.
+- Label form controls.
+- Support keyboard navigation.
+- Maintain visible focus.
+- Provide meaningful error messages.
+- Do not rely only on color.
+- Use accessible names for interactive elements.
+- Use ARIA only when necessary.
+- Consider screen-reader behavior.
 
-Do not optimize database structure based purely on hypothetical future scale.
-
----
-
-# 32. Transactions
-
-Use transactions when multiple related operations must behave atomically.
-
-For example:
-
-```text
-Operation A succeeds
-Operation B succeeds
-Operation C fails
-```
-
-If A and B must not remain committed without C, they should be handled within an appropriate transaction.
-
-Do not use transactions unnecessarily for independent operations.
+Accessibility should be part of implementation, not an afterthought.
 
 ---
 
-# 33. Concurrency
+# 48. User Experience
 
-Consider concurrent operations when they can affect correctness.
+Technical correctness does not automatically create good UX.
 
-Examples:
+Consider:
 
-- Two users modifying the same resource
-- Duplicate requests
-- Multiple bookings
-- Inventory changes
-- Queue operations
-- Payment processing
-- Synchronization
+- Loading states
+- Empty states
+- Error states
+- Success states
+- Disabled states
+- Confirmation for destructive actions
+- Clear feedback
+- Responsive behavior
 
-Do not assume requests always happen sequentially.
-
-Use appropriate mechanisms such as:
-
-- Transactions
-- Constraints
-- Idempotency
-- Locks
-- Versioning
-- Unique constraints
-
-when the actual problem requires them.
+Users should understand what the application is doing.
 
 ---
 
-# 34. Idempotency
-
-Operations that may be retried should be designed carefully.
-
-An operation is idempotent when repeating it does not unintentionally produce additional effects.
-
-This is especially important for:
-
-- Payments
-- Synchronization
-- Network retries
-- Background jobs
-- API requests
-
-Do not assume a network request is executed exactly once.
-
----
-
-# 35. Performance
+# 49. Performance
 
 Performance matters, but premature optimization creates unnecessary complexity.
 
-Follow this order:
+Follow:
 
 ```text
 Correctness
@@ -866,18 +1300,23 @@ Optimize
 Measure again
 ```
 
-Avoid optimizing code simply because it "might be slow."
+Do not optimize code simply because it "might be slow."
 
-Prioritize meaningful performance issues.
+Prioritize meaningful performance problems.
 
 ---
 
-# 36. Complexity
+# 50. Complexity
 
-When evaluating an implementation, consider both:
+Consider two types of complexity:
 
-- Runtime complexity
-- Human complexity
+### Runtime complexity
+
+How computationally expensive is the operation?
+
+### Human complexity
+
+How difficult is the code for developers to understand and maintain?
 
 An algorithm that is theoretically faster but dramatically harder to understand may not be the best choice for a small dataset.
 
@@ -885,7 +1324,7 @@ Choose based on actual requirements.
 
 ---
 
-# 37. Testing
+# 51. Testing
 
 Tests should provide confidence in behavior.
 
@@ -894,21 +1333,20 @@ Prioritize testing:
 - Important business rules
 - Critical user flows
 - Validation
-- Error handling
 - Authentication
 - Authorization
+- Error handling
 - Data integrity
 - Important edge cases
+- Offline behavior where applicable
 
-Avoid writing tests that merely reproduce implementation details.
-
-Prefer behavior-focused tests.
+Prefer behavior-focused tests over tests that merely reproduce implementation details.
 
 ---
 
-# 38. Test Pyramid
+# 52. Testing Strategy
 
-When appropriate, use a balanced testing strategy:
+When appropriate, use:
 
 ```text
         End-to-End
@@ -921,14 +1359,14 @@ When appropriate, use a balanced testing strategy:
 Generally:
 
 - Many focused unit tests
-- A meaningful number of integration tests
+- Meaningful integration tests
 - Fewer expensive end-to-end tests
 
-The exact balance depends on the project.
+The exact balance should depend on the feature.
 
 ---
 
-# 39. Testing Edge Cases
+# 53. Edge Cases
 
 Do not test only successful scenarios.
 
@@ -950,9 +1388,9 @@ Focus especially on edge cases that can cause real failures.
 
 ---
 
-# 40. Observability
+# 54. Observability
 
-For systems that need operational visibility, make important behavior observable.
+Important system behavior should be observable.
 
 Useful observability includes:
 
@@ -968,236 +1406,9 @@ Never log sensitive information unnecessarily.
 
 ---
 
-# 41. Accessibility
+# 55. Refactoring
 
-For user interfaces:
-
-- Use semantic HTML.
-- Label form controls.
-- Support keyboard navigation.
-- Maintain visible focus.
-- Provide meaningful error messages.
-- Do not rely only on color.
-- Use accessible names for interactive elements.
-- Use ARIA only when necessary.
-- Consider screen-reader behavior.
-
-Accessibility should be part of implementation rather than an afterthought.
-
----
-
-# 42. User Experience
-
-Technical correctness does not automatically create a good user experience.
-
-Consider:
-
-- Loading states
-- Empty states
-- Error states
-- Success states
-- Disabled states
-- Confirmation for destructive actions
-- Clear feedback
-- Responsive behavior
-
-Users should understand what the application is doing.
-
----
-
-# 43. State Transitions
-
-When an entity has multiple states, make the lifecycle explicit.
-
-For example:
-
-```text
-PENDING
-   ↓
-APPROVED
-   ↓
-ACTIVE
-   ↓
-COMPLETED
-```
-
-Define valid transitions rather than allowing arbitrary state changes.
-
-This becomes especially important for:
-
-- Orders
-- Bookings
-- Payments
-- Authentication
-- Workflows
-- Jobs
-- Reservations
-
----
-
-# 44. Data Integrity
-
-Important rules should be enforced at the strongest appropriate layer.
-
-For critical data:
-
-```text
-UI validation
-      ↓
-API validation
-      ↓
-Business rules
-      ↓
-Database constraints
-```
-
-Do not rely on only one layer when multiple layers provide meaningful protection.
-
----
-
-# 45. Offline and Synchronization
-
-If an application supports offline operation:
-
-- Clearly define what works offline.
-- Clearly define what requires connectivity.
-- Store necessary local data safely.
-- Queue unsynchronized operations when appropriate.
-- Handle reconnection.
-- Prevent duplicate synchronization.
-- Consider conflicting changes.
-- Preserve important locally captured data.
-
-Do not claim real-time behavior when the system actually provides delayed synchronization.
-
----
-
-# 46. External Services
-
-External APIs and services are dependencies and may fail.
-
-Always consider:
-
-- Timeouts
-- Rate limits
-- Invalid responses
-- Service outages
-- Network failures
-- Authentication expiration
-- API version changes
-
-Do not assume external services are always available.
-
-Where appropriate, isolate external services behind service boundaries.
-
----
-
-# 47. Architecture
-
-Architecture should be proportional to the problem.
-
-A useful rule:
-
-> **Use the simplest architecture that can comfortably support the current requirements and foreseeable near-term changes.**
-
-Do not automatically choose:
-
-- Microservices
-- Event-driven architecture
-- CQRS
-- Event sourcing
-- Kubernetes
-- Distributed systems
-- Multiple databases
-
-unless the requirements actually justify them.
-
-A modular monolith is often an excellent starting point for small and medium applications.
-
----
-
-# 48. Anti-Overengineering
-
-This is a high-priority principle.
-
-Do not confuse:
-
-```text
-More architecture
-```
-
-with:
-
-```text
-Better architecture
-```
-
-Overengineering can appear as:
-
-- Too many abstraction layers
-- Too many design patterns
-- Excessive interfaces
-- Excessive classes
-- Unnecessary microservices
-- Unnecessary state-management libraries
-- Excessive configuration
-- Generic systems for one use case
-- Complex dependency injection
-- Premature scalability solutions
-- Unnecessary caching
-- Unnecessary event systems
-
-Before introducing complexity, ask:
-
-> What concrete problem does this solve today?
-
-If the answer is hypothetical, reconsider.
-
----
-
-# 49. Avoid "Enterprise Theater"
-
-Do not add architectural ceremony simply to make a project look professional.
-
-Examples:
-
-```text
-Controller
-   ↓
-Service
-   ↓
-Manager
-   ↓
-Processor
-   ↓
-Handler
-   ↓
-Repository
-   ↓
-Adapter
-   ↓
-Factory
-```
-
-when the actual operation is simply:
-
-```text
-Receive request
-   ↓
-Validate
-   ↓
-Perform operation
-   ↓
-Return result
-```
-
-Architecture should serve the software, not the other way around.
-
----
-
-# 50. Refactoring
-
-Refactor when the current structure is causing a real problem.
+Refactor when the current structure causes a real problem.
 
 Good reasons include:
 
@@ -1211,17 +1422,17 @@ Good reasons include:
 
 Do not refactor merely because another architecture looks more sophisticated.
 
-Refactoring should preserve intended behavior unless changing behavior is explicitly part of the task.
+Refactoring should preserve intended behavior unless behavior change is explicitly part of the task.
 
 ---
 
-# 51. Boy Scout Rule
+# 56. Boy Scout Rule
 
 When touching existing code:
 
 > **Leave the code slightly better than you found it, when doing so is safe and relevant.**
 
-However, this does not mean rewriting unrelated code.
+This does not mean rewriting unrelated code.
 
 Small improvements are welcome when they are:
 
@@ -1233,7 +1444,7 @@ Do not turn a small feature into an unrelated refactoring project.
 
 ---
 
-# 52. Change Minimization
+# 57. Change Minimization
 
 When implementing a task:
 
@@ -1252,23 +1463,7 @@ Small changes are easier to understand and verify.
 
 ---
 
-# 53. Backward Compatibility
-
-When modifying existing systems, consider whether existing behavior must continue working.
-
-Before making a breaking change, determine:
-
-- Who depends on this behavior?
-- Is the API already being used?
-- Is the database schema already deployed?
-- Will existing users be affected?
-- Can the change be introduced gradually?
-
-Do not introduce breaking changes casually.
-
----
-
-# 54. Git Practices
+# 58. Git Practices
 
 Git history should communicate meaningful changes.
 
@@ -1302,62 +1497,40 @@ Before committing:
 
 ---
 
-# 55. Code Review Mindset
+# 59. Backward Compatibility
 
-Before considering code complete, ask:
+When modifying existing behavior, consider what already depends on it.
 
-### Correctness
+Before making a breaking change, determine:
 
-Does it actually solve the requirement?
+- Who depends on this behavior?
+- Is the API already being used?
+- Is the database schema already deployed?
+- Will existing users be affected?
+- Can the change be introduced gradually?
 
-### Simplicity
-
-Could the solution be simpler?
-
-### Maintainability
-
-Will another developer understand it?
-
-### Security
-
-Can users manipulate something they should not control?
-
-### Reliability
-
-What happens when things fail?
-
-### Testing
-
-What behavior needs verification?
-
-### Scope
-
-Did the implementation change anything unrelated?
+Do not introduce breaking changes casually.
 
 ---
 
-# 56. AI Coding Agent Principles
+# 60. AI Coding Agent — Before Coding
 
-AI coding agents should follow these rules on every task.
-
-## Before Coding
-
-The agent should:
+AI coding agents must:
 
 1. Inspect the repository.
 2. Understand the existing architecture.
 3. Read relevant files.
 4. Identify existing conventions.
-5. Understand the task.
+5. Understand the requested task.
 6. Identify dependencies.
 7. Identify ambiguities.
 8. Determine the smallest appropriate implementation.
 
-The agent should not immediately start rewriting files.
+The agent should **not immediately start rewriting files**.
 
 ---
 
-## During Coding
+# 61. AI Coding Agent — During Coding
 
 The agent should:
 
@@ -1373,32 +1546,14 @@ The agent should:
 - Avoid inventing API contracts.
 - Avoid inventing database structures.
 - Avoid changing architectural decisions without justification.
+- Use TypeScript consistently with the established project.
+- Respect the frontend/backend boundary.
 
 ---
 
-## After Coding
+# 62. AI Coding Agent — Do Not Guess
 
-The agent should:
-
-1. Review its changes.
-2. Check for unintended modifications.
-3. Run relevant tests.
-4. Run lint where available.
-5. Run the build where appropriate.
-6. Check for obvious runtime issues.
-7. Check for security issues.
-8. Confirm the requested behavior.
-9. Report what changed.
-10. Report what was verified.
-11. Report any unresolved concerns.
-
-The agent should not claim something works when it has not reasonably verified it.
-
----
-
-# 57. AI Agent: Do Not Guess
-
-When information is missing, the agent should not invent an answer.
+When information is missing, the agent must not invent an answer.
 
 Do not guess:
 
@@ -1407,10 +1562,10 @@ Do not guess:
 - Database schemas
 - Business rules
 - Pricing
+- Capacity limits
 - Permissions
 - Authentication behavior
 - External service behavior
-- File formats
 - Configuration values
 - User requirements
 
@@ -1428,15 +1583,39 @@ If not, ask for clarification
 Continue after confirmation
 ```
 
-If a safe, conventional assumption is made, it should be stated clearly.
+If a safe conventional assumption is made, clearly state the assumption.
 
 ---
 
-# 58. AI Agent: Respect Existing Architecture
+# 63. AI Coding Agent — API Boundary
+
+When frontend work depends on the backend:
+
+> **Do not invent the backend contract.**
+
+The agent should identify what is missing and request the agreed contract.
+
+For TrailSync, confirm:
+
+- Endpoint
+- HTTP method
+- Authentication requirements
+- Firebase token transport
+- Headers
+- Request body
+- Response body
+- Status codes
+- Error format
+
+If the backend collaborator provides a different implementation from an earlier proposal, the actual agreed backend contract takes precedence.
+
+---
+
+# 64. AI Coding Agent — Respect Existing Architecture
 
 Before introducing a new architecture, determine what already exists.
 
-The agent should not replace:
+Do not replace:
 
 - Frameworks
 - Libraries
@@ -1446,11 +1625,11 @@ The agent should not replace:
 - Authentication systems
 - Database technologies
 
-without a clear reason and explicit authorization when appropriate.
+without a clear reason and appropriate authorization.
 
 ---
 
-# 59. AI Agent: Do Not Over-Refactor
+# 65. AI Coding Agent — Do Not Over-Refactor
 
 A task such as:
 
@@ -1466,7 +1645,28 @@ Keep changes proportional to the task.
 
 ---
 
-# 60. AI Agent: Explain Important Decisions
+# 66. AI Coding Agent — Ask Before Crossing Boundaries
+
+When a task crosses an architectural boundary, verify assumptions.
+
+Examples:
+
+```text
+Frontend → Backend
+Backend → Database
+Application → External API
+Authentication → Authorization
+Mobile → Backend
+Offline Storage → Cloud Synchronization
+```
+
+If the required contract is unclear:
+
+> **Do not invent it.**
+
+---
+
+# 67. AI Coding Agent — Explain Important Decisions
 
 When making a non-obvious technical decision, explain:
 
@@ -1480,55 +1680,21 @@ Do not overwhelm the developer with explanations for trivial code.
 
 ---
 
-# 61. AI Agent: Ask Before Crossing Boundaries
-
-When a task crosses architectural boundaries, the agent should verify assumptions.
-
-Examples:
-
-```text
-Frontend → Backend
-Backend → Database
-Application → External API
-Authentication → Authorization
-```
-
-If the required contract is unclear, do not invent it.
-
----
-
-# 62. AI Agent: Preserve Security Boundaries
-
-The agent must never weaken security simply to make implementation easier.
-
-Do not:
-
-- Disable authentication to make testing easier.
-- Expose secrets for convenience.
-- Bypass authorization.
-- Trust client-provided permissions.
-- Log sensitive credentials.
-- Disable validation without understanding the consequences.
-
-Temporary development shortcuts should not become permanent security vulnerabilities.
-
----
-
-# 63. AI Agent: Prefer Incremental Development
+# 68. AI Coding Agent — Incremental Development
 
 For complex tasks:
 
 ```text
 Understand
-   ↓
+    ↓
 Implement small part
-   ↓
+    ↓
 Verify
-   ↓
+    ↓
 Continue
-   ↓
+    ↓
 Integrate
-   ↓
+    ↓
 Verify again
 ```
 
@@ -1536,7 +1702,63 @@ Do not attempt to modify the entire application at once when the task can reason
 
 ---
 
-# 64. AI Agent: Definition of Done
+# 69. AI Coding Agent — Follow the Project Milestones
+
+When a milestone document exists, the agent should follow it sequentially.
+
+For TrailSync:
+
+```text
+Phase 1 — Frontend Foundation
+        ↓
+Phase 2 — Authentication UI
+        ↓
+Phase 3 — Client-Side Validation
+        ↓
+Phase 4 — Authentication Service
+        ↓
+Phase 5 — Firebase Authentication
+        ↓
+Phase 6 — Backend API Integration
+        ↓
+Phase 7 — Authentication State
+        ↓
+Phase 8 — Loading/Error/Success States
+        ↓
+Phase 9 — Frontend Testing
+        ↓
+Phase 10 — Final Verification
+```
+
+If instructed to implement one phase:
+
+> **Implement only that phase.**
+
+Do not silently implement future phases.
+
+---
+
+# 70. AI Coding Agent — Verification
+
+After coding, the agent should:
+
+1. Review its changes.
+2. Check for unintended modifications.
+3. Run relevant tests.
+4. Run lint.
+5. Run the build where appropriate.
+6. Check for obvious runtime issues.
+7. Check for security issues.
+8. Confirm the requested behavior.
+9. Report what changed.
+10. Report what was verified.
+11. Report unresolved concerns.
+
+The agent must not claim something works when it has not reasonably verified it.
+
+---
+
+# 71. AI Coding Agent — Definition of Done
 
 A task should generally be considered complete when:
 
@@ -1556,9 +1778,9 @@ A task should generally be considered complete when:
 
 ---
 
-# 65. Decision Framework
+# 72. Decision Framework
 
-When deciding between two implementations, evaluate them using this order:
+When choosing between two implementations, evaluate them in this order:
 
 ```text
 Does it satisfy the requirement?
@@ -1584,7 +1806,7 @@ Do not select an implementation merely because it is more sophisticated.
 
 ---
 
-# 66. The Three Questions
+# 73. The Three Questions
 
 Before introducing significant complexity, ask:
 
@@ -1598,10 +1820,10 @@ If the simpler solution works, use it.
 
 ### 3. What evidence justifies the complexity?
 
-Examples of evidence:
+Examples:
 
 - Actual performance measurements
-- Growing code duplication
+- Growing duplication
 - Real scalability requirements
 - Security requirements
 - Clear business complexity
@@ -1611,15 +1833,209 @@ Without evidence, prefer the simpler approach.
 
 ---
 
-# 67. Engineering North Star
+# 74. Anti-Overengineering
 
-The goal of software engineering is not:
+This is a high-priority principle.
 
-> "Write the most advanced code."
+Do not confuse:
 
-It is:
+```text
+More architecture
+```
 
-> **"Build the simplest system that reliably solves the real problem and can be responsibly maintained."**
+with:
+
+```text
+Better architecture
+```
+
+Avoid unnecessary:
+
+- Microservices
+- Event-driven systems
+- CQRS
+- Event sourcing
+- Kubernetes
+- Distributed systems
+- Multiple databases
+- State-management libraries
+- Dependency injection frameworks
+- Generic abstractions
+- Caching
+- Event buses
+- Complex synchronization systems
+
+unless actual requirements justify them.
+
+For TrailSync, a **modular monolith** is the preferred starting architecture.
+
+---
+
+# 75. No Enterprise Theater
+
+Do not add architectural ceremony simply to make the project look professional.
+
+Avoid chains such as:
+
+```text
+Controller
+   ↓
+Service
+   ↓
+Manager
+   ↓
+Processor
+   ↓
+Handler
+   ↓
+Repository
+   ↓
+Adapter
+   ↓
+Factory
+```
+
+when the operation is simply:
+
+```text
+Receive request
+   ↓
+Validate
+   ↓
+Perform operation
+   ↓
+Return result
+```
+
+Architecture should serve the software.
+
+> **The software should not exist to justify the architecture.**
+
+---
+
+# 76. TrailSync-Specific "Do Not Invent" Rules
+
+The coding agent must not invent:
+
+- Official tourism rules
+- Trail coordinates
+- Trail boundaries
+- Daily carrying capacity
+- Pricing
+- Guide policies
+- Weather thresholds
+- API endpoints
+- API response formats
+- Database schemas
+- Payment rules
+- Official safety procedures
+- Government requirements
+
+When these are unknown, mark them as unresolved and ask for confirmation.
+
+---
+
+# 77. TrailSync-Specific Accuracy Rules
+
+Do not overclaim system capabilities.
+
+Examples:
+
+### Correct
+
+> Near-real-time GPS monitoring of trekking groups through guide devices.
+
+### Incorrect
+
+> Exact real-time GPS tracking of every hiker.
+
+---
+
+### Correct
+
+> Offline GPS points are stored locally and synchronized when connectivity returns.
+
+### Incorrect
+
+> GPS remains real-time while completely offline.
+
+---
+
+### Correct
+
+> Firebase Authentication handles user authentication while the backend verifies Firebase ID tokens.
+
+### Incorrect
+
+> Firebase Authentication automatically authorizes access to PostgreSQL.
+
+---
+
+# 78. Preserve Requirements
+
+Do not silently change requirements because a different design appears technically attractive.
+
+If a requirement appears problematic:
+
+1. Identify the problem.
+2. Explain the concern.
+3. Suggest an alternative if appropriate.
+4. Ask for confirmation before changing an important requirement.
+
+Do not silently rewrite the project's business rules.
+
+---
+
+# 79. Collaboration Rules
+
+TrailSync has separate frontend and backend responsibilities.
+
+When working across the boundary:
+
+```text
+Frontend Developer
+       ↕
+Agreed API Contract
+       ↕
+Backend Developer
+```
+
+Neither side should independently invent incompatible assumptions.
+
+If the backend collaborator provides an endpoint or response format, document it before implementing dependent frontend functionality.
+
+The API contract becomes the shared source of truth.
+
+---
+
+# 80. Source of Truth
+
+Important information should have one authoritative source.
+
+Examples:
+
+- Authentication state
+- API contracts
+- Business rules
+- User permissions
+- Configuration
+- Database state
+- Booking state
+- Guide assignment state
+
+When multiple representations are necessary, clearly define which one is authoritative.
+
+---
+
+# 81. Final Engineering North Star
+
+The goal is not:
+
+> **Write the most advanced code.**
+
+The goal is:
+
+> **Build the simplest system that reliably solves the real problem and can be responsibly maintained.**
 
 Good engineers know many patterns.
 
@@ -1627,7 +2043,7 @@ Great engineers also know **when not to use them**.
 
 ---
 
-# Final Principles
+# Final Rules
 
 When in doubt:
 
@@ -1645,6 +2061,14 @@ When in doubt:
 
 > **Protect security boundaries.**
 
+> **Do not invent requirements.**
+
+> **Do not invent API contracts.**
+
+> **Do not invent database structures.**
+
+> **Respect the frontend/backend boundary.**
+
 > **Test important behavior.**
 
 > **Measure before optimizing.**
@@ -1653,15 +2077,19 @@ When in doubt:
 
 > **Refactor when complexity becomes real.**
 
-> **Do not guess when requirements are unclear.**
-
-> **Do not over-engineer.**
-
 > **Make the smallest reasonable change.**
+
+> **Work incrementally.**
+
+> **Follow the project milestones.**
 
 > **Verify before claiming completion.**
 
 > **Choose clarity over cleverness.**
+
+> **Do not over-engineer.**
+
+> **Ask when important information is missing.**
 
 ---
 

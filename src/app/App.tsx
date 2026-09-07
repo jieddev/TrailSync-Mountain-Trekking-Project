@@ -1,4 +1,4 @@
-function App() {
+export default function App() {
   return (
     <main className="grid min-h-screen place-items-center bg-slate-950 px-6 text-center text-slate-100">
       <section>
@@ -15,5 +15,3 @@ function App() {
     </main>
   )
 }
-
-export default App

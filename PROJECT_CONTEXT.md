@@ -2,24 +2,24 @@
 
 ## 1. Project Overview
 
-**TrailSync: Smart Eco-Tourism and Trail Management System with Automated Guide Dispatching, Real-Time Trekker Monitoring, Weather Intelligence, Digital Certification, and Tourism Analytics for Barangay Cabintan**
+**TrailSync: Smart Eco-Tourism and Trail Management System with Automated Guide Dispatching, Near-Real-Time Trekker Monitoring, Weather Intelligence, Digital Certification, and Tourism Analytics for Barangay Cabintan**
 
 TrailSync is an eco-tourism trail management system designed for **Barangay Cabintan, Ormoc City, Leyte**.
 
-The system aims to improve how trekking activities are managed by replacing manual processes with a centralized system for:
+The system aims to improve how trekking activities are managed by replacing manual processes with a centralized digital system for:
 
 - Tourist booking
 - Visitor and group management
 - Guide dispatching
 - Trek monitoring
-- GPS-based group tracking
+- Near-real-time GPS-based group tracking
 - Trail safety monitoring
 - Weather-based trail restrictions
 - Offline checkpoint verification
 - Digital certificates
 - Tourism analytics
 
-The primary trails in scope are:
+The primary trails currently in scope are:
 
 - **Sulfatara Trail**
 - **Alto Peak**
@@ -42,7 +42,14 @@ This can lead to:
 - Weak historical records
 - Limited tourism analytics
 
-TrailSync is intended to provide a centralized digital system that improves operational visibility, fairness, safety, and record keeping.
+TrailSync is intended to provide a centralized digital system that improves:
+
+- Operational visibility
+- Guide assignment fairness
+- Visitor management
+- Trail safety
+- Record keeping
+- Tourism decision-making
 
 ---
 
@@ -52,11 +59,11 @@ TrailSync has three primary user roles.
 
 ## 3.1 Mountain Hiker / Tourist
 
-Platform:
+**Platform:**
 
 - Web application
 
-Responsibilities:
+**Responsibilities:**
 
 - Register and log in
 - View available trails
@@ -65,7 +72,7 @@ Responsibilities:
 - View booking status
 - Receive relevant notifications
 - View trekking information
-- Access digital completion certificate
+- Access digital completion certificates
 
 The hiker does **not** choose a guide in the current design.
 
@@ -75,11 +82,11 @@ Guide assignment is handled automatically through the guide dispatch system.
 
 ## 3.2 Local Tour Guide
 
-Platform:
+**Platform:**
 
 - Flutter mobile application
 
-Responsibilities:
+**Responsibilities:**
 
 - Log in
 - Set availability
@@ -96,15 +103,19 @@ The guide's mobile device represents the location of the trekking group.
 
 TrailSync does **not** claim to know the exact individual location of every hiker.
 
+The correct system description is:
+
+> Near-real-time GPS monitoring of trekking groups through assigned guide devices.
+
 ---
 
 ## 3.3 Tourism Coordinator
 
-Platform:
+**Platform:**
 
 - Web application
 
-Responsibilities:
+**Responsibilities:**
 
 - Manage bookings
 - Check in arriving groups
@@ -139,6 +150,8 @@ GPS / CHECKPOINT / SAFETY MONITORING
 TREK COMPLETION
    ↓
 DIGITAL CERTIFICATE
+   ↓
+ANALYTICS
 ```
 
 A booking represents **one trekking group**.
@@ -161,7 +174,7 @@ A hiker booking alone is valid and represents a one-person group.
 
 # 5. Important Business Rules
 
-These rules are important system assumptions and should not be changed casually.
+These are current project decisions and should not be changed casually.
 
 ## 5.1 One Booking = One Group
 
@@ -200,7 +213,7 @@ Therefore, a newly created booking may initially have:
 guide_id = NULL
 ```
 
-until the group is physically checked in and assigned a guide.
+until the group is physically checked in and a guide is assigned.
 
 ---
 
@@ -208,7 +221,7 @@ until the group is physically checked in and assigned a guide.
 
 Guide assignment uses a **First-In, First-Out (FIFO)** queue.
 
-The basic concept is:
+Example:
 
 ```text
 Available Guide Queue
@@ -244,6 +257,20 @@ The exact queue state transitions may evolve as implementation requirements beco
 
 ---
 
+## 5.4 Hikers Do Not Choose Guides
+
+Current rule:
+
+> Hikers do not choose their guide.
+
+Guide assignment is automatic through the FIFO dispatch system.
+
+Whether hikers should eventually be allowed to request/select a specific guide is **TBD**.
+
+Do not add guide-selection UI unless this requirement is explicitly approved.
+
+---
+
 # 6. Trek Lifecycle
 
 A trekking group should have an explicit lifecycle.
@@ -275,7 +302,7 @@ EMERGENCY
 
 The exact final state machine should be finalized during backend/domain implementation.
 
-The important principle is that the system should not rely on vague boolean flags when the business process has meaningful states.
+The system should avoid relying on vague boolean flags when the business process has meaningful states.
 
 ---
 
@@ -283,7 +310,7 @@ The important principle is that the system should not rely on vague boolean flag
 
 GPS tracking is one of TrailSync's major features.
 
-## Tracking Model
+## 7.1 Tracking Model
 
 TrailSync tracks the **trekking group through the assigned guide's smartphone**.
 
@@ -303,7 +330,7 @@ TrailSync Backend
 Coordinator Dashboard
 ```
 
-The system should describe this as:
+The system should use the wording:
 
 > Near-real-time GPS monitoring of trekking groups through assigned guide devices.
 
@@ -315,7 +342,7 @@ That would overstate what the system actually measures.
 
 ---
 
-## GPS Frequency
+## 7.2 GPS Frequency
 
 The current proposal uses approximately:
 
@@ -323,9 +350,9 @@ The current proposal uses approximately:
 60-second GPS updates
 ```
 
-Therefore, the system should generally use the term:
+Therefore, the system should generally use:
 
-**near-real-time**
+> Near-real-time
 
 rather than claiming strict real-time tracking.
 
@@ -384,9 +411,14 @@ The system is expected to support:
 
 The exact checkpoint locations have **not yet been finalized**.
 
-Do not invent GPS coordinates, trail boundaries, or checkpoint locations.
+Do not invent:
 
-Actual trail geographic data should come from an appropriate legitimate source or field collection process.
+- GPS coordinates
+- Trail boundaries
+- Checkpoint locations
+- Hazard locations
+
+Actual geographic data should come from an appropriate legitimate source or field collection process.
 
 ---
 
@@ -422,13 +454,13 @@ Potential weather conditions include:
 
 The system may prevent or restrict trekking when configured safety thresholds are reached.
 
-Important:
+## Important
 
-### Weather thresholds should be configurable.
+**Weather thresholds should be configurable.**
 
 Do not hardcode safety values throughout the application.
 
-For example, thresholds such as:
+For example:
 
 ```text
 Heavy rain > X
@@ -460,7 +492,7 @@ SOS is an application-level emergency feature.
 
 TrailSync should support daily visitor/trail capacity management.
 
-The capacity should be configurable rather than hardcoded.
+Capacity should be configurable rather than hardcoded.
 
 The exact official capacity for each trail is currently:
 
@@ -484,11 +516,13 @@ Do not invent capacity numbers.
 
 A booking represents a trekking group.
 
-The exact pricing rules for each trail are currently **TBD**.
+The exact pricing rules for each trail are currently:
 
-For example, a previously discussed price/package concept for Sulfatara Trail has **not** been finalized and must not be treated as an established business rule.
+**TBD**
 
-The application should therefore avoid hardcoding assumptions such as:
+A previously discussed Sulfatara pricing/package concept has **not** been finalized and must not be treated as an established business rule.
+
+Do not hardcode assumptions such as:
 
 ```text
 5 people = ₱550
@@ -500,17 +534,34 @@ Pricing should eventually be represented as configurable business data rather th
 
 ---
 
-# 15. Guide Selection
+# 15. Booking Participants
 
-Currently:
+Because one booking represents one group, the system should conceptually support:
 
-> Hikers do not choose their guide.
+```text
+BOOKING
+   ↓
+BOOKING PARTICIPANTS
+```
 
-Guide assignment is automatic through the FIFO dispatch system.
+This allows:
 
-Whether hikers should eventually be allowed to request/select a specific guide is **TBD** and should be discussed with the tourism coordinator before implementation.
+```text
+Booking A
+   ├── Hiker 1
+   ├── Hiker 2
+   ├── Hiker 3
+   └── Hiker 4
+```
 
-Do not add guide-selection UI unless this requirement is explicitly approved.
+or:
+
+```text
+Booking B
+   └── Hiker 1
+```
+
+The exact database implementation belongs to the backend.
 
 ---
 
@@ -525,13 +576,13 @@ Flutter App
     ↓
 Local SQLite Storage
     ↓
-Checkpoint verification
+Checkpoint Verification
     ↓
-Internet unavailable
+Internet Unavailable
     ↓
-Data remains locally stored
+Data Remains Locally Stored
     ↓
-Internet returns
+Internet Returns
     ↓
 Synchronization
     ↓
@@ -540,9 +591,11 @@ Backend
 PostgreSQL
 ```
 
-The local database should be treated as temporary offline storage, while PostgreSQL remains the authoritative server-side database.
+The local database should be treated as temporary offline storage.
 
-Synchronization behavior should be designed carefully to prevent:
+PostgreSQL remains the authoritative server-side database.
+
+Synchronization must be designed carefully to prevent:
 
 - Duplicate records
 - Lost records
@@ -602,49 +655,71 @@ However:
 - AI should not replace deterministic business rules.
 - AI should not be introduced merely to make the project appear more advanced.
 
-For example:
+For safety-critical decisions:
 
 ```text
 Weather API
       ↓
-Deterministic safety rules
+Deterministic Safety Rules
       ↓
-Trail restriction
+Trail Restriction
 ```
 
-is preferable for safety-critical decisions.
+is preferable.
 
-AI may later assist with non-critical analytics, summaries, or recommendations if there is a genuine use case.
+AI may later assist with non-critical:
+
+- Analytics
+- Summaries
+- Recommendations
+
+if there is a genuine use case.
 
 ---
 
 # 20. Technology Stack
 
-The current technology stack is:
-
-### Web Frontend
+## Web Frontend
 
 - React.js
 - Vite
-- JavaScript
+- TypeScript
 - Tailwind CSS
+- Firebase Authentication
 
-### Mobile
+The web frontend is used by:
+
+- Mountain Hikers/Tourists
+- Tourism Coordinators
+
+---
+
+## Mobile
 
 - Flutter
 
-The mobile application is primarily for local tour guides.
+The mobile application is primarily for:
 
-### Backend
+- Local Tour Guides
+
+---
+
+## Backend
 
 - Node.js
 - Express.js
 
-### Database
+---
+
+## Database
 
 - PostgreSQL
 
-### Authentication
+PostgreSQL is the application's primary database.
+
+---
+
+## Authentication
 
 - Firebase Authentication
 
@@ -654,7 +729,9 @@ It is **not** the application's primary database.
 
 PostgreSQL is the application database.
 
-### Development Tools
+---
+
+## Development Tools
 
 - Git
 - GitHub
@@ -676,7 +753,7 @@ Firebase ID Token
       ↓
 Express API
       ↓
-Token Verification
+Firebase Token Verification
       ↓
 Application User
       ↓
@@ -689,15 +766,33 @@ The frontend should not directly connect to PostgreSQL.
 
 The frontend should communicate with the backend through defined API contracts.
 
-The exact API contract is currently **not finalized**.
+---
+
+# 22. Frontend / Backend Separation
+
+TrailSync is being developed collaboratively.
+
+The current development arrangement is:
+
+```text
+Frontend Developer
+      ↓
+React / Vite / TypeScript / Tailwind / Firebase Auth
+```
+
+and:
+
+```text
+Backend Collaborator
+      ↓
+Node.js / Express / PostgreSQL
+```
+
+The two sides should communicate through an agreed API contract.
 
 ---
 
-# 22. Frontend / Backend Boundary
-
-TrailSync has a clear separation between frontend and backend responsibilities.
-
-## Frontend Responsibilities
+## 22.1 Frontend Responsibilities
 
 The frontend is responsible for:
 
@@ -714,9 +809,11 @@ The frontend is responsible for:
 - User interactions
 - Frontend tests
 
-## Backend Responsibilities
+---
 
-The backend is responsible for:
+## 22.2 Backend Responsibilities
+
+The backend collaborator is responsible for:
 
 - Express routes
 - Controllers
@@ -731,15 +828,142 @@ The backend is responsible for:
 - Transactions
 - Security enforcement
 
-The frontend must never be treated as the authority for security or business-critical rules.
+The frontend must never be treated as the authority for:
+
+- Security
+- Authorization
+- Business-critical rules
+- Database integrity
 
 ---
 
-# 23. Database Architecture
+# 23. Current Authentication Development Situation
+
+The authentication work is being developed in stages.
+
+The frontend currently has a React/Vite/Tailwind foundation.
+
+The authentication UI and Firebase integration are being implemented separately from the backend API.
+
+The backend collaborator previously proposed an authentication task involving:
+
+- Firebase Authentication
+- User profile synchronization
+- User API endpoints
+- Error handling
+- End-to-end testing
+
+The original backend task referenced MongoDB.
+
+**MongoDB is no longer part of the project.**
+
+The current database is:
+
+> PostgreSQL
+
+Therefore, any older MongoDB-based instructions must be treated as outdated.
+
+---
+
+# 24. Authentication API Contract
+
+The authentication API contract is currently **not finalized**.
+
+Previously discussed endpoint examples included:
+
+```text
+POST /api/users
+GET /api/users/:firebaseUid
+```
+
+However, these should **not** automatically be treated as the final API.
+
+A cleaner possible design is:
+
+```text
+GET /api/users/me
+```
+
+because the backend can identify the authenticated user from the Firebase ID token instead of trusting a Firebase UID supplied by the client.
+
+However, this is a **proposal**, not a finalized requirement.
+
+The final API must be agreed upon with the backend collaborator.
+
+---
+
+# 25. API Contract Requirements
+
+Before frontend API integration is implemented, the frontend and backend must agree on:
+
+- Endpoint
+- HTTP method
+- Purpose
+- Authentication requirements
+- Required headers
+- Firebase ID-token transport
+- Request body
+- Required fields
+- Success status code
+- Success response body
+- Possible error status codes
+- Error response format
+- Validation behavior
+- Duplicate-user behavior
+
+Example authentication request flow:
+
+```text
+React
+   ↓
+Firebase Authentication
+   ↓
+Firebase ID Token
+   ↓
+Authorization: Bearer <token>
+   ↓
+Express API
+   ↓
+Verify Firebase Token
+   ↓
+Identify Application User
+   ↓
+PostgreSQL
+```
+
+This is the intended architectural direction, but the exact implementation must follow the agreed backend API contract.
+
+---
+
+# 26. API Contract Rule
+
+Never implement an API based on an assumption such as:
+
+```text
+"I think the backend probably returns this."
+```
+
+Instead:
+
+```text
+Frontend
+   ↕
+Agreed API Contract
+   ↕
+Backend
+```
+
+If the backend collaborator's actual implementation differs from an earlier proposal, the **actual agreed contract takes precedence**.
+
+The frontend should adapt its API service layer to the agreed contract rather than unnecessarily forcing backend changes.
+
+---
+
+# 27. Database Architecture
 
 PostgreSQL is the authoritative application database.
 
-The conceptual data model may include entities such as:
+The conceptual data model may eventually include entities such as:
 
 ```text
 Users
@@ -764,7 +988,7 @@ Notifications
 Audit Logs
 ```
 
-This is a conceptual model, not a finalized database schema.
+This is a **conceptual model**, not a finalized database schema.
 
 Do not create every table immediately.
 
@@ -772,7 +996,7 @@ Only introduce entities when they are required by an actual feature or confirmed
 
 ---
 
-# 24. Architecture Style
+# 28. Architecture Style
 
 TrailSync should use:
 
@@ -780,7 +1004,7 @@ TrailSync should use:
 
 The backend should be organized around business capabilities rather than technical layers alone.
 
-Potential modules include:
+Potential conceptual modules include:
 
 ```text
 auth
@@ -802,13 +1026,13 @@ These are conceptual modules.
 
 The implementation should remain proportional to the needs of the project.
 
-Do not turn the project into a microservice architecture.
+Do **not** turn the project into a microservice architecture.
 
 Do not introduce unnecessary infrastructure simply to appear enterprise-grade.
 
 ---
 
-# 25. Backend Architectural Layers
+# 29. Backend Architectural Layers
 
 The conceptual backend dependency direction is:
 
@@ -822,7 +1046,7 @@ Domain
 Infrastructure
 ```
 
-### Presentation
+## Presentation
 
 Handles:
 
@@ -830,7 +1054,7 @@ Handles:
 - Controllers
 - Request/response handling
 
-### Application
+## Application
 
 Handles:
 
@@ -838,7 +1062,7 @@ Handles:
 - Application workflows
 - Coordination between domain components
 
-### Domain
+## Domain
 
 Handles:
 
@@ -847,7 +1071,7 @@ Handles:
 - Policies
 - Important state transitions
 
-### Infrastructure
+## Infrastructure
 
 Handles:
 
@@ -862,11 +1086,11 @@ The domain should not become tightly coupled to infrastructure details.
 
 ---
 
-# 26. Frontend Architecture
+# 30. Frontend Architecture
 
 The React application should generally use a feature-oriented structure.
 
-A conceptual structure is:
+Conceptually:
 
 ```text
 src/
@@ -888,44 +1112,34 @@ Do not create folders or abstractions merely because an architecture diagram say
 
 ---
 
-# 27. API Contract Principle
+# 31. Frontend Authentication Architecture
 
-The frontend and backend must agree on API contracts.
-
-Before implementing an API integration, establish:
-
-- Endpoint
-- HTTP method
-- Purpose
-- Authentication requirements
-- Headers
-- Request body
-- Success status
-- Response body
-- Error status codes
-- Error response format
-
-For example, an API endpoint should not be implemented based on assumptions such as:
+The frontend authentication implementation should maintain a clear boundary:
 
 ```text
-"I think the backend probably returns this."
+React Component
+      ↓
+Auth Service
+      ↓
+Firebase Authentication
 ```
 
-Instead:
+The authentication service should conceptually provide operations such as:
 
 ```text
-Frontend
-   ↕
-Agreed API Contract
-   ↕
-Backend
+register()
+login()
+logout()
+getCurrentUser()
 ```
 
-The actual agreed backend contract takes precedence over assumptions in frontend documentation.
+Firebase-specific implementation should remain inside the authentication service where practical.
+
+UI components should not become tightly coupled to Firebase APIs.
 
 ---
 
-# 28. Security Principles
+# 32. Security Principles
 
 Security is a system responsibility, not only a frontend concern.
 
@@ -934,7 +1148,7 @@ Important rules include:
 - Never trust client-side validation as security.
 - Validate important data on the backend.
 - Never expose secrets in frontend source code.
-- Never commit API keys or private credentials.
+- Never commit private credentials.
 - Verify authentication tokens on the backend.
 - Enforce authorization on the backend.
 - Use HTTPS in deployed environments.
@@ -942,15 +1156,15 @@ Important rules include:
 - Protect sensitive data.
 - Do not log passwords or authentication credentials.
 
-Client-side validation exists primarily for usability.
+Client-side validation primarily improves usability.
 
-Server-side validation exists for security and data integrity.
+Server-side validation protects security and data integrity.
 
 ---
 
-# 29. Data Integrity
+# 33. Data Integrity
 
-Important business operations should preserve consistent data.
+Important business operations must preserve consistent data.
 
 Examples include:
 
@@ -968,7 +1182,7 @@ The system should prefer reliable state transitions over scattered boolean flags
 
 ---
 
-# 30. Offline and Synchronization Principle
+# 34. Offline and Synchronization Principle
 
 Offline functionality is not simply:
 
@@ -984,19 +1198,25 @@ It requires clear rules for:
 - How conflicts are handled
 - What happens after synchronization
 
-PostgreSQL is the server-side source of truth.
+The current authority model is:
 
-Local SQLite is temporary client-side storage for offline operation.
+```text
+PostgreSQL
+   ↓
+Server-side source of truth
+
+SQLite
+   ↓
+Temporary local offline storage
+```
 
 ---
 
-# 31. Current Development Approach
+# 35. Current Frontend Implementation Milestones
 
-Development should proceed incrementally.
+Frontend development follows a milestone-based approach.
 
-The frontend currently follows a milestone-based implementation plan.
-
-The intended sequence is:
+The current sequence is:
 
 ```text
 Phase 1 — Frontend Foundation
@@ -1011,27 +1231,68 @@ Phase 9 — Frontend Testing
 Phase 10 — Final Authentication Verification
 ```
 
-Only implement the current phase unless the task explicitly requires something from a later phase.
+Only implement the current phase unless a task explicitly requires something from a later phase.
 
 ---
 
-# 32. Current Project Status
+# 36. Current Frontend Status
 
-The frontend has completed:
+The frontend foundation has been established using:
 
-**Phase 1 — Frontend Foundation**
+- React
+- Vite
+- Tailwind CSS
+- TypeScript
+- ESLint
+- Prettier
 
-The next planned task is:
+The initial Vite starter/demo content has been removed.
 
-**Phase 2 — Authentication UI**
+The application can be:
+
+```text
+npm run dev
+npm run lint
+npm run build
+```
+
+The next planned frontend work is:
+
+> **Phase 2 — Authentication UI**
+
+---
+
+# 37. Frontend / Backend Collaboration Workflow
 
 The frontend and backend are being developed separately.
 
-The backend API contract for authentication is not yet considered finalized until the frontend and backend collaborators agree on it.
+The frontend developer should not assume backend implementation details.
+
+The recommended collaboration process is:
+
+```text
+Frontend Requirement
+       ↓
+Draft/Discuss API Contract
+       ↓
+Backend Collaborator Reviews
+       ↓
+Agreed API Contract
+       ↓
+Frontend Implementation
+       +
+Backend Implementation
+       ↓
+Integration Testing
+```
+
+When an API contract is uncertain, discuss it with the backend collaborator before implementing assumptions into the frontend.
+
+A frontend developer may propose an API design, but it should be treated as a proposal until agreed upon.
 
 ---
 
-# 33. What Is Not Yet Finalized
+# 38. What Is Not Yet Finalized
 
 The following should be treated as **TBD** rather than assumptions:
 
@@ -1043,7 +1304,8 @@ The following should be treated as **TBD** rather than assumptions:
 - Checkpoint locations
 - Hazard zones
 - Official weather safety thresholds
-- Exact API contracts
+- Exact authentication API contract
+- Exact API response formats
 - Final database schema
 - Exact guide queue state machine
 - Final payment implementation
@@ -1051,16 +1313,17 @@ The following should be treated as **TBD** rather than assumptions:
 - Whether hikers may request/select guides
 - Advanced AI analytics requirements
 
-When encountering one of these areas, the agent should **not invent a requirement**.
+When encountering one of these areas, do not invent a requirement.
 
-Instead, it should either:
+Instead:
 
-1. use the currently agreed behavior if one exists, or
-2. identify the missing decision and ask for clarification.
+1. Use the currently agreed behavior if one exists.
+2. Identify the missing decision.
+3. Ask for clarification when necessary.
 
 ---
 
-# 34. Things AI Agents Must Not Assume
+# 39. Things AI Coding Agents Must Not Assume
 
 AI coding agents working on TrailSync must not assume:
 
@@ -1070,59 +1333,65 @@ AI coding agents working on TrailSync must not assume:
 - Fake checkpoint locations
 - A finalized API response
 - That Firebase is the database
+- That PostgreSQL can be accessed directly from the frontend
 - That hikers have GPS tracking on their own phones
 - That every hiker is individually tracked
 - That guide selection is available
 - That AI controls safety decisions
 - That the backend architecture can be changed freely
 - That an unrequested library is necessary
-- That a feature should be implemented simply because it is mentioned as a future idea
+- That a future idea is automatically a current requirement
+- That an older MongoDB instruction is still valid
+- That previously proposed API endpoints are automatically final
+- That the frontend may modify backend responsibilities without agreement
 
-If a requirement is unclear, **do not guess**.
+If a requirement is unclear:
+
+> **Do not guess.**
 
 ---
 
-# 35. AI Coding Agent Working Rules
+# 40. AI Coding Agent Working Rules
 
 When an AI agent works on TrailSync:
 
-### Inspect First
+## Inspect First
 
 Understand the existing repository before changing it.
 
-### Work Incrementally
+## Work Incrementally
 
 Implement only the requested task or milestone.
 
-### Preserve Existing Work
+## Preserve Existing Work
 
 Do not rewrite working code unnecessarily.
 
-### Respect Boundaries
+## Respect Boundaries
 
 Do not modify backend responsibilities while working on frontend tasks unless explicitly requested.
 
-### Do Not Over-Engineer
+## Do Not Over-Engineer
 
 Prefer the simplest design that satisfies the actual requirement.
 
-### Do Not Invent Requirements
+## Do Not Invent Requirements
 
 Use confirmed requirements and documented decisions.
 
-### Verify
+## Verify
 
 Run appropriate tests, linting, builds, or other verification before claiming the task is complete.
 
-### Explain Important Decisions
+## Explain Important Decisions
 
 If a meaningful architectural decision is required, explain it rather than silently introducing it.
 
 ---
 
-# 36. Project Documentation Hierarchy
+# 41. Project Documentation Hierarchy
 
-TrailSync uses several documents with different purposes.
+TrailSync uses separate documents with different purposes.
 
 ```text
 PROJECT_CONTEXT.md
@@ -1130,6 +1399,7 @@ PROJECT_CONTEXT.md
 What is TrailSync?
 What are the system rules?
 What has been decided?
+What is still TBD?
 
 FRONTEND_IMPLEMENTATION_MILESTONES.md
         ↓
@@ -1139,14 +1409,14 @@ What is the development sequence?
 CODING_PRINCIPLES.md
         ↓
 How should code be written?
-How should an AI agent behave?
+How should an AI coding agent behave?
 ```
 
 These documents should not duplicate each other's responsibilities unnecessarily.
 
 ---
 
-# 37. Source of Truth Principle
+# 42. Source of Truth Principle
 
 When requirements conflict, prefer the most recently agreed and explicitly confirmed decision.
 
@@ -1166,13 +1436,95 @@ AI guess
 
 An AI agent should never treat its own assumption as more authoritative than an explicit project decision.
 
+If the project context says something is **TBD**, the agent must not silently convert it into a fixed requirement.
+
 ---
 
-# 38. Engineering Philosophy
+# 43. Current Technology Decisions
 
-TrailSync is a capstone project, but it should be engineered with professional software development practices.
+The following are currently established:
 
-At the same time, the project should remain appropriately scoped.
+```text
+Web:
+React
+Vite
+TypeScript
+Tailwind CSS
+
+Mobile:
+Flutter
+
+Backend:
+Node.js
+Express.js
+
+Database:
+PostgreSQL
+
+Authentication:
+Firebase Authentication
+
+Development:
+Git
+GitHub
+ESLint
+Prettier
+```
+
+Do not replace these technologies without an explicit project decision.
+
+---
+
+# 44. Architecture Decisions
+
+Current architectural direction:
+
+```text
+                    ┌─────────────────────┐
+                    │   Mountain Hiker    │
+                    │       Web App       │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │      React Web      │
+                    │ Vite + TypeScript   │
+                    │    Tailwind CSS     │
+                    └──────────┬──────────┘
+                               │
+                               │ API
+                               │
+                    ┌──────────▼──────────┐
+                    │   Node + Express    │
+                    │   Backend API       │
+                    └───────┬─────┬──────┘
+                            │     │
+                    ┌───────▼─┐ ┌─▼────────────┐
+                    │Firebase │ │ PostgreSQL   │
+                    │  Auth   │ │ Application  │
+                    └─────────┘ └──────────────┘
+
+
+                    ┌─────────────────────┐
+                    │    Local Guide      │
+                    │   Flutter Mobile    │
+                    └──────────┬──────────┘
+                               │
+                               │ API / Sync
+                               │
+                    ┌──────────▼──────────┐
+                    │   Node + Express    │
+                    └─────────────────────┘
+```
+
+The architecture is intentionally a **modular monolith**, not microservices.
+
+---
+
+# 45. Engineering Philosophy
+
+TrailSync is a capstone project, but it should be engineered using professional software development practices.
+
+At the same time, the project must remain appropriately scoped.
 
 The goal is not to create the largest or most complicated architecture.
 
@@ -1198,11 +1550,139 @@ over:
 Complex + "Enterprise-looking"
 ```
 
-Do not introduce microservices, event sourcing, CQRS, Kubernetes, unnecessary design patterns, or other infrastructure unless a real requirement justifies them.
+Do not introduce:
+
+- Microservices
+- Event sourcing
+- CQRS
+- Kubernetes
+- Unnecessary design patterns
+- Unnecessary infrastructure
+
+unless a real requirement justifies them.
 
 ---
 
-# 39. North Star
+# 46. Do Not Invent Trail Data
+
+TrailSync will eventually require real geographic information.
+
+Until legitimate data is obtained, do not invent:
+
+- Trail coordinates
+- Checkpoint coordinates
+- Hazard zones
+- Trail boundaries
+- Route paths
+- Elevation data
+
+Mock data may be used for development only when it is clearly identified as mock/test data and is not represented as real trail information.
+
+---
+
+# 47. Do Not Invent Business Rules
+
+Do not invent:
+
+- Pricing
+- Capacity
+- Guide selection rules
+- Weather thresholds
+- Payment rules
+- Queue policies
+- Certificate requirements
+
+when the actual rule has not been confirmed.
+
+If necessary, use:
+
+```text
+TBD
+```
+
+or make the value configurable.
+
+---
+
+# 48. Accuracy Principle
+
+TrailSync should accurately describe what the system actually does.
+
+Examples:
+
+Correct:
+
+> Near-real-time GPS monitoring of trekking groups through assigned guide devices.
+
+Incorrect:
+
+> Real-time GPS tracking of every hiker.
+
+Correct:
+
+> Application-level SOS feature for guides.
+
+Incorrect:
+
+> Native emergency service that works from the phone lock screen.
+
+Correct:
+
+> Offline GPS/checkpoint data is stored locally and synchronized later.
+
+Incorrect:
+
+> Real-time monitoring continues even without connectivity.
+
+The system documentation, UI, proposal, and implementation should not overclaim system capabilities.
+
+---
+
+# 49. Change Minimization
+
+When modifying existing code:
+
+- Prefer small changes.
+- Preserve working behavior.
+- Avoid unrelated refactoring.
+- Do not rename files without a reason.
+- Do not restructure the entire project for a small feature.
+- Do not introduce dependencies unnecessarily.
+- Do not modify unrelated modules.
+
+A task should solve the requested problem without creating unnecessary changes elsewhere.
+
+---
+
+# 50. Definition of Done
+
+A feature is not considered complete merely because code was written.
+
+Completion should generally mean:
+
+```text
+Requirement understood
+        ↓
+Implementation completed
+        ↓
+Existing behavior preserved
+        ↓
+Relevant tests/checks completed
+        ↓
+Lint passes
+        ↓
+Build passes
+        ↓
+Important edge cases considered
+        ↓
+Result verified
+```
+
+An AI agent should not claim completion without appropriate verification.
+
+---
+
+# 51. Final Project North Star
 
 The core TrailSync flow should remain understandable:
 
@@ -1226,4 +1706,51 @@ ANALYTICS
 
 Every major feature should support this operational flow or provide a clear supporting capability.
 
-If a proposed feature does not solve a real problem, improve the system's reliability, or satisfy a confirmed requirement, question whether it belongs in the current scope.
+If a proposed feature does not:
+
+- Solve a real problem
+- Improve system reliability
+- Improve safety
+- Improve operational visibility
+- Improve maintainability
+- Satisfy a confirmed requirement
+
+then question whether it belongs in the current scope.
+
+---
+
+# 52. Current Development Priority
+
+The immediate frontend priority is:
+
+```text
+Phase 2 — Authentication UI
+```
+
+The frontend should proceed through the milestone document sequentially.
+
+The backend collaborator will independently develop the Node.js/Express/PostgreSQL side.
+
+When backend authentication details become available, the frontend API integration should be updated according to the **actual agreed API contract**, not assumptions from older tasks.
+
+---
+
+# 53. Final Rule
+
+The most important rule for TrailSync development is:
+
+> **Build the simplest system that reliably solves the real problem and can be responsibly maintained.**
+
+Do not guess.
+
+Do not over-engineer.
+
+Do not invent requirements.
+
+Do not cross architectural boundaries without agreement.
+
+Do not claim capabilities the system does not actually provide.
+
+Implement incrementally.
+
+Verify before claiming completion.
