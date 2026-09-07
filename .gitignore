@@ -125,3 +125,6 @@ dist/
 .env
 .env.*
 !.env.example
+
+
+JOURNAL.md
