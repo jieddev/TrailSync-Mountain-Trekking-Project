@@ -13,7 +13,7 @@ The project follows a **Test-Driven Development** approach, where each feature i
 
 # Tech Stack
 ---
-Frontend: React.js for Web app & Flutter for cross-platform app development
+Frontend: React.js for web app & Flutter for android app development
 
 Backend: Node.js 
 
@@ -22,6 +22,8 @@ Database: PostgreSQL
 Authentication: Firebase Auth & OAuth2
 
 Testing Framework: Jest
+
+Programming Language: TypeScript
 
 
 # Notes:
