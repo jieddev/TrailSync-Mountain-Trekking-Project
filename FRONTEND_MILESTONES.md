@@ -173,19 +173,21 @@ Implement frontend validation before authentication requests are made.
 
 ### Tasks
 
-- [ ] Validate email format.
-- [ ] Validate password requirements.
-- [ ] Validate full name where required.
-- [ ] Validate confirm password.
-- [ ] Display field-level validation errors.
-- [ ] Prevent submission when validation fails.
-- [ ] Ensure validation messages are understandable.
-- [ ] Ensure password values are never logged.
-- [ ] Keep validation logic separate from UI where practical.
+- [x] Validate email format.
+- [x] Validate password requirements.
+- [x] Validate full name where required.
+- [x] Validate confirm password.
+- [x] Display field-level validation errors.
+- [x] Prevent submission when validation fails.
+- [x] Ensure validation messages are understandable.
+- [x] Ensure password values are never logged.
+- [x] Keep validation logic separate from UI where practical.
 
 ### Expected Result
 
 Invalid forms cannot be submitted and users receive clear validation feedback.
+
+**Password policy note:** No final password policy has been established for TrailSync. Phase 3 validates only that password fields are present and that confirmation matches. The authentication system/backend must enforce the final password requirements.
 
 ---
 
@@ -576,7 +578,7 @@ Do not implement future phases unless explicitly requested.
 
 - [x] Phase 1 — Frontend Foundation
 - [x] Phase 2 — Authentication UI
-- [ ] Phase 3 — Client-Side Validation
+- [x] Phase 3 — Client-Side Validation
 - [ ] Phase 4 — Authentication Service Architecture
 - [ ] Phase 5 — Firebase Authentication
 - [ ] Phase 6 — Backend API Integration
@@ -585,6 +587,6 @@ Do not implement future phases unless explicitly requested.
 - [ ] Phase 9 — Frontend Testing
 - [ ] Phase 10 — Final Authentication Verification
 
-**Current Phase:** Phase 2
+**Current Phase:** Phase 3
 
-**Status:** Complete — Authentication UI is ready for Phase 3 client-side validation.
+**Status:** Complete — Client-side validation is ready for Phase 4 authentication service architecture.
