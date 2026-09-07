@@ -117,9 +117,9 @@ Establish the React/Vite/TypeScript/Tailwind frontend foundation and clean proje
 - [x] Configure Tailwind CSS.
 - [x] Establish the initial frontend directory structure.
 - [ ] Use a feature-oriented structure.
-- [ ] Configure TypeScript.
-- [ ] Ensure the Vite React application uses TypeScript.
-- [ ] Verify TypeScript configuration and compiler behavior.
+- [x] Configure TypeScript.
+- [x] Ensure the Vite React application uses TypeScript.
+- [x] Verify TypeScript configuration and compiler behavior.
 - [x] Configure ESLint.
 - [x] Configure Prettier.
 - [x] Remove unnecessary Vite starter/demo code.
