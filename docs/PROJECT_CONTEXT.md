@@ -1401,7 +1401,7 @@ What are the system rules?
 What has been decided?
 What is still TBD?
 
-FRONTEND_IMPLEMENTATION_MILESTONES.md
+FRONTEND_MILESTONES.md
         ↓
 What should the frontend implement?
 What is the development sequence?

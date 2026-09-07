@@ -1,32 +1,48 @@
-# TrailSync-Mountain-Trekking-Project
+# TrailSync
 
-A Smart Eco-Tourism and Trail Management System with Automated Guide Dispatching, Real-Time Trekker Monitoring, Weather Intelligence, Digital Certification, and Tourism Analytics for Analytics
+TrailSync is a smart eco-tourism and trail management system for Barangay Cabintan, Ormoc City, Leyte. It supports trekking bookings, guide dispatching, near-real-time group monitoring through assigned guide devices, safety operations, digital certificates, and tourism analytics.
 
-Project Name: TrailSync Mountain Trekking Booking and Tracking System
-Purpose:
+## Repository structure
 
-# System Architecture
+```text
+.
+├── docs/       Project requirements, engineering principles, and frontend milestones
+├── frontend/   React, Vite, TypeScript, and Tailwind CSS web application
+├── backend/    Reserved for the Node.js, Express, and PostgreSQL API
+└── mobile/     Reserved for the Flutter guide application
+```
 
----
+`backend/` and `mobile/` will be added by their respective collaborators when their applications are ready. They are intentionally not scaffolded in this restructuring commit.
 
-The project follows a **Test-Driven Development** approach, where each feature is tested first, the implementation is then developed to make the test pass, and the code is then refactored.
+## Frontend
 
-# Core Features
+To run the web application:
 
----
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-# Tech Stack
+Available frontend checks:
 
----
+```bash
+npm run typecheck
+npm run lint
+npm run build
+npm run format:check
+```
 
-Frontend: React.js for Web app & Flutter for cross-platform app development
+## Technology direction
 
-Backend: Node.js
+- Web: React, Vite, TypeScript, Tailwind CSS, Firebase Authentication
+- Backend: Node.js, Express, PostgreSQL, Firebase ID-token verification
+- Mobile: Flutter
 
-Database: MongoDB
+The frontend communicates with the backend through an agreed API contract and never accesses PostgreSQL directly.
 
-Authentication: Firebase Auth & OAuth2
+## Project documentation
 
-Testing Framework: Jest
-
-# Notes:
+- [Project context](docs/PROJECT_CONTEXT.md)
+- [Frontend milestones](docs/FRONTEND_MILESTONES.md)
+- [Coding principles](docs/CODING_PRINCIPLES.md)
