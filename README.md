@@ -13,11 +13,13 @@ The project follows a **Test-Driven Development** approach, where each feature i
 
 # Tech Stack
 
+PERN Stack
+
 Frontend: React.js for Web app & Flutter for cross-platform app development
 
 Backend: Node.js 
 
-Database: MongoDB 
+Database: PostgreSQL
 
 Authentication: Firebase Auth & OAuth2
 
