@@ -10,6 +10,13 @@ import {
   validateRegisterForm,
 } from '../validation'
 
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+} from 'firebase/auth'
+
+import {auth} from '../../../lib/firebase'
+
 const initialValues: RegisterFormValues = {
   confirmPassword: '',
   email: '',
@@ -21,6 +28,9 @@ export default function RegisterPage() {
   const [values, setValues] = useState<RegisterFormValues>(initialValues)
   const [errors, setErrors] = useState<FormErrors<RegisterFormValues>>({})
   const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('')
+  const [isLoading, setIsLoading] = useState(false);
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target
@@ -32,11 +42,47 @@ export default function RegisterPage() {
     }
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
     setHasSubmitted(true)
-    setErrors(validateRegisterForm(values))
+    const validationErrors = validateRegisterForm(values)
+    setErrors(validationErrors)
+    setFormError('')
+    setSuccessMessage('')
+
+    if (Object.keys(validationErrors).length > 0) return
+
+    setIsLoading(true)
+
+    try {
+      const credential = await createUserWithEmailAndPassword(
+        auth,
+        values.email.trim(),
+        values.password,
+      )
+
+      await updateProfile(credential.user, {
+        displayName: values.fullName.trim(),
+      })
+
+      setSuccessMessage('Successful registration')
+    } catch (error) {
+      console.log(error)
+      const code = (error as {code?: string}).code
+
+      const messageByCode: Record<string, string> = {
+        'auth/email-already-in-use': 'An account already exists with this email.',
+        'auth/invalid-email': 'Enter a valid email address.',
+        'auth/weak-password': 'Choose a stronger password.',
+        'auth/network-request-failed':
+          'Network error. Check your connection and try again.',
+      }
+
+      setFormError(messageByCode[code ?? ''] ?? 'Could not create your account. Please try again.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -48,7 +94,12 @@ export default function RegisterPage() {
       title="Create an account"
     >
       <form className="mt-8 space-y-4" noValidate onSubmit={handleSubmit}>
-        <div aria-live="polite" className="min-h-5 text-sm text-rose-300" />
+        <div aria-live="polite" className="min-h-5 text-sm text-rose-300">
+          {formError}
+        </div>
+        <div aria-live="polite" className="min-h-5 text-sm text-emerald-300">
+          {successMessage}
+        </div>
         <AuthFormField
           autoComplete="name"
           error={errors.fullName}
@@ -90,7 +141,7 @@ export default function RegisterPage() {
           type="password"
           value={values.confirmPassword}
         />
-        <AuthSubmitButton label="Create account" />
+        <AuthSubmitButton isLoading={isLoading} label="Create account" />
       </form>
     </AuthPageLayout>
   )
