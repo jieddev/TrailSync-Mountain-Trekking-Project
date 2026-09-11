@@ -25,5 +25,7 @@ Authentication: Firebase Auth & OAuth2
 
 Testing Framework: Jest
 
+Database Object-Relational Mapper (ORM): Prisma
+
 
 # Notes:
