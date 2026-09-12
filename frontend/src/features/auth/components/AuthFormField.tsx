@@ -1,4 +1,4 @@
-import type { ChangeEventHandler } from 'react'
+import type { ChangeEventHandler, FocusEventHandler, ReactNode } from 'react'
 
 type AuthFormFieldProps = {
   autoComplete: string
@@ -7,7 +7,10 @@ type AuthFormFieldProps = {
   id: string
   label: string
   name: string
+  onBlur?: FocusEventHandler<HTMLInputElement>
   onChange: ChangeEventHandler<HTMLInputElement>
+  supplemental?: ReactNode
+  trailingAction?: ReactNode
   type: 'email' | 'password' | 'text'
   value: string
 }
@@ -19,7 +22,10 @@ export default function AuthFormField({
   id,
   label,
   name,
+  onBlur,
   onChange,
+  supplemental,
+  trailingAction,
   type,
   value,
 }: AuthFormFieldProps) {
@@ -35,22 +41,31 @@ export default function AuthFormField({
       >
         {label}
       </label>
-      <input
-        aria-describedby={describedBy}
-        aria-invalid={Boolean(error)}
-        autoComplete={autoComplete}
-        className="block w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/25"
-        id={id}
-        name={name}
-        onChange={onChange}
-        type={type}
-        value={value}
-      />
+      <div className="relative">
+        <input
+          aria-describedby={describedBy}
+          aria-invalid={Boolean(error)}
+          autoComplete={autoComplete}
+          className={`block w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/25 ${trailingAction ? 'pr-12' : ''}`}
+          id={id}
+          name={name}
+          onBlur={onBlur}
+          onChange={onChange}
+          type={type}
+          value={value}
+        />
+        {trailingAction ? (
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            {trailingAction}
+          </div>
+        ) : null}
+      </div>
       {hint ? (
         <p className="pt-1 text-sm text-slate-400" id={hintId}>
           {hint}
         </p>
       ) : null}
+      {supplemental}
       <p
         aria-live="polite"
         className="min-h-5 pt-1 text-sm text-rose-300"

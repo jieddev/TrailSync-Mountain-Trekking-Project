@@ -12,6 +12,8 @@ export type RegisterFormValues = {
 
 export type FormErrors<T> = Partial<Record<keyof T, string>>
 
+export type PasswordStrength = 'Weak' | 'Fair' | 'Strong'
+
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
@@ -26,6 +28,42 @@ function validateEmail(email: string) {
   }
 
   return undefined
+}
+
+export function getPasswordStrength(
+  password: string,
+): PasswordStrength | undefined {
+  if (!password) {
+    return undefined
+  }
+
+  const hasLowercase = /[a-z]/.test(password)
+  const hasUppercase = /[A-Z]/.test(password)
+  const hasNumber = /\d/.test(password)
+  const hasSpecialCharacter = /[^A-Za-z0-9]/.test(password)
+  const characterVariety = [
+    hasLowercase,
+    hasUppercase,
+    hasNumber,
+    hasSpecialCharacter,
+  ].filter(Boolean).length
+  const hasObviousWeakPattern =
+    /(.)\1{2,}/.test(password) ||
+    /(password|qwerty|12345|abcdef)/i.test(password)
+
+  if (password.length < 8 || hasObviousWeakPattern) {
+    return 'Weak'
+  }
+
+  if (password.length >= 12 && characterVariety >= 3) {
+    return 'Strong'
+  }
+
+  if (characterVariety >= 2) {
+    return 'Fair'
+  }
+
+  return 'Weak'
 }
 
 export function validateLoginForm(
@@ -59,9 +97,8 @@ export function validateRegisterForm(
     errors.email = emailError
   }
 
-  // Password strength rules are intentionally deferred to the authentication system.
-  if (!values.password) {
-    errors.password = 'Enter a password.'
+  if (values.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters'
   }
 
   if (!values.confirmPassword) {

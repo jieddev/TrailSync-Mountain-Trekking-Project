@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 
 import AuthFormField from '../components/AuthFormField'
 import AuthPageLayout from '../components/AuthPageLayout'
@@ -19,12 +20,24 @@ const initialValues: LoginFormValues = {
   password: '',
 }
 
+type LoginNavigationState = {
+  email?: string
+  successMessage?: string
+}
+
 export default function LoginPage() {
-  const [values, setValues] = useState<LoginFormValues>(initialValues)
+  const location = useLocation()
+  const registrationState = location.state as LoginNavigationState | null
+  const [values, setValues] = useState<LoginFormValues>({
+    ...initialValues,
+    email: registrationState?.email ?? '',
+  })
   const [errors, setErrors] = useState<FormErrors<LoginFormValues>>({})
   const [hasSubmitted, setHasSubmitted] = useState(false)
   const [formError, setFormError] = useState('')
-  const [successMessage, setSuccessMessage] = useState('')
+  const [successMessage, setSuccessMessage] = useState(
+    registrationState?.successMessage ?? '',
+  )
   const [isLoading, setIsLoading] = useState(false)
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
