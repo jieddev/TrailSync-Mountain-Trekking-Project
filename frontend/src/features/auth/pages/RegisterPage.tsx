@@ -1,5 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import AuthFormField from '../components/AuthFormField'
 import AuthPageLayout from '../components/AuthPageLayout'
@@ -13,6 +14,7 @@ import {
 
 import {
   createUserWithEmailAndPassword,
+  signOut,
   updateProfile,
 } from 'firebase/auth'
 
@@ -26,6 +28,7 @@ const initialValues: RegisterFormValues = {
 }
 
 export default function RegisterPage() {
+  const navigate = useNavigate()
   const [values, setValues] = useState<RegisterFormValues>(initialValues)
   const [errors, setErrors] = useState<FormErrors<RegisterFormValues>>({})
   const [hasSubmitted, setHasSubmitted] = useState(false)
@@ -96,9 +99,10 @@ export default function RegisterPage() {
     setIsLoading(true)
 
     try {
+      const registeredEmail = values.email.trim()
       const credential = await createUserWithEmailAndPassword(
         auth,
-        values.email.trim(),
+        registeredEmail,
         values.password,
       )
 
@@ -106,7 +110,24 @@ export default function RegisterPage() {
         displayName: values.fullName.trim(),
       })
 
-      setSuccessMessage('Successful registration')
+      await signOut(auth)
+
+      setValues(initialValues)
+      setErrors({})
+      setHasSubmitted(false)
+      setHasInteractedWithPassword(false)
+      setIsPasswordVisible(false)
+      setIsConfirmPasswordVisible(false)
+      setFormError('')
+      setSuccessMessage('')
+
+      navigate('/login', {
+        replace: true,
+        state: {
+          email: registeredEmail,
+          successMessage: 'Account created successfully! Please log in to continue.',
+        },
+      })
     } catch (error) {
       console.log(error)
       const code = (error as {code?: string}).code
