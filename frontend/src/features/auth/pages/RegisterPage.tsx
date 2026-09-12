@@ -6,6 +6,7 @@ import AuthPageLayout from '../components/AuthPageLayout'
 import AuthSubmitButton from '../components/AuthSubmitButton'
 import {
   type FormErrors,
+  getPasswordStrength,
   type RegisterFormValues,
   validateRegisterForm,
 } from '../validation'
@@ -28,6 +29,11 @@ export default function RegisterPage() {
   const [values, setValues] = useState<RegisterFormValues>(initialValues)
   const [errors, setErrors] = useState<FormErrors<RegisterFormValues>>({})
   const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [hasInteractedWithPassword, setHasInteractedWithPassword] =
+    useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
+  const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
+    useState(false)
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('')
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +45,41 @@ export default function RegisterPage() {
     setValues(nextValues)
     if (hasSubmitted) {
       setErrors(validateRegisterForm(nextValues))
+    } else if (name === 'password') {
+      setHasInteractedWithPassword(true)
+      setErrors((currentErrors) => ({
+        ...currentErrors,
+        password: validateRegisterForm(nextValues).password,
+      }))
     }
+  }
+
+  function handlePasswordBlur() {
+    if (!hasInteractedWithPassword) return
+
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      password: validateRegisterForm(values).password,
+    }))
+  }
+
+  const passwordStrength = getPasswordStrength(values.password)
+  const strengthStyles = {
+    Weak: {
+      bar: 'bg-rose-400',
+      label: 'text-rose-300',
+      width: 'w-1/3',
+    },
+    Fair: {
+      bar: 'bg-amber-400',
+      label: 'text-amber-300',
+      width: 'w-2/3',
+    },
+    Strong: {
+      bar: 'bg-emerald-400',
+      label: 'text-emerald-300',
+      width: 'w-full',
+    },
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -123,12 +163,42 @@ export default function RegisterPage() {
         <AuthFormField
           autoComplete="new-password"
           error={errors.password}
-          hint="Final password requirements are enforced by the authentication system."
           id="password"
           label="Password"
           name="password"
+          onBlur={handlePasswordBlur}
           onChange={handleChange}
-          type="password"
+          supplemental={
+            passwordStrength ? (
+              <div className="pt-2" role="status">
+                <p className="text-sm text-slate-400">
+                  Password strength:{' '}
+                  <span className={strengthStyles[passwordStrength].label}>
+                    {passwordStrength}
+                  </span>
+                </p>
+                <div
+                  aria-hidden="true"
+                  className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-700"
+                >
+                  <div
+                    className={`h-full rounded-full ${strengthStyles[passwordStrength].bar} ${strengthStyles[passwordStrength].width}`}
+                  />
+                </div>
+              </div>
+            ) : null
+          }
+          trailingAction={
+            <button
+              aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+              className="rounded-sm p-1 text-slate-400 outline-none hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400"
+              onClick={() => setIsPasswordVisible((visible) => !visible)}
+              type="button"
+            >
+              {isPasswordVisible ? <HiddenEyeIcon /> : <EyeIcon />}
+            </button>
+          }
+          type={isPasswordVisible ? 'text' : 'password'}
           value={values.password}
         />
         <AuthFormField
@@ -138,11 +208,62 @@ export default function RegisterPage() {
           label="Confirm password"
           name="confirmPassword"
           onChange={handleChange}
-          type="password"
+          trailingAction={
+            <button
+              aria-label={
+                isConfirmPasswordVisible
+                  ? 'Hide confirm password'
+                  : 'Show confirm password'
+              }
+              className="rounded-sm p-1 text-slate-400 outline-none hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400"
+              onClick={() =>
+                setIsConfirmPasswordVisible((visible) => !visible)
+              }
+              type="button"
+            >
+              {isConfirmPasswordVisible ? <HiddenEyeIcon /> : <EyeIcon />}
+            </button>
+          }
+          type={isConfirmPasswordVisible ? 'text' : 'password'}
           value={values.confirmPassword}
         />
         <AuthSubmitButton isLoading={isLoading} label="Create account" />
       </form>
     </AuthPageLayout>
+  )
+}
+
+function EyeIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="20" viewBox="0 0 24 24" width="20">
+      <path
+        d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  )
+}
+
+function HiddenEyeIcon() {
+  return (
+    <svg aria-hidden="true" fill="none" height="20" viewBox="0 0 24 24" width="20">
+      <path
+        d="M3 3l18 18M10.6 6.2A10.9 10.9 0 0 1 12 6c6 0 9.5 6 9.5 6a16.2 16.2 0 0 1-3.1 3.8M6.2 6.2A16.3 16.3 0 0 0 2.5 12s3.5 6 9.5 6c1 0 2-.2 2.9-.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.8"
+      />
+    </svg>
   )
 }
