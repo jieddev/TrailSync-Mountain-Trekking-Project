@@ -189,6 +189,8 @@ Invalid forms cannot be submitted and users receive clear validation feedback.
 
 **Password policy note:** No final password policy has been established for TrailSync. Phase 3 validates only that password fields are present and that confirmation matches. The authentication system/backend must enforce the final password requirements.
 
+**Implementation note:** The current UI also applies an eight-character minimum. Treat this as a provisional client-side usability rule until the project confirms its password policy.
+
 ---
 
 # Phase 4 — Authentication Service Architecture
@@ -223,6 +225,8 @@ Firebase Authentication
 
 The UI communicates with authentication through a clean service boundary rather than being tightly coupled to Firebase.
 
+**Current implementation note:** Firebase operations are currently called directly from `LoginPage.tsx` and `RegisterPage.tsx`. This phase remains incomplete; move those operations into `authService.ts` before treating the Firebase implementation as architecturally complete.
+
 ---
 
 # Phase 5 — Firebase Authentication
@@ -233,16 +237,16 @@ Connect the frontend authentication service to Firebase Authentication.
 
 ### Tasks
 
-- [ ] Configure Firebase for the frontend.
-- [ ] Use environment variables for Firebase configuration.
-- [ ] Configure Firebase Authentication.
+- [x] Configure Firebase for the frontend.
+- [x] Use environment variables for Firebase configuration.
+- [x] Configure Firebase Authentication.
 - [ ] Enable email/password authentication.
-- [ ] Implement registration.
-- [ ] Implement login.
-- [ ] Implement logout.
+- [x] Implement registration.
+- [x] Implement login.
+- [x] Implement logout.
 - [ ] Retrieve the authenticated Firebase user.
-- [ ] Handle Firebase authentication errors.
-- [ ] Map Firebase errors into user-friendly messages.
+- [x] Handle Firebase authentication errors.
+- [x] Map Firebase errors into user-friendly messages.
 - [ ] Test successful registration.
 - [ ] Test successful login.
 - [ ] Test invalid credentials.
@@ -252,6 +256,8 @@ Connect the frontend authentication service to Firebase Authentication.
 ### Expected Result
 
 Users can successfully register, log in, and log out using Firebase Authentication.
+
+**Current implementation note:** The UI contains the Firebase operations, but successful and failure behavior has not yet been verified against a Firebase project. Email/password enablement must also be confirmed in the Firebase console.
 
 ---
 
@@ -366,16 +372,16 @@ Make the authentication experience reliable and understandable.
 
 ### Tasks
 
-- [ ] Add registration loading state.
-- [ ] Add login loading state.
-- [ ] Disable duplicate submissions.
-- [ ] Display authentication errors.
-- [ ] Display validation errors.
+- [x] Add registration loading state.
+- [x] Add login loading state.
+- [x] Disable duplicate submissions.
+- [x] Display authentication errors.
+- [x] Display validation errors.
 - [ ] Display backend/API errors.
-- [ ] Display network errors.
-- [ ] Display appropriate success states.
-- [ ] Ensure loading indicators do not create confusing UI behavior.
-- [ ] Ensure users receive understandable feedback.
+- [x] Display network errors.
+- [x] Display appropriate success states.
+- [x] Ensure loading indicators do not create confusing UI behavior.
+- [x] Ensure users receive understandable feedback.
 - [ ] Avoid unnecessary automatic navigation assumptions.
 
 ### Expected Result
@@ -580,13 +586,13 @@ Do not implement future phases unless explicitly requested.
 - [x] Phase 2 — Authentication UI
 - [x] Phase 3 — Client-Side Validation
 - [ ] Phase 4 — Authentication Service Architecture
-- [ ] Phase 5 — Firebase Authentication
+- [ ] Phase 5 — Firebase Authentication (partially implemented; pending service boundary and live verification)
 - [ ] Phase 6 — Backend API Integration
 - [ ] Phase 7 — Authentication State Management
-- [ ] Phase 8 — Loading / Error / Success States
+- [ ] Phase 8 — Loading / Error / Success States (partially implemented; backend/API errors remain)
 - [ ] Phase 9 — Frontend Testing
 - [ ] Phase 10 — Final Authentication Verification
 
-**Current Phase:** Phase 3
+**Current Phase:** Phase 4
 
-**Status:** Complete — Client-side validation is ready for Phase 4 authentication service architecture.
+**Status:** Client-side validation is complete. Firebase registration and login are currently implemented directly in the UI, with loading and user-facing error states. The next task is to establish the Phase 4 authentication service boundary before continuing with authentication state, backend integration, and testing.
