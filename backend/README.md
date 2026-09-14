@@ -6,7 +6,7 @@ This is our TrailSync backend. It uses Express for the API, Prisma to communicat
 
 To set it up, create your .env, install dependencies, verify Prisma, and start the server.
 
-We haven't designed the database yet, so **don't create random models**. When a feature and its business rules are understood, create the appropriate **Prisma model and generate a migration**.
+The initial `User` model stores the application profile associated with a Firebase-authenticated account. Firebase owns credentials; passwords and authentication tokens are not stored in PostgreSQL. When a feature and its business rules are understood, create the appropriate **Prisma model and generate a migration**.
 
 **The frontend should communicate with the backend API, not directly with PostgreSQL.**
 
@@ -21,7 +21,7 @@ The health check is available at `GET /health`.
 
 ## Prisma workflow
 
-The schema deliberately contains no models yet: the project’s data model has not been finalized. Add a model only with the feature and confirmed business rules it supports, then create a versioned migration:
+Add models only with the feature and confirmed business rules they support, then create a versioned migration:
 
 ```bash
 npm run prisma:migrate -- --name describe_the_change
