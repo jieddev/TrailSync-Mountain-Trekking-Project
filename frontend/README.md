@@ -31,7 +31,31 @@ npm run typecheck
 npm run lint
 npm run build
 npm run format:check
+npm test
 ```
+
+## Frontend unit tests and TDD
+
+Frontend unit tests use Vitest and live next to the logic they cover, using
+`*.test.ts` or `*.test.tsx` (for example,
+`src/features/auth/validation.test.ts`). Run the full suite with:
+
+```bash
+npm test
+```
+
+Use the RED → GREEN → REFACTOR workflow for new deterministic frontend
+business logic:
+
+1. Write a test that describes the expected behavior.
+2. Run it and confirm it fails for the expected reason (RED).
+3. Add the minimum implementation needed to pass (GREEN).
+4. Refactor while keeping the tests passing (REFACTOR).
+5. Keep the test in the codebase as a permanent regression check; do not
+   delete passing tests.
+
+The initial unit tests are intentionally isolated from Firebase, APIs, and the
+database. Integration testing for those boundaries belongs to future work.
 
 ## Technology direction
 
