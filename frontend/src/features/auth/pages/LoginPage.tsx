@@ -39,6 +39,7 @@ export default function LoginPage() {
     registrationState?.successMessage ?? '',
   )
   const [isLoading, setIsLoading] = useState(false)
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false)
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target
@@ -121,11 +122,75 @@ export default function LoginPage() {
           label="Password"
           name="password"
           onChange={handleChange}
-          type="password"
+          trailingAction={
+            <button
+              aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
+              className="rounded-sm p-1 text-slate-400 outline-none hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400"
+              onClick={() => setIsPasswordVisible((visible) => !visible)}
+              type="button"
+            >
+              {isPasswordVisible ? <HiddenEyeIcon /> : <EyeIcon />}
+            </button>
+          }
+          type={isPasswordVisible ? 'text' : 'password'}
           value={values.password}
         />
         <AuthSubmitButton isLoading={isLoading} label="Log in" />
       </form>
     </AuthPageLayout>
+  )
+}
+
+function EyeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <path
+        d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="2.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+    </svg>
+  )
+}
+
+function HiddenEyeIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
+      <path
+        d="M3 3l18 18M10.6 6.2A10.9 10.9 0 0 1 12 6c6 0 9.5 6 9.5 6a16.2 16.2 0 0 1-3.1 3.8M6.2 6.2A16.3 16.3 0 0 0 2.5 12s3.5 6 9.5 6c1 0 2-.2 2.9-.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M9.9 9.9a3 3 0 0 0 4.2 4.2"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.8"
+      />
+    </svg>
   )
 }
