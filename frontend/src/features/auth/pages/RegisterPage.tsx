@@ -18,7 +18,8 @@ import {
   updateProfile,
 } from 'firebase/auth'
 
-import {auth} from '../../../lib/firebase'
+import { auth } from '../../../lib/firebase'
+import { ApiError, createUser } from '../../../lib/users-api'
 
 const initialValues: RegisterFormValues = {
   confirmPassword: '',
@@ -37,9 +38,9 @@ export default function RegisterPage() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false)
   const [isConfirmPasswordVisible, setIsConfirmPasswordVisible] =
     useState(false)
-  const [formError, setFormError] = useState('');
+  const [formError, setFormError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false)
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const { name, value } = event.target
@@ -110,6 +111,13 @@ export default function RegisterPage() {
         displayName: values.fullName.trim(),
       })
 
+      await createUser({
+        email: registeredEmail,
+        firebaseUid: credential.user.uid,
+        fullName: values.fullName.trim(),
+        idToken: await credential.user.getIdToken(),
+      })
+
       await signOut(auth)
 
       setValues(initialValues)
@@ -125,22 +133,33 @@ export default function RegisterPage() {
         replace: true,
         state: {
           email: registeredEmail,
-          successMessage: 'Account created successfully! Please log in to continue.',
+          successMessage:
+            'Account created successfully! Please log in to continue.',
         },
       })
     } catch (error) {
       console.log(error)
-      const code = (error as {code?: string}).code
+
+      if (error instanceof ApiError) {
+        setFormError(error.message)
+        return
+      }
+
+      const code = (error as { code?: string }).code
 
       const messageByCode: Record<string, string> = {
-        'auth/email-already-in-use': 'An account already exists with this email.',
+        'auth/email-already-in-use':
+          'An account already exists with this email.',
         'auth/invalid-email': 'Enter a valid email address.',
         'auth/weak-password': 'Choose a stronger password.',
         'auth/network-request-failed':
           'Network error. Check your connection and try again.',
       }
 
-      setFormError(messageByCode[code ?? ''] ?? 'Could not create your account. Please try again.')
+      setFormError(
+        messageByCode[code ?? ''] ??
+          'Could not create your account. Please try again.',
+      )
     } finally {
       setIsLoading(false)
     }
@@ -237,9 +256,7 @@ export default function RegisterPage() {
                   : 'Show confirm password'
               }
               className="rounded-sm p-1 text-slate-400 outline-none hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400"
-              onClick={() =>
-                setIsConfirmPasswordVisible((visible) => !visible)
-              }
+              onClick={() => setIsConfirmPasswordVisible((visible) => !visible)}
               type="button"
             >
               {isConfirmPasswordVisible ? <HiddenEyeIcon /> : <EyeIcon />}
@@ -256,7 +273,13 @@ export default function RegisterPage() {
 
 function EyeIcon() {
   return (
-    <svg aria-hidden="true" fill="none" height="20" viewBox="0 0 24 24" width="20">
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
       <path
         d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"
         stroke="currentColor"
@@ -271,7 +294,13 @@ function EyeIcon() {
 
 function HiddenEyeIcon() {
   return (
-    <svg aria-hidden="true" fill="none" height="20" viewBox="0 0 24 24" width="20">
+    <svg
+      aria-hidden="true"
+      fill="none"
+      height="20"
+      viewBox="0 0 24 24"
+      width="20"
+    >
       <path
         d="M3 3l18 18M10.6 6.2A10.9 10.9 0 0 1 12 6c6 0 9.5 6 9.5 6a16.2 16.2 0 0 1-3.1 3.8M6.2 6.2A16.3 16.3 0 0 0 2.5 12s3.5 6 9.5 6c1 0 2-.2 2.9-.5"
         stroke="currentColor"

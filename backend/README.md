@@ -19,6 +19,23 @@ The initial `User` model stores the application profile associated with a Fireba
 
 The health check is available at `GET /health`.
 
+## Create a user
+
+Start the API, then send a `POST /users` request. The Firebase UID is the UID
+from the authenticated Firebase user; do not send passwords to this API.
+
+```json
+{
+  "firebaseUid": "firebase-user-uid",
+  "fullName": "Jane Doe",
+  "email": "jane@example.com",
+  "role": "HIKER"
+}
+```
+
+`role` is optional and defaults to `HIKER`. Valid roles are `HIKER`, `GUIDE`,
+and `COORDINATOR`. A duplicate Firebase UID or email returns `409 Conflict`.
+
 ## Prisma workflow
 
 Add models only with the feature and confirmed business rules they support, then create a versioned migration:
