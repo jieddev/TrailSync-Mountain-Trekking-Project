@@ -112,8 +112,6 @@ export default function RegisterPage() {
       })
 
       await createUser({
-        email: registeredEmail,
-        firebaseUid: credential.user.uid,
         fullName: values.fullName.trim(),
         idToken: await credential.user.getIdToken(),
       })

@@ -13,28 +13,44 @@ The initial `User` model stores the application profile associated with a Fireba
 ## Setup
 
 1. Copy `.env.example` to `.env` and set `DATABASE_URL` to your local PostgreSQL connection string.
-2. Install dependencies with `npm install`.
-3. Check the database configuration with `npm run prisma:validate`.
-4. Start the API with `npm run dev`.
+2. Configure Firebase Admin credentials. For local development, set
+   `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
+   `FIREBASE_PRIVATE_KEY` from a Firebase service account. Keep the private key
+   on one line and use `\n` for its line breaks. Alternatively, configure
+   Application Default Credentials through `GOOGLE_APPLICATION_CREDENTIALS`.
+   Never commit credentials.
+3. Install dependencies with `npm install`.
+4. Check the database configuration with `npm run prisma:validate`.
+5. Start the API with `npm run dev`.
 
 The health check is available at `GET /health`.
 
 ## Create a user
 
-Start the API, then send a `POST /users` request. The Firebase UID is the UID
-from the authenticated Firebase user; do not send passwords to this API.
+`POST /users` requires a valid Firebase ID token. The backend verifies the
+token and derives the Firebase UID and email from it. Do not send passwords,
+Firebase UID, email, or role in the request body.
 
 ```json
 {
-  "firebaseUid": "firebase-user-uid",
-  "fullName": "Jane Doe",
-  "email": "jane@example.com",
-  "role": "HIKER"
+  "fullName": "Jane Doe"
 }
 ```
 
-`role` is optional and defaults to `HIKER`. Valid roles are `HIKER`, `GUIDE`,
-and `COORDINATOR`. A duplicate Firebase UID or email returns `409 Conflict`.
+Public profile creation always uses the `HIKER` role. A duplicate Firebase UID
+or email returns `409 Conflict`. Missing, invalid, or expired ID tokens return
+`401 Unauthorized`.
+
+## Tests
+
+Run the backend tests with:
+
+```bash
+npm test
+```
+
+The API tests mock Firebase Admin and Prisma; they do not require Firebase or
+PostgreSQL to be running.
 
 ## Prisma workflow
 

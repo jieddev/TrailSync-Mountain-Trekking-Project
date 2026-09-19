@@ -78,22 +78,21 @@ React UI
 | Endpoint | Current request | Current response |
 | --- | --- | --- |
 | `GET /health` | No authentication | `200 { "status": "ok" }` |
-| `POST /users` | `Authorization: Bearer <Firebase ID token>` and JSON `{ firebaseUid, fullName, email }` | `201` created user; `400`, `409`, or `500` with `{ message }` |
+| `POST /users` | `Authorization: Bearer <Firebase ID token>` and JSON `{ fullName }` | `201` created user; `400`, `401`, `409`, or `500` with `{ message }` |
 
-### Security Blocker
+### Authentication Security
 
-`POST /users` accepts the `Authorization` header but does **not** verify the
-Firebase ID token. It also trusts `firebaseUid`, `email`, and optional `role`
-from the request body. Before profile creation or authorization is considered
-secure, the backend must:
+`POST /users` now verifies the Firebase ID token with Firebase Admin SDK and
+derives the Firebase UID and email from verified token claims. Public profile
+creation does not accept a role and creates the Prisma default `HIKER` role.
 
-- [ ] Verify bearer tokens with Firebase Admin SDK.
-- [ ] Derive Firebase UID and email from verified token claims, not the body.
-- [ ] Prevent public registration from assigning a privileged role.
-- [ ] Return `401` for missing, invalid, or expired tokens.
+- [x] Verify bearer tokens with Firebase Admin SDK.
+- [x] Derive Firebase UID and email from verified token claims, not the body.
+- [x] Prevent public registration from assigning a privileged role.
+- [x] Return `401` for missing, invalid, or expired tokens.
 
-Until then, the profile-creation integration is implemented but not production
-ready.
+Live Firebase and database registration verification is still required before
+this flow is considered production-ready.
 
 ## Milestones
 
@@ -159,7 +158,7 @@ own password policy.
 - [ ] Verify Firebase environment values in a running environment.
 - [ ] Manually test registration, login, invalid credentials, duplicate email,
   network failure, and logout against Firebase.
-- [ ] Resolve the backend token-verification blocker above.
+- [x] Secure backend token verification in code and backend tests.
 - [ ] Decide recovery if Firebase account creation succeeds but backend profile
   creation fails; the current flow can leave an orphaned Firebase account.
 - [ ] Remove `console.log(error)` from registration or replace it with approved,
@@ -174,8 +173,9 @@ own password policy.
   JSON responses.
 - [x] Backend validates required strings and prevents duplicate UID/email
   records with database uniqueness constraints.
-- [ ] Secure the endpoint through verified Firebase claims.
-- [ ] Add API tests for `400`, `401`, `409`, and `500` paths.
+- [x] Secure the endpoint through verified Firebase claims.
+- [x] Add API tests for `400`, `401`, and `409` paths.
+- [ ] Add an API test for the generic `500` path.
 - [ ] Define authenticated current-user/profile endpoints after server auth.
 - [ ] Establish contracts for all later domains before building their UI.
 
