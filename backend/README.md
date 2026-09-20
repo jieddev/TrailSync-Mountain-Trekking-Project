@@ -19,6 +19,18 @@ The initial `User` model stores the application profile associated with a Fireba
 
 The health check is available at `GET /health`.
 
+## Logging
+
+The API uses Pino for structured application logs and request logs. Local
+development uses readable pretty logs by default, while production should emit
+JSON logs for log collectors.
+
+Set `LOG_LEVEL` to control verbosity. Common values are `debug`, `info`, `warn`,
+and `error`. Set `LOG_PRETTY=false` to force JSON logs outside production.
+
+Request logs include an `X-Request-Id` response header so API responses can be
+matched to logs. Sensitive headers and credential-like fields are redacted.
+
 ## Create a user
 
 Start the API, then send a `POST /users` request. The Firebase UID is the UID
