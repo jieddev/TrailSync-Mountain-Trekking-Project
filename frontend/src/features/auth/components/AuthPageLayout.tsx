@@ -21,8 +21,8 @@ export default function AuthPageLayout({
   title,
 }: AuthPageLayoutProps) {
   return (
-    <main className="min-h-screen bg-[#f7f7f1] px-5 py-8 text-[#062f22] sm:px-10 sm:py-12 lg:px-[7.2%] lg:py-7">
-      <section className="mx-auto grid w-full max-w-[1056px] gap-10 lg:min-h-[786px] lg:grid-cols-[minmax(0,432px)_minmax(0,528px)] lg:gap-24">
+    <main className="min-h-screen bg-[#f7f7f1] px-5 py-8 text-[#062f22] sm:px-10 sm:py-12 lg:grid lg:grid-rows-[1fr_auto] lg:px-[7.2%] lg:py-7">
+      <section className="mx-auto grid w-full max-w-[1056px] gap-10 lg:min-h-0 lg:grid-cols-[minmax(0,432px)_minmax(0,528px)] lg:items-center lg:gap-24">
         <div className="lg:pt-0">
           <Link
             className="inline-flex rounded-sm text-[11px] font-bold uppercase tracking-[0.16em] text-[#008755] outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-4 focus-visible:ring-offset-[#f7f7f1]"
@@ -60,7 +60,7 @@ export default function AuthPageLayout({
           </p>
         </div>
       </section>
-      <p className="mt-10 text-xs text-[#52675e] lg:mt-[-2.25rem]">
+      <p className="mt-10 text-xs text-[#52675e] lg:mt-0">
         TrailSync · Trekking journeys, connected.
       </p>
     </main>
