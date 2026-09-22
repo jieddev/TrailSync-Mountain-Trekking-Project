@@ -2,597 +2,250 @@
 
 ## Purpose
 
-This document is the implementation roadmap for the **TrailSync frontend**.
+This roadmap reflects the repository as reviewed on **2026-09-19**. It records
+code that exists, work verified locally, and remaining work. A checked item
+means it is present in the repository; it does not imply external services
+such as Firebase have been verified live.
 
-The coding agent (Codex/Claude) should use this document to implement the frontend **step by step**.
+TrailSync is an eco-tourism system for Barangay Cabintan, Ormoc City. The web
+application serves hikers and tourism coordinators. The Flutter guide
+application is not yet present in this repository.
 
-The frontend is being developed separately from the backend. The backend collaborator is responsible for the Node.js/Express/PostgreSQL side.
+## Current System Snapshot
 
----
+### Implemented
 
-# Technology Stack
+- [x] Root `npm run dev` starts frontend and backend development servers.
+- [x] Frontend uses React, Vite, TypeScript, Tailwind CSS, React Router, and
+  Firebase client libraries.
+- [x] `/login` and `/register` routes exist; other paths redirect to `/login`.
+- [x] Reusable authentication layout, form-field, and submit-button components
+  are in place.
+- [x] Login and registration forms provide validation, loading states, password
+  visibility controls, and user-facing error messages.
+- [x] Firebase initialization reads `VITE_FIREBASE_*` environment variables.
+- [x] Registration creates a Firebase account, sets its display name, calls the
+  backend to create a profile, signs out, then redirects to login.
+- [x] Login uses Firebase email/password sign-in and displays a success message.
+- [x] The frontend sends `POST /users` with a bearer Firebase ID token through
+  `src/lib/users-api.ts`.
+- [x] Backend uses Express, Prisma, and PostgreSQL configuration; it exposes
+  `GET /health` and `POST /users`.
+- [x] Prisma defines a `User` with Firebase UID, full name, email, role, and
+  timestamps. New profiles default to `HIKER`.
 
-### Frontend
+### Not Yet Implemented
 
-- [ ] React
-- [ ] Vite
-- [ ] TypeScript
-- [ ] Tailwind CSS
-- [ ] Firebase Authentication
-- [ ] ESLint
-- [ ] Prettier
-- [ ] Git / GitHub
+- [ ] Central authentication service and application-wide authentication state.
+- [ ] Protected routes, role-based routing, dashboard, logout UI, and a
+  post-login destination.
+- [ ] Trail browsing, bookings/groups, check-in, guide dispatch, tracking,
+  safety, certificates, and analytics UI.
+- [ ] Frontend component/integration tests beyond validation-unit tests.
+- [ ] Mobile guide application and the broader backend domain/API.
 
-### Backend
+## Verified Locally
 
-Handled by the backend collaborator:
+The following passed during this review:
 
-- [ ] Node.js
-- [ ] Express.js
-- [ ] PostgreSQL
-- [ ] Firebase Authentication token verification
-- [ ] Backend API
-- [ ] Database
-- [ ] Server-side business logic
+```bash
+cd frontend && npm run typecheck
+cd frontend && npm run lint
+cd frontend && npm test       # 1 file, 10 tests passed
+cd frontend && npm run build
+cd backend && npm run typecheck
+```
 
----
+Live Firebase behaviour, database connectivity, API behaviour against a live
+database, and the root development command were not exercised in this review.
 
-# Frontend / Backend Boundary
+## Frontend / Backend Boundary
 
-The frontend is responsible for:
-
-- [ ] React UI
-- [ ] Page and component structure
-- [ ] Client-side validation
-- [ ] Firebase client authentication
-- [ ] API requests
-- [ ] Frontend authentication state
-- [ ] Loading states
-- [ ] Error handling
-- [ ] Frontend tests
-- [ ] Routing
-
-The backend collaborator is responsible for:
-
-- [ ] Express API
-- [ ] PostgreSQL database
-- [ ] Database queries
-- [ ] Backend business logic
-- [ ] Firebase ID-token verification
-- [ ] API authentication/authorization
-- [ ] Backend validation
-- [ ] Backend tests
-
-The frontend should **never communicate directly with PostgreSQL**.
-
-The intended flow is:
+The frontend must never access PostgreSQL directly. The intended production
+flow is:
 
 ```text
-React
-  ↓
-Firebase Authentication
-  ↓
-Firebase ID Token
-  ↓
-Express API
-  ↓
-Firebase Token Verification
-  ↓
-PostgreSQL
+React UI
+  -> Firebase Authentication
+  -> Firebase ID token
+  -> Express API
+  -> Firebase Admin ID-token verification
+  -> PostgreSQL
 ```
 
----
-
-# Coding Agent Rules
+### Current API Contract in Code
+
+| Endpoint | Current request | Current response |
+| --- | --- | --- |
+| `GET /health` | No authentication | `200 { "status": "ok" }` |
+| `POST /users` | `Authorization: Bearer <Firebase ID token>` and JSON `{ fullName }` | `201` created user; `400`, `401`, `409`, or `500` with `{ message }` |
+
+### Authentication Security
 
-The coding agent should follow these rules throughout the implementation:
+`POST /users` now verifies the Firebase ID token with Firebase Admin SDK and
+derives the Firebase UID and email from verified token claims. Public profile
+creation does not accept a role and creates the Prisma default `HIKER` role.
 
-- [ ] Inspect the existing repository before making changes.
-- [ ] Do not recreate files or structure that already exist.
-- [ ] Work only on the requested phase.
-- [ ] Do not jump ahead to future phases.
-- [ ] Do not introduce unnecessary architecture.
-- [ ] Do not install unnecessary libraries.
-- [ ] Follow the existing project conventions once established.
-- [ ] Keep frontend and backend responsibilities separated.
-- [ ] Run appropriate verification after implementation.
-- [ ] Report what files were changed.
-- [ ] Report what was implemented.
-- [ ] Report verification results.
-- [ ] Report any problems or decisions that require clarification.
+- [x] Verify bearer tokens with Firebase Admin SDK.
+- [x] Derive Firebase UID and email from verified token claims, not the body.
+- [x] Prevent public registration from assigning a privileged role.
+- [x] Return `401` for missing, invalid, or expired tokens.
+
+Live Firebase and database registration verification is still required before
+this flow is considered production-ready.
 
----
+## Milestones
 
-# Phase 1 — Frontend Foundation
+### Phase 1 — Frontend Foundation
 
-## Goal
+**Status: complete and locally verified.**
+
+- [x] React + Vite + TypeScript application exists.
+- [x] Tailwind is configured through the Vite plugin and global stylesheet.
+- [x] Feature-oriented auth structure exists under `src/features/auth`.
+- [x] ESLint, Prettier scripts, TypeScript, Vitest, and production build are
+  configured.
+- [x] Development, lint, typecheck, test, and build commands exist.
 
-Establish the React/Vite/TypeScript/Tailwind frontend foundation and clean project structure.
+### Phase 2 — Authentication UI
 
-### Tasks
+**Status: complete.**
+
+- [x] Login and registration routes and navigation links.
+- [x] Accessible labels, field error regions, and form-level feedback regions.
+- [x] Full name, email, password, and confirmation fields where appropriate.
+- [x] Loading state and duplicate-submission prevention.
+- [x] Password visibility toggles and registration password-strength display.
 
-- [x] Inspect the current repository.
-- [x] Determine what already exists.
-- [x] Initialize React with Vite if a React application does not already exist.
-- [x] Configure Tailwind CSS.
-- [x] Establish the initial frontend directory structure.
-- [x] Use a feature-oriented structure.
-- [x] Configure TypeScript.
-- [x] Ensure the Vite React application uses TypeScript.
-- [x] Verify TypeScript configuration and compiler behavior.
-- [x] Configure ESLint.
-- [x] Configure Prettier.
-- [x] Remove unnecessary Vite starter/demo code.
-- [x] Establish a clean application entry point.
-- [x] Confirm the application starts successfully.
-- [x] Run `npm run dev`.
-- [x] Run `npm run lint`.
-- [x] Run `npm run build`.
+### Phase 3 — Client-Side Validation
 
-### Expected Result
+**Status: complete and unit tested.**
 
-A clean React + Vite + TypeScript + Tailwind frontend foundation that is ready for authentication UI development.
-
----
-
-# Phase 2 — Authentication UI
-
-## Goal
-
-Build the Login and Registration interfaces without connecting them to Firebase yet.
-
-### Tasks
-
-- [x] Create the Login page.
-- [x] Create the Registration page.
-- [x] Add the required form fields.
-- [x] Add email field.
-- [x] Add password field.
-- [x] Add full-name field where required.
-- [x] Add confirm-password field where required.
-- [x] Add appropriate labels.
-- [x] Add accessible form controls.
-- [x] Add areas for displaying validation errors.
-- [x] Add areas for displaying authentication errors.
-- [x] Prepare loading-state UI.
-- [x] Create `/login` route.
-- [x] Create `/register` route.
-- [x] Add navigation between Login and Registration where appropriate.
-
-### Expected Result
-
-Users can navigate between Login and Registration pages and interact with the forms, but authentication is not connected yet.
-
----
-
-# Phase 3 — Client-Side Validation
-
-## Goal
-
-Implement frontend validation before authentication requests are made.
-
-### Tasks
-
-- [x] Validate email format.
-- [x] Validate password requirements.
-- [x] Validate full name where required.
-- [x] Validate confirm password.
-- [x] Display field-level validation errors.
-- [x] Prevent submission when validation fails.
-- [x] Ensure validation messages are understandable.
-- [x] Ensure password values are never logged.
-- [x] Keep validation logic separate from UI where practical.
-
-### Expected Result
-
-Invalid forms cannot be submitted and users receive clear validation feedback.
-
-**Password policy note:** No final password policy has been established for TrailSync. Phase 3 validates only that password fields are present and that confirmation matches. The authentication system/backend must enforce the final password requirements.
-
-**Implementation note:** The current UI also applies an eight-character minimum. Treat this as a provisional client-side usability rule until the project confirms its password policy.
-
----
-
-# Phase 4 — Authentication Service Architecture
-
-## Goal
-
-Create a clean boundary between the React UI and authentication implementation.
-
-### Tasks
-
-- [ ] Create the authentication service.
-- [ ] Establish `src/features/auth/services/authService.ts`.
-- [ ] Define a registration function.
-- [ ] Define a login function.
-- [ ] Define a logout function.
-- [ ] Define a way to retrieve the current authenticated user.
-- [ ] Keep Firebase-specific implementation inside the authentication service where practical.
-- [ ] Ensure UI components do not directly contain Firebase authentication logic.
-- [ ] Make the authentication service the frontend boundary for authentication operations.
-
-Conceptually:
-
-```text
-React Component
-      ↓
-authService
-      ↓
-Firebase Authentication
-```
-
-### Expected Result
-
-The UI communicates with authentication through a clean service boundary rather than being tightly coupled to Firebase.
-
-**Current implementation note:** Firebase operations are currently called directly from `LoginPage.tsx` and `RegisterPage.tsx`. This phase remains incomplete; move those operations into `authService.ts` before treating the Firebase implementation as architecturally complete.
-
----
-
-# Phase 5 — Firebase Authentication
-
-## Goal
-
-Connect the frontend authentication service to Firebase Authentication.
-
-### Tasks
-
-- [x] Configure Firebase for the frontend.
-- [x] Use environment variables for Firebase configuration.
-- [x] Configure Firebase Authentication.
-- [ ] Enable email/password authentication.
-- [x] Implement registration.
-- [x] Implement login.
-- [x] Implement logout.
-- [ ] Retrieve the authenticated Firebase user.
-- [x] Handle Firebase authentication errors.
-- [x] Map Firebase errors into user-friendly messages.
-- [ ] Test successful registration.
-- [ ] Test successful login.
-- [ ] Test invalid credentials.
-- [ ] Test duplicate/previously registered email behavior.
-- [ ] Test logout.
-
-### Expected Result
-
-Users can successfully register, log in, and log out using Firebase Authentication.
-
-**Current implementation note:** The UI contains the Firebase operations, but successful and failure behavior has not yet been verified against a Firebase project. Email/password enablement must also be confirmed in the Firebase console.
-
----
-
-# Phase 6 — Backend API Integration
-
-## Goal
-
-Connect the authenticated frontend to the backend API.
-
-**Important:** The API contract is intentionally **not finalized yet**.
-
-The actual backend API contract must be obtained from and agreed upon with the backend collaborator before implementing this phase.
-
-### Before Implementation
-
-- [ ] Obtain the actual backend API contract from the collaborator.
-- [ ] Confirm endpoint.
-- [ ] Confirm HTTP method.
-- [ ] Confirm authentication requirements.
-- [ ] Confirm required headers.
-- [ ] Confirm request body.
-- [ ] Confirm successful response body.
-- [ ] Confirm success status code.
-- [ ] Confirm possible error status codes.
-- [ ] Confirm error response format.
-- [ ] Confirm whether the endpoint uses `/api/users/me` or another agreed endpoint.
-- [ ] Confirm how the Firebase ID token is expected to be provided.
-
-### Expected Authentication Flow
-
-```text
-React
-   ↓
-Firebase Authentication
-   ↓
-Firebase ID Token
-   ↓
-Express API
-   ↓
-Firebase Token Verification
-   ↓
-PostgreSQL
-```
-
-### Frontend Tasks
-
-- [ ] Create an API service boundary.
-- [ ] Keep API communication separate from UI components.
-- [ ] Retrieve the Firebase ID token when required.
-- [ ] Send the token according to the agreed backend contract.
-- [ ] Implement the agreed user-profile API call.
-- [ ] Handle successful API responses.
-- [ ] Handle authentication failures.
-- [ ] Handle network failures.
-- [ ] Handle backend validation errors.
-- [ ] Handle unexpected server errors.
-- [ ] Do not communicate directly with PostgreSQL.
-
-### Important Rule
-
-If the collaborator's actual backend implementation differs from an earlier proposed design, **the actual agreed API contract takes precedence**.
-
-Adapt the frontend service layer to the agreed contract rather than making unnecessary backend changes.
-
-### Expected Result
-
-The frontend can communicate correctly with the collaborator's backend through the agreed API contract.
-
----
-
-# Phase 7 — Authentication State Management
-
-## Goal
-
-Make authentication state available throughout the React application.
-
-### Tasks
-
-- [ ] Establish a centralized authentication state.
-- [ ] Listen for Firebase authentication state changes.
-- [ ] Detect authenticated users.
-- [ ] Detect unauthenticated users.
-- [ ] Handle the initial authentication-loading state.
-- [ ] Make the authenticated user available to relevant components.
-- [ ] Ensure authentication state survives page refreshes where Firebase supports it.
-- [ ] Avoid unnecessary duplicate authentication listeners.
-- [ ] Keep authentication state logic separate from individual pages.
-
-The application should conceptually support:
-
-```text
-Loading
-   ↓
-Authenticated
-
-   or
-
-Unauthenticated
-```
-
-### Expected Result
-
-The application reliably knows whether the user is loading, authenticated, or unauthenticated.
-
----
-
-# Phase 8 — Loading / Error / Success States
-
-## Goal
-
-Make the authentication experience reliable and understandable.
-
-### Tasks
-
-- [x] Add registration loading state.
-- [x] Add login loading state.
-- [x] Disable duplicate submissions.
-- [x] Display authentication errors.
-- [x] Display validation errors.
-- [ ] Display backend/API errors.
-- [x] Display network errors.
-- [x] Display appropriate success states.
-- [x] Ensure loading indicators do not create confusing UI behavior.
-- [x] Ensure users receive understandable feedback.
-- [ ] Avoid unnecessary automatic navigation assumptions.
-
-### Expected Result
-
-Authentication operations clearly communicate what is happening and what went wrong when something fails.
-
----
-
-# Phase 9 — Frontend Testing
-
-## Goal
-
-Verify the authentication frontend independently from the backend database.
-
-### Tasks
-
-- [ ] Test Login UI.
-- [ ] Test Registration UI.
-- [ ] Test form validation.
-- [ ] Test invalid email behavior.
-- [ ] Test invalid password behavior.
-- [ ] Test password confirmation behavior.
-- [ ] Test Firebase authentication behavior.
-- [ ] Test authentication error handling.
-- [ ] Test authentication state changes.
-- [ ] Test API service behavior.
-- [ ] Test API error handling.
-- [ ] Test loading states.
-- [ ] Test successful authentication flows.
-- [ ] Ensure frontend unit/component tests do not require a live PostgreSQL database.
-
-### Expected Result
-
-The frontend authentication system is tested independently and reliably.
-
----
-
-# Phase 10 — Final Authentication Verification
-
-## Goal
-
-Perform an end-to-end verification of the complete authentication flow.
-
-### Registration
-
-- [ ] Open Registration page.
-- [ ] Enter valid registration information.
-- [ ] Submit registration.
-- [ ] Confirm Firebase account creation.
-- [ ] Confirm backend profile synchronization if required by the API contract.
-- [ ] Confirm appropriate success behavior.
-
-### Login
-
-- [ ] Open Login page.
-- [ ] Enter valid credentials.
-- [ ] Submit login.
-- [ ] Confirm Firebase authentication.
-- [ ] Confirm backend API interaction if required.
-- [ ] Confirm authenticated application state.
-
-### Logout
-
-- [ ] Log out.
-- [ ] Confirm Firebase session is cleared.
-- [ ] Confirm application returns to unauthenticated state.
-
-### Error Cases
-
-- [ ] Test invalid credentials.
-- [ ] Test invalid form input.
-- [ ] Test duplicate registration.
-- [ ] Test API failure.
-- [ ] Test network failure.
-- [ ] Test unexpected backend response.
-
-### Refresh Behavior
-
-- [ ] Refresh while authenticated.
-- [ ] Confirm authentication state is restored correctly.
-- [ ] Refresh while unauthenticated.
-- [ ] Confirm unauthenticated state remains correct.
-
-### Final Verification
-
-- [ ] Run lint.
-- [ ] Run tests.
-- [ ] Run production build.
-- [ ] Confirm there are no unnecessary console errors.
-- [ ] Confirm there are no exposed secrets.
-- [ ] Confirm the frontend communicates with the backend only through the agreed API.
-
----
-
-# Future API Contract Documentation
-
-Once the backend collaborator provides the actual API, document it using this structure:
-
-## Endpoint
-
-```text
-[endpoint]
-```
-
-## HTTP Method
-
-```text
-[GET / POST / PUT / PATCH / DELETE]
-```
-
-## Purpose
-
-```text
-[What the endpoint does]
-```
-
-## Authentication
-
-```text
-[Required / Not required]
-
-[How authentication is provided]
-```
-
-## Headers
-
-```text
-[Required headers]
-```
-
-## Request Body
-
-```json
-{
-  "example": "value"
-}
-```
-
-## Success Response
-
-**Status:**
-
-```text
-[status code]
-```
-
-**Response:**
-
-```json
-{
-  "example": "value"
-}
-```
-
-## Error Responses
-
-**Status:**
-
-```text
-[status code]
-```
-
-**Response:**
-
-```json
-{
-  "error": "example"
-}
-```
-
----
-
-# Development Rule
-
-Implement **one phase at a time**.
-
-When instructed:
-
-```text
-Implement Phase 1.
-```
-
-The coding agent should implement **only Phase 1**.
-
-After Phase 1 is completed and verified:
-
-```text
-Implement Phase 2.
-```
-
-Then continue sequentially.
-
-Do not implement future phases unless explicitly requested.
-
----
-
-# Progress Tracking
-
-## Overall Progress
-
-- [x] Phase 1 — Frontend Foundation
-- [x] Phase 2 — Authentication UI
-- [x] Phase 3 — Client-Side Validation
-- [ ] Phase 4 — Authentication Service Architecture
-- [ ] Phase 5 — Firebase Authentication (partially implemented; pending service boundary and live verification)
-- [ ] Phase 6 — Backend API Integration
-- [ ] Phase 7 — Authentication State Management
-- [ ] Phase 8 — Loading / Error / Success States (partially implemented; backend/API errors remain)
-- [ ] Phase 9 — Frontend Testing
-- [ ] Phase 10 — Final Authentication Verification
-
-**Current Phase:** Phase 4
-
-**Status:** Client-side validation is complete. Firebase registration and login are currently implemented directly in the UI, with loading and user-facing error states. The next task is to establish the Phase 4 authentication service boundary before continuing with authentication state, backend integration, and testing.
+- [x] Required full name and email format validation.
+- [x] Required login password validation.
+- [x] Registration eight-character minimum and password-confirmation matching.
+- [x] Validation logic is separated in `src/features/auth/validation.ts`.
+- [x] Ten Vitest cases cover validation and password-strength behavior.
+
+The eight-character minimum is a client-side usability rule. A server-side
+password policy still needs agreement; Firebase remains authoritative for its
+own password policy.
+
+### Phase 4 — Authentication Service and State
+
+**Status: partially complete.**
+
+- [x] A narrow API boundary exists in `src/lib/users-api.ts`.
+- [ ] Create an `authService` boundary for registration, login, logout, and
+  current-user operations.
+- [ ] Move direct Firebase calls out of `LoginPage.tsx` and `RegisterPage.tsx`.
+- [ ] Establish one Firebase auth-state listener and expose loading,
+  authenticated, and unauthenticated states to the app.
+- [ ] Add a visible logout action.
+- [ ] Define the post-login route and protect session-required routes.
+
+### Phase 5 — Firebase Authentication and Profile Creation
+
+**Status: code implemented; live verification and backend security are pending.**
+
+- [x] Firebase config is loaded from Vite environment variables.
+- [x] Email/password registration and login calls are implemented.
+- [x] Firebase errors are mapped to understandable messages.
+- [x] Registration sets Firebase display name and creates the backend profile.
+- [x] Duplicate profile conflicts are surfaced through `ApiError`.
+- [x] Registration signs out before redirecting to login.
+- [ ] Confirm Email/Password provider is enabled in Firebase.
+- [ ] Verify Firebase environment values in a running environment.
+- [ ] Manually test registration, login, invalid credentials, duplicate email,
+  network failure, and logout against Firebase.
+- [x] Secure backend token verification in code and backend tests.
+- [ ] Decide recovery if Firebase account creation succeeds but backend profile
+  creation fails; the current flow can leave an orphaned Firebase account.
+- [ ] Remove `console.log(error)` from registration or replace it with approved,
+  sanitized observability.
+
+### Phase 6 — Backend API Integration
+
+**Status: initial profile endpoint integrated, not complete.**
+
+- [x] `VITE_API_BASE_URL` has a local default.
+- [x] Frontend calls `POST /users`, sends the token, and handles non-success
+  JSON responses.
+- [x] Backend validates required strings and prevents duplicate UID/email
+  records with database uniqueness constraints.
+- [x] Secure the endpoint through verified Firebase claims.
+- [x] Add API tests for `400`, `401`, and `409` paths.
+- [ ] Add an API test for the generic `500` path.
+- [ ] Define authenticated current-user/profile endpoints after server auth.
+- [ ] Establish contracts for all later domains before building their UI.
+
+### Phase 7 — Application Shell and Role-Based Experience
+
+**Status: not started.**
+
+- [ ] Create an authenticated shell and navigation.
+- [ ] Route hikers to booking pages and coordinators to operations pages using
+  backend-authorized roles.
+- [ ] Add loading, unauthorized, not-found, and recoverable error pages.
+- [ ] Do not rely on client role state as authorization.
+
+### Phase 8 — Hiker Booking Experience
+
+**Status: not started.**
+
+- [ ] Trail listing and availability UI for Sulfatara Trail and Alto Peak.
+- [ ] Group booking form and booking participant management.
+- [ ] Booking status, notifications, trek information, and certificates.
+- [ ] Preserve the rule that one booking represents one group.
+- [ ] Do not provide guide selection; assignment happens at physical check-in
+  through FIFO dispatch.
+- [ ] Wait for confirmed capacity, pricing, and booking API rules rather than
+  inventing client values.
+
+### Phase 9 — Coordinator Operations Experience
+
+**Status: not started.**
+
+- [ ] Booking management and group check-in.
+- [ ] Guide availability and FIFO dispatch visibility.
+- [ ] Active trek monitoring, safety/incident workflow, weather status, and
+  operational settings.
+- [ ] Tourism analytics and system-record management.
+- [ ] Use accurate wording: near-real-time group monitoring through assigned
+  guide devices, not individual-hiker real-time tracking.
+
+### Phase 10 — Quality and Release Verification
+
+**Status: started only for validation-unit coverage.**
+
+- [x] Validation unit tests.
+- [ ] Component tests for login, registration, feedback, and loading behavior.
+- [ ] Mocked Firebase/auth-service tests.
+- [ ] API-service tests for success, authentication, validation, conflict,
+  network, and server errors.
+- [ ] End-to-end tests for registration, login, refresh persistence, logout,
+  and protected routing.
+- [ ] Accessibility review of authentication and later feature pages.
+- [ ] Production environment configuration and secret review.
+- [ ] Final lint, tests, typechecks, builds, and manual smoke test.
+
+## Recommended Next Work
+
+1. Secure `POST /users` by verifying Firebase tokens and deriving identity on
+   the backend.
+2. Extract Firebase calls into an authentication service and add shared auth
+   state.
+3. Add logout, protected routes, and an authenticated landing page.
+4. Add tests for auth service, auth pages, and the user-profile API boundary.
+5. Agree on the booking domain/API contract before implementing booking UI.
+
+## Implementation Rules
+
+- Implement one milestone at a time and update this document after verification.
+- Keep roles, capacity, pricing, dispatch, safety, and state transitions
+  authoritative on the backend.
+- Do not connect the frontend directly to PostgreSQL.
+- Do not invent trail coordinates, capacity limits, pricing, checkpoint data,
+  weather thresholds, or guide-selection behavior.
+- Record whether each result is locally verified, mocked, or verified against
+  live services.

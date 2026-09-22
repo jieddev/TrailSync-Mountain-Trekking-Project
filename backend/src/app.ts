@@ -1,9 +1,13 @@
 import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
-import { Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { prisma } from "./lib/prisma.js";
+import {
+  type AuthenticatedRequest,
+  requireFirebaseAuth,
+} from "./middleware/require-firebase-auth.js";
 
 const corsOrigin = process.env.CORS_ORIGIN ?? "http://localhost:5173";
 
@@ -28,64 +32,44 @@ const requestLogger = (request: Request): AppLogger =>
 const requestId = (request: Request): string | undefined =>
   (request as RequestWithLogger).id;
 
-app.post("/users", async (request, response) => {
+app.post("/users", requireFirebaseAuth, async (request, response) => {
   const log = requestLogger(request);
-  const { firebaseUid, fullName, email, role } = request.body as Record<
-    string,
-    unknown
-  >;
+  const { fullName } = request.body as Record<string, unknown>;
+  const { authUser } = request as AuthenticatedRequest;
 
-  if (
-    typeof firebaseUid !== "string" ||
-    typeof fullName !== "string" ||
-    typeof email !== "string" ||
-    !firebaseUid.trim() ||
-    !fullName.trim() ||
-    !email.trim()
-  ) {
+  if (typeof fullName !== "string" || !fullName.trim()) {
     log.warn(
-      {
-        requestId: requestId(request),
-        hasFirebaseUid: typeof firebaseUid === "string" && Boolean(firebaseUid.trim()),
-        hasFullName: typeof fullName === "string" && Boolean(fullName.trim()),
-        hasEmail: typeof email === "string" && Boolean(email.trim()),
-      },
-      "User profile creation rejected because required fields were missing",
+      { requestId: requestId(request) },
+      "User profile creation rejected because full name was missing",
     );
 
     return response.status(400).json({
-      message: "firebaseUid, fullName, and email are required strings.",
+      message: "fullName is required and must be a non-empty string.",
     });
   }
 
-  if (
-    role !== undefined &&
-    role !== "HIKER" &&
-    role !== "GUIDE" &&
-    role !== "COORDINATOR"
-  ) {
+  if (!authUser?.email) {
     log.warn(
-      { requestId: requestId(request), role },
-      "User profile creation rejected because role was invalid",
+      { requestId: requestId(request), firebaseUid: authUser?.firebaseUid },
+      "User profile creation rejected because verified account had no email",
     );
 
     return response.status(400).json({
-      message: "role must be HIKER, GUIDE, or COORDINATOR.",
+      message: "The verified Firebase account must have an email address.",
     });
   }
 
   try {
     log.info(
-      { requestId: requestId(request), role: role ?? "HIKER" },
+      { requestId: requestId(request), firebaseUid: authUser.firebaseUid },
       "User profile creation requested",
     );
 
     const user = await prisma.user.create({
       data: {
-        firebaseUid: firebaseUid.trim(),
+        firebaseUid: authUser.firebaseUid,
         fullName: fullName.trim(),
-        email: email.trim().toLowerCase(),
-        ...(role === undefined ? {} : { role }),
+        email: authUser.email.trim().toLowerCase(),
       },
     });
 
@@ -96,12 +80,15 @@ app.post("/users", async (request, response) => {
 
     return response.status(201).json(user);
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+    if (isPrismaUniqueConstraintError(error)) {
       log.warn(
         {
           requestId: requestId(request),
-          prismaCode: error.code,
-          target: error.meta?.target,
+          prismaCode: (error as { code?: string }).code,
+          target:
+            error instanceof PrismaClientKnownRequestError
+              ? error.meta?.target
+              : undefined,
         },
         "User profile creation rejected because profile already exists",
       );
@@ -122,6 +109,14 @@ app.post("/users", async (request, response) => {
     });
   }
 });
+
+function isPrismaUniqueConstraintError(error: unknown) {
+  return (
+    (error instanceof PrismaClientKnownRequestError ||
+      (typeof error === "object" && error !== null && "code" in error)) &&
+    (error as { code?: string }).code === "P2002"
+  );
+}
 
 app.use(
   (
