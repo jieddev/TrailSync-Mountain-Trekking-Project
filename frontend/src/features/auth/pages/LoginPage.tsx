@@ -92,17 +92,24 @@ export default function LoginPage() {
 
   return (
     <AuthPageLayout
-      description="Sign in to manage your TrailSync experience."
+      description="Sign in to continue planning and managing your TrailSync trekking experience."
       footerPrompt="New to TrailSync?"
       footerText="Create an account"
       footerTo="/register"
-      title="Welcome back"
+      formTitle="Sign in to TrailSync."
+      title="Welcome back to TrailSync."
     >
-      <form className="mt-8 space-y-4" noValidate onSubmit={handleSubmit}>
-        <div aria-live="polite" className="min-h-5 text-sm text-rose-300">
+      <form className="space-y-3" noValidate onSubmit={handleSubmit}>
+        <div
+          aria-live="polite"
+          className={formError ? 'text-sm text-rose-600' : 'hidden'}
+        >
           {formError}
         </div>
-        <div aria-live="polite" className="min-h-5 text-sm text-emerald-300">
+        <div
+          aria-live="polite"
+          className={successMessage ? 'text-sm text-[#007e4f]' : 'hidden'}
+        >
           {successMessage}
         </div>
         <AuthFormField
@@ -112,6 +119,7 @@ export default function LoginPage() {
           label="Email address"
           name="email"
           onChange={handleChange}
+          placeholder="name@example.com"
           type="email"
           value={values.email}
         />
@@ -122,10 +130,11 @@ export default function LoginPage() {
           label="Password"
           name="password"
           onChange={handleChange}
+          placeholder="Enter your password"
           trailingAction={
             <button
               aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
-              className="rounded-sm p-1 text-slate-400 outline-none hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400"
+              className="rounded-sm p-1 text-[#70857b] outline-none hover:text-[#173a2e] focus-visible:ring-2 focus-visible:ring-[#008755]"
               onClick={() => setIsPasswordVisible((visible) => !visible)}
               type="button"
             >

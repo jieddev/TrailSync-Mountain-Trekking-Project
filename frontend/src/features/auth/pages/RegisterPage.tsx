@@ -70,18 +70,18 @@ export default function RegisterPage() {
   const passwordStrength = getPasswordStrength(values.password)
   const strengthStyles = {
     Weak: {
-      bar: 'bg-rose-400',
-      label: 'text-rose-300',
+      bar: 'bg-rose-500',
+      label: 'text-rose-600',
       width: 'w-1/3',
     },
     Fair: {
-      bar: 'bg-amber-400',
-      label: 'text-amber-300',
+      bar: 'bg-amber-500',
+      label: 'text-amber-600',
       width: 'w-2/3',
     },
     Strong: {
-      bar: 'bg-emerald-400',
-      label: 'text-emerald-300',
+      bar: 'bg-[#008755]',
+      label: 'text-[#007e4f]',
       width: 'w-full',
     },
   }
@@ -165,17 +165,24 @@ export default function RegisterPage() {
 
   return (
     <AuthPageLayout
-      description="Create your TrailSync account to begin planning your next trek."
+      description="Create your account and start planning your next TrailSync trekking experience."
       footerPrompt="Already have an account?"
       footerText="Log in"
       footerTo="/login"
-      title="Create an account"
+      formTitle="Create your account."
+      title="Start your TrailSync journey."
     >
-      <form className="mt-8 space-y-4" noValidate onSubmit={handleSubmit}>
-        <div aria-live="polite" className="min-h-5 text-sm text-rose-300">
+      <form className="space-y-3" noValidate onSubmit={handleSubmit}>
+        <div
+          aria-live="polite"
+          className={formError ? 'text-sm text-rose-600' : 'hidden'}
+        >
           {formError}
         </div>
-        <div aria-live="polite" className="min-h-5 text-sm text-emerald-300">
+        <div
+          aria-live="polite"
+          className={successMessage ? 'text-sm text-[#007e4f]' : 'hidden'}
+        >
           {successMessage}
         </div>
         <AuthFormField
@@ -185,6 +192,7 @@ export default function RegisterPage() {
           label="Full name"
           name="fullName"
           onChange={handleChange}
+          placeholder="Enter your full name"
           type="text"
           value={values.fullName}
         />
@@ -195,6 +203,7 @@ export default function RegisterPage() {
           label="Email address"
           name="email"
           onChange={handleChange}
+          placeholder="name@example.com"
           type="email"
           value={values.email}
         />
@@ -206,10 +215,11 @@ export default function RegisterPage() {
           name="password"
           onBlur={handlePasswordBlur}
           onChange={handleChange}
+          placeholder="Create a password"
           supplemental={
             passwordStrength ? (
               <div className="pt-2" role="status">
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[#52675e]">
                   Password strength:{' '}
                   <span className={strengthStyles[passwordStrength].label}>
                     {passwordStrength}
@@ -217,7 +227,7 @@ export default function RegisterPage() {
                 </p>
                 <div
                   aria-hidden="true"
-                  className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-700"
+                  className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#dce8e1]"
                 >
                   <div
                     className={`h-full rounded-full ${strengthStyles[passwordStrength].bar} ${strengthStyles[passwordStrength].width}`}
@@ -229,7 +239,7 @@ export default function RegisterPage() {
           trailingAction={
             <button
               aria-label={isPasswordVisible ? 'Hide password' : 'Show password'}
-              className="rounded-sm p-1 text-slate-400 outline-none hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400"
+              className="rounded-sm p-1 text-[#70857b] outline-none hover:text-[#173a2e] focus-visible:ring-2 focus-visible:ring-[#008755]"
               onClick={() => setIsPasswordVisible((visible) => !visible)}
               type="button"
             >
@@ -246,6 +256,7 @@ export default function RegisterPage() {
           label="Confirm password"
           name="confirmPassword"
           onChange={handleChange}
+          placeholder="Confirm your password"
           trailingAction={
             <button
               aria-label={
@@ -253,7 +264,7 @@ export default function RegisterPage() {
                   ? 'Hide confirm password'
                   : 'Show confirm password'
               }
-              className="rounded-sm p-1 text-slate-400 outline-none hover:text-slate-200 focus-visible:ring-2 focus-visible:ring-emerald-400"
+              className="rounded-sm p-1 text-[#70857b] outline-none hover:text-[#173a2e] focus-visible:ring-2 focus-visible:ring-[#008755]"
               onClick={() => setIsConfirmPasswordVisible((visible) => !visible)}
               type="button"
             >
