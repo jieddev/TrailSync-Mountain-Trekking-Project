@@ -19,10 +19,19 @@ The system aims to improve how trekking activities are managed by replacing manu
 - Digital certificates
 - Tourism analytics
 
-The primary trails currently in scope are:
+The system will focus on **one trekking trail only**.
 
-- **Sulfatara Trail**
-- **Alto Peak**
+The current working trail is:
+
+> **Lake Janagdan**
+
+However, the final trail to be used by the project is **not yet permanently finalized**. Lake Janagdan is the current target, but the selected trail may change later.
+
+The important scope decision is:
+
+> **TrailSync will support one selected trail rather than multiple trails.**
+
+Therefore, the system should be designed around a single-trail operational flow while avoiding unnecessary assumptions that the current trail name can never change.
 
 ---
 
@@ -66,7 +75,7 @@ TrailSync has three primary user roles.
 **Responsibilities:**
 
 - Register and log in
-- View available trails
+- View the available trail
 - Make a booking
 - Provide booking/group information
 - View booking status
@@ -154,11 +163,41 @@ DIGITAL CERTIFICATE
 ANALYTICS
 ```
 
-A booking represents **one trekking group**.
+A booking represents **one trekking group/package**.
 
 A group may contain one or multiple hikers.
 
-Therefore, the data model should distinguish between:
+The currently confirmed standard package is:
+
+```text
+1 Booking / Package
+    ↓
+Up to 5 Guests
+    ↓
+1 Assigned Guide
+    ↓
+₱550 Package Price
+```
+
+A group does **not** have to reach five participants to make a booking.
+
+For example:
+
+```text
+3 Guests
+   ↓
+Still one booking/package
+   ↓
+Still assigned 1 guide
+   ↓
+Still pays ₱550
+```
+
+Therefore, the package price is **not reduced simply because the group has fewer than five guests**.
+
+The exact rules for groups exceeding five participants are currently **TBD** unless explicitly established later.
+
+The data model should distinguish between:
 
 ```text
 Booking
@@ -176,14 +215,35 @@ A hiker booking alone is valid and represents a one-person group.
 
 These are current project decisions and should not be changed casually.
 
-## 5.1 One Booking = One Group
+## 5.1 One Booking = One Group / Package
 
-Each booking represents one trekking group.
+Each booking represents one trekking group and one package.
 
-A group can contain:
+A group can contain fewer than five participants.
 
-- 1 participant
-- Multiple participants
+The current confirmed package rule is:
+
+```text
+₱550
+1 Guide
+Up to 5 Guests
+```
+
+A group with fewer than five participants still pays the full **₱550 package price**.
+
+Example:
+
+```text
+5 Guests → ₱550
+4 Guests → ₱550
+3 Guests → ₱550
+2 Guests → ₱550
+1 Guest  → ₱550
+```
+
+This rule should be treated as confirmed.
+
+The exact pricing and package rules for groups exceeding five participants are currently **TBD**.
 
 The system should record the actual participants separately from the booking itself.
 
@@ -409,7 +469,11 @@ The system is expected to support:
 - Local/offline checkpoint recording
 - Synchronization when connectivity returns
 
+Because the system supports only one selected trail, checkpoint data will belong to that selected trail.
+
 The exact checkpoint locations have **not yet been finalized**.
+
+The current trail name may also change later.
 
 Do not invent:
 
@@ -432,6 +496,8 @@ Potential uses include:
 - Trail boundary monitoring
 - Location-based safety notifications
 - Operational monitoring
+
+Because TrailSync focuses on one trail, the geofencing system only needs to support the selected trail and its relevant safety zones.
 
 Actual geographic boundaries and hazard coordinates are currently **TBD** until reliable trail data is obtained.
 
@@ -494,7 +560,9 @@ TrailSync should support daily visitor/trail capacity management.
 
 Capacity should be configurable rather than hardcoded.
 
-The exact official capacity for each trail is currently:
+Because the system focuses on one trail, the capacity configuration currently applies to the selected trail.
+
+The exact official capacity for the trail is currently:
 
 **TBD**
 
@@ -514,21 +582,31 @@ Do not invent capacity numbers.
 
 # 14. Booking and Pricing
 
-A booking represents a trekking group.
+A booking represents one trekking group/package.
 
-The exact pricing rules for each trail are currently:
-
-**TBD**
-
-A previously discussed Sulfatara pricing/package concept has **not** been finalized and must not be treated as an established business rule.
-
-Do not hardcode assumptions such as:
+The currently confirmed package is:
 
 ```text
-5 people = ₱550
+₱550 per booking/package
+1 guide
+Up to 5 guests
 ```
 
-until the actual pricing policy has been confirmed.
+The package price remains **₱550 even when fewer than five guests participate**.
+
+For example:
+
+```text
+1 guest  → ₱550
+2 guests → ₱550
+3 guests → ₱550
+4 guests → ₱550
+5 guests → ₱550
+```
+
+The package therefore represents a fixed booking/package price rather than a per-person price for the first five participants.
+
+The exact pricing/package rules for groups exceeding five participants are currently **TBD**.
 
 Pricing should eventually be represented as configurable business data rather than scattered hardcoded values.
 
@@ -536,7 +614,7 @@ Pricing should eventually be represented as configurable business data rather th
 
 # 15. Booking Participants
 
-Because one booking represents one group, the system should conceptually support:
+Because one booking represents one group/package, the system should conceptually support:
 
 ```text
 BOOKING
@@ -551,15 +629,20 @@ Booking A
    ├── Hiker 1
    ├── Hiker 2
    ├── Hiker 3
-   └── Hiker 4
+   ├── Hiker 4
+   └── Hiker 5
 ```
 
 or:
 
 ```text
 Booking B
-   └── Hiker 1
+   ├── Hiker 1
+   ├── Hiker 2
+   └── Hiker 3
 ```
+
+Both are valid bookings.
 
 The exact database implementation belongs to the backend.
 
@@ -766,6 +849,8 @@ The frontend should not directly connect to PostgreSQL.
 
 The frontend should communicate with the backend through defined API contracts.
 
+Firebase Authentication has already been established as part of the current authentication setup.
+
 ---
 
 # 22. Frontend / Backend Separation
@@ -777,7 +862,7 @@ The current development arrangement is:
 ```text
 Frontend Developer
       ↓
-React / Vite / TypeScript / Tailwind / Firebase Auth
+React / Vite / TypeScript / Tailwind
 ```
 
 and:
@@ -787,6 +872,8 @@ Backend Collaborator
       ↓
 Node.js / Express / PostgreSQL
 ```
+
+Firebase Authentication is part of the overall system authentication architecture, but backend authentication verification and PostgreSQL user management remain backend responsibilities.
 
 The two sides should communicate through an agreed API contract.
 
@@ -801,7 +888,7 @@ The frontend is responsible for:
 - Pages
 - Client-side routing
 - Client-side validation
-- Firebase client authentication
+- Firebase client integration where applicable to the agreed frontend scope
 - API requests
 - UI state
 - Loading states
@@ -839,11 +926,17 @@ The frontend must never be treated as the authority for:
 
 # 23. Current Authentication Development Situation
 
-The authentication work is being developed in stages.
+The authentication work has been developed in stages.
 
-The frontend currently has a React/Vite/Tailwind foundation.
+The frontend now has:
 
-The authentication UI and Firebase integration are being implemented separately from the backend API.
+- React/Vite/Tailwind foundation
+- Login page
+- Registration page
+- Client-side form validation
+- Firebase Authentication integration as part of the current system authentication setup
+
+The backend collaborator is responsible for the server-side authentication verification and application-user/database integration.
 
 The backend collaborator previously proposed an authentication task involving:
 
@@ -990,6 +1083,8 @@ Audit Logs
 
 This is a **conceptual model**, not a finalized database schema.
 
+The system currently focuses on **one selected trail**, but the data model should avoid unnecessary assumptions that the trail name will remain permanently unchanged.
+
 Do not create every table immediately.
 
 Only introduce entities when they are required by an actual feature or confirmed business rule.
@@ -1119,7 +1214,7 @@ The frontend authentication implementation should maintain a clear boundary:
 ```text
 React Component
       ↓
-Auth Service
+Auth Service / Firebase Integration
       ↓
 Firebase Authentication
 ```
@@ -1136,6 +1231,8 @@ getCurrentUser()
 Firebase-specific implementation should remain inside the authentication service where practical.
 
 UI components should not become tightly coupled to Firebase APIs.
+
+Where Firebase Authentication work is assigned to another developer, the frontend should integrate with the agreed authentication interface rather than duplicating authentication logic.
 
 ---
 
@@ -1170,6 +1267,7 @@ Examples include:
 
 - Guide assignment
 - Booking capacity
+- Package pricing
 - Trek state transitions
 - GPS synchronization
 - Checkpoint synchronization
@@ -1216,7 +1314,7 @@ Temporary local offline storage
 
 Frontend development follows a milestone-based approach.
 
-The current sequence is:
+The original frontend authentication milestone sequence was:
 
 ```text
 Phase 1 — Frontend Foundation
@@ -1231,7 +1329,19 @@ Phase 9 — Frontend Testing
 Phase 10 — Final Authentication Verification
 ```
 
-Only implement the current phase unless a task explicitly requires something from a later phase.
+However, the actual assigned frontend scope is limited to the frontend work agreed upon with the team.
+
+The completed frontend tasks currently include:
+
+```text
+Phase 1 — Frontend Foundation
+Phase 2 — Authentication UI
+Phase 3 — Client-Side Validation
+```
+
+Firebase Authentication and backend integration should not automatically be treated as part of the remaining frontend assignment unless explicitly assigned.
+
+Future frontend work should be based on newly agreed project tasks rather than automatically continuing the old milestone sequence.
 
 ---
 
@@ -1248,17 +1358,17 @@ The frontend foundation has been established using:
 
 The initial Vite starter/demo content has been removed.
 
-The application can be:
+The frontend authentication UI has been implemented, including:
 
-```text
-npm run dev
-npm run lint
-npm run build
-```
+- Login page
+- Registration page
+- Client-side validation
 
-The next planned frontend work is:
+Firebase Authentication is now part of the current overall authentication setup.
 
-> **Phase 2 — Authentication UI**
+The previously defined authentication milestone work should be considered completed only to the extent that it has actually been implemented and verified.
+
+The next frontend task should be explicitly agreed upon rather than assumed from the old authentication milestone sequence.
 
 ---
 
@@ -1296,9 +1406,9 @@ A frontend developer may propose an API design, but it should be treated as a pr
 
 The following should be treated as **TBD** rather than assumptions:
 
+- Final selected trail name
 - Official trail carrying capacity
-- Exact trail pricing
-- Exact group/package pricing rules
+- Exact rules for groups exceeding the standard five-guest package
 - Official trail GPS coordinates
 - Trail boundaries
 - Checkpoint locations
@@ -1313,7 +1423,20 @@ The following should be treated as **TBD** rather than assumptions:
 - Whether hikers may request/select guides
 - Advanced AI analytics requirements
 
-When encountering one of these areas, do not invent a requirement.
+The following are currently **confirmed**:
+
+- TrailSync focuses on one trail only.
+- Lake Janagdan is the current working/target trail, but the final trail may change.
+- One booking represents one trekking group/package.
+- The standard package is ₱550.
+- The standard package includes one guide and up to five guests.
+- A group with fewer than five guests still pays the full ₱550 package price.
+- Guide assignment occurs at check-in.
+- Guide assignment uses FIFO.
+- Hikers do not choose guides under the current design.
+- Group tracking is based on the assigned guide's device rather than individual hiker devices.
+
+When encountering an unresolved area, do not invent a requirement.
 
 Instead:
 
@@ -1327,8 +1450,12 @@ Instead:
 
 AI coding agents working on TrailSync must not assume:
 
+- That Lake Janagdan is permanently the final trail
+- That more than one trail is currently required
 - A specific trail capacity
-- A specific trail price
+- Pricing rules beyond the confirmed ₱550 package
+- That fewer than five guests receive a lower package price
+- Rules for groups exceeding five guests unless explicitly defined
 - Fake GPS coordinates
 - Fake checkpoint locations
 - A finalized API response
@@ -1518,6 +1645,8 @@ Current architectural direction:
 
 The architecture is intentionally a **modular monolith**, not microservices.
 
+The system currently operates around one selected trekking trail.
+
 ---
 
 # 45. Engineering Philosophy
@@ -1565,7 +1694,7 @@ unless a real requirement justifies them.
 
 # 46. Do Not Invent Trail Data
 
-TrailSync will eventually require real geographic information.
+TrailSync will eventually require real geographic information for its single selected trail.
 
 Until legitimate data is obtained, do not invent:
 
@@ -1576,6 +1705,8 @@ Until legitimate data is obtained, do not invent:
 - Route paths
 - Elevation data
 
+Lake Janagdan is the current working trail name, but the final selected trail may change.
+
 Mock data may be used for development only when it is clearly identified as mock/test data and is not represented as real trail information.
 
 ---
@@ -1584,17 +1715,27 @@ Mock data may be used for development only when it is clearly identified as mock
 
 Do not invent:
 
-- Pricing
 - Capacity
+- Rules for groups exceeding five guests
 - Guide selection rules
 - Weather thresholds
-- Payment rules
+- Payment rules beyond the confirmed ₱550 package
 - Queue policies
 - Certificate requirements
 
 when the actual rule has not been confirmed.
 
-If necessary, use:
+The currently confirmed package rule is:
+
+```text
+₱550
+1 guide
+Up to 5 guests
+```
+
+A group with fewer than five guests still pays ₱550.
+
+If a rule is not confirmed, use:
 
 ```text
 TBD
@@ -1634,7 +1775,23 @@ Incorrect:
 
 > Real-time monitoring continues even without connectivity.
 
-The system documentation, UI, proposal, and implementation should not overclaim system capabilities.
+Correct:
+
+> TrailSync currently focuses on one selected trail.
+
+Incorrect:
+
+> TrailSync permanently supports every trail in the area.
+
+Correct:
+
+> The standard booking package costs ₱550 for up to five guests with one guide.
+
+Incorrect:
+
+> Guests pay ₱110 each.
+
+The system documentation, UI, proposal, and implementation should not overclaim system capabilities or business rules.
 
 ---
 
@@ -1704,6 +1861,8 @@ CERTIFICATE
 ANALYTICS
 ```
 
+The system currently focuses on **one selected trail**.
+
 Every major feature should support this operational flow or provide a clear supporting capability.
 
 If a proposed feature does not:
@@ -1719,19 +1878,21 @@ then question whether it belongs in the current scope.
 
 ---
 
-# 52. Current Development Priority
+# 52. Current Development Status
 
-The immediate frontend priority is:
+The frontend authentication foundation has been completed to the currently assigned scope:
 
 ```text
-Phase 2 — Authentication UI
+Phase 1 — Frontend Foundation ✅
+Phase 2 — Authentication UI ✅
+Phase 3 — Client-Side Validation ✅
 ```
 
-The frontend should proceed through the milestone document sequentially.
+The project now also has Firebase Authentication as part of the overall authentication setup.
 
-The backend collaborator will independently develop the Node.js/Express/PostgreSQL side.
+The backend collaborator is responsible for the Node.js/Express/PostgreSQL side, including server-side token verification and application-user/database integration.
 
-When backend authentication details become available, the frontend API integration should be updated according to the **actual agreed API contract**, not assumptions from older tasks.
+The immediate next development task should be determined collaboratively rather than automatically continuing the previous frontend authentication milestone sequence.
 
 ---
 
