@@ -1,6 +1,6 @@
 import type { ChangeEvent, FormEvent } from 'react'
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 
 import AuthFormField from '../components/AuthFormField'
 import AuthPageLayout from '../components/AuthPageLayout'
@@ -27,6 +27,7 @@ type LoginNavigationState = {
 
 export default function LoginPage() {
   const location = useLocation()
+  const navigate = useNavigate()
   const registrationState = location.state as LoginNavigationState | null
   const [values, setValues] = useState<LoginFormValues>({
     ...initialValues,
@@ -65,8 +66,12 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await signInWithEmailAndPassword(auth, values.email.trim(), values.password)
-      setSuccessMessage('You are now logged in.')
+      await signInWithEmailAndPassword(
+        auth,
+        values.email.trim(),
+        values.password,
+      )
+      navigate('/home', { replace: true })
     } catch (error) {
       const code = (error as { code?: string }).code
 
@@ -166,13 +171,7 @@ function EyeIcon() {
         strokeLinejoin="round"
         strokeWidth="1.8"
       />
-      <circle
-        cx="12"
-        cy="12"
-        r="2.5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
+      <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.8" />
     </svg>
   )
 }
