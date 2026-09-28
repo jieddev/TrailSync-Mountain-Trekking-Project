@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 
 import { firebaseAuth } from '../lib/firebase-admin.js';
+import { logger } from '../lib/logger.js';
 
 export type AuthenticatedRequest = Request & {
   authUser?: {
@@ -26,9 +27,19 @@ export async function requireFirebaseAuth(
   response: Response,
   next: NextFunction,
 ) {
-  const token = getBearerToken(request.get('authorization'));
+  const log = (request as Request & { log?: typeof logger }).log ?? logger;
+  const authorizationHeader = request.get('authorization');
+  const token = getBearerToken(authorizationHeader);
 
   if (!token) {
+    log.warn(
+      {
+        authorizationHeaderPresent: Boolean(authorizationHeader),
+        authorizationHeaderValid: false,
+      },
+      'Firebase authentication rejected because the bearer token was missing or malformed',
+    );
+
     return response
       .status(401)
       .json({ message: 'A valid Firebase ID token is required.' });
@@ -43,7 +54,12 @@ export async function requireFirebaseAuth(
     };
 
     return next();
-  } catch {
+  } catch (error) {
+    log.warn(
+      { err: error },
+      'Firebase authentication rejected because ID token verification failed',
+    );
+
     return response
       .status(401)
       .json({ message: 'A valid Firebase ID token is required.' });
