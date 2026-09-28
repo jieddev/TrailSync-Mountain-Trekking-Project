@@ -110,6 +110,59 @@ app.post("/users", requireFirebaseAuth, async (request, response) => {
   }
 });
 
+app.get(["/users/me", "/api/v1/users/me"], requireFirebaseAuth, async (request, response) => {
+  const log = requestLogger(request);
+  const { authUser } = request as AuthenticatedRequest;
+
+  if (!authUser) {
+    return response.status(401).json({
+      message: "A valid Firebase ID token is required.",
+    });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { firebaseUid: authUser.firebaseUid },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+      },
+    });
+
+    if (!user) {
+      log.warn(
+        { requestId: requestId(request), firebaseUid: authUser.firebaseUid },
+        "Current user profile was not found",
+      );
+
+      return response.status(404).json({
+        error: {
+          code: "PROFILE_NOT_FOUND",
+          message: "User profile was not found.",
+        },
+        requestId: requestId(request),
+      });
+    }
+
+    return response.status(200).json(user);
+  } catch (error) {
+    log.error(
+      { requestId: requestId(request), err: error },
+      "Current user profile lookup failed",
+    );
+
+    return response.status(500).json({
+      error: {
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Could not retrieve user profile.",
+      },
+      requestId: requestId(request),
+    });
+  }
+});
+
 function isPrismaUniqueConstraintError(error: unknown) {
   return (
     (error instanceof PrismaClientKnownRequestError ||

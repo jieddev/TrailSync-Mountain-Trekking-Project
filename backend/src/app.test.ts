@@ -11,6 +11,7 @@ vi.mock('./lib/prisma.js', () => ({
   prisma: {
     user: {
       create: vi.fn(),
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -21,6 +22,7 @@ import { prisma } from './lib/prisma.js';
 
 const verifyIdToken = vi.mocked(firebaseAuth.verifyIdToken);
 const createUser = vi.mocked(prisma.user.create);
+const findUniqueUser = vi.mocked(prisma.user.findUnique);
 
 describe('POST /users', () => {
   beforeEach(() => {
@@ -127,5 +129,107 @@ describe('POST /users', () => {
       .send({ fullName: 'Trail Hiker' });
 
     expect(response.status).toBe(409);
+  });
+});
+
+describe('GET /users/me', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('returns the profile belonging to the authenticated Firebase user', async () => {
+    verifyIdToken.mockResolvedValue({
+      email: 'hiker@example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+    findUniqueUser.mockResolvedValue({
+      email: 'hiker@example.com',
+      fullName: 'Trail Hiker',
+      id: 'user-id',
+      role: 'HIKER',
+    } as never);
+
+    const response = await request(app)
+      .get('/api/v1/users/me')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        firebaseUid: 'attacker-uid',
+        role: 'COORDINATOR',
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      email: 'hiker@example.com',
+      fullName: 'Trail Hiker',
+      id: 'user-id',
+      role: 'HIKER',
+    });
+    expect(findUniqueUser).toHaveBeenCalledWith({
+      where: { firebaseUid: 'firebase-hiker-uid' },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        role: true,
+      },
+    });
+  });
+
+  it('rejects a request without a bearer token', async () => {
+    const response = await request(app).get('/users/me');
+
+    expect(response.status).toBe(401);
+    expect(findUniqueUser).not.toHaveBeenCalled();
+  });
+
+  it('rejects an invalid bearer token', async () => {
+    verifyIdToken.mockRejectedValue(new Error('Invalid token'));
+
+    const response = await request(app)
+      .get('/users/me')
+      .set('Authorization', 'Bearer invalid-token');
+
+    expect(response.status).toBe(401);
+    expect(findUniqueUser).not.toHaveBeenCalled();
+  });
+
+  it('returns not found when the authenticated user has no profile', async () => {
+    verifyIdToken.mockResolvedValue({
+      email: 'hiker@example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+    findUniqueUser.mockResolvedValue(null);
+
+    const response = await request(app)
+      .get('/users/me')
+      .set('Authorization', 'Bearer valid-token');
+
+    expect(response.status).toBe(404);
+    expect(response.body.error).toEqual({
+      code: 'PROFILE_NOT_FOUND',
+      message: 'User profile was not found.',
+    });
+  });
+
+  it('does not expose database errors', async () => {
+    verifyIdToken.mockResolvedValue({
+      email: 'hiker@example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+    findUniqueUser.mockRejectedValue(new Error('secret database details'));
+
+    const response = await request(app)
+      .get('/users/me')
+      .set('Authorization', 'Bearer valid-token');
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Could not retrieve user profile.',
+      },
+      requestId: expect.any(String),
+    });
+    expect(JSON.stringify(response.body)).not.toContain('secret database details');
   });
 });
