@@ -5,10 +5,18 @@ type CreateUserInput = {
   idToken: string
 }
 
+export type CurrentUserProfile = {
+  id: string
+  fullName: string
+  email: string
+  role: string
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly code?: string,
   ) {
     super(message)
     this.name = 'ApiError'
@@ -35,4 +43,24 @@ export async function createUser({ idToken, ...user }: CreateUserInput) {
       response.status,
     )
   }
+}
+
+export async function getCurrentUserProfile(idToken: string) {
+  const response = await fetch(`${apiBaseUrl}/api/v1/users/me`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as {
+      error?: { code?: string }
+    } | null
+
+    throw new ApiError(
+      'Could not load your TrailSync profile.',
+      response.status,
+      payload?.error?.code,
+    )
+  }
+
+  return (await response.json()) as CurrentUserProfile
 }
