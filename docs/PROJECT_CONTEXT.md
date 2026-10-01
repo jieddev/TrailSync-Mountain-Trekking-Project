@@ -21,17 +21,40 @@ The system aims to improve how trekking activities are managed by replacing manu
 
 The system will focus on **one trekking trail only**.
 
-The current working trail is:
+The current working/provisional trail is:
 
 > **Lake Janagdan**
 
-However, the final trail to be used by the project is **not yet permanently finalized**. Lake Janagdan is the current target, but the selected trail may change later.
+However, **Lake Janagdan has not yet been officially finalized as the project's permanent trail**.
 
-The important scope decision is:
+The current project decision is:
 
-> **TrailSync will support one selected trail rather than multiple trails.**
+> **TrailSync will support one selected trail only.**
 
-Therefore, the system should be designed around a single-trail operational flow while avoiding unnecessary assumptions that the current trail name can never change.
+The team is still determining which trail will be the final selected trail. Until that decision is formally made, Lake Janagdan should be treated as the **provisional working trail for development and discussion**, not as the final production trail.
+
+Once the final trail is formally selected and approved, that trail becomes the **fixed trail scope of the project**. The system is not intended to support casual switching between different trails.
+
+Any change to the selected trail after final approval should be treated as a **formal project-level change** because trail-specific implementation may depend on:
+
+- Actual map data
+- GPS coordinates
+- Trail boundaries
+- Checkpoint locations
+- Hazard zones
+- Route information
+- Weather/safety configuration
+- Other collected geographic data
+
+Therefore:
+
+- Before final selection: the trail is **TBD**, with Lake Janagdan as the current working/provisional trail.
+- After final selection: the chosen trail is treated as the **fixed project trail** unless an explicit project decision approves changing it.
+- The system does **not** need runtime multi-trail switching functionality.
+- Developers and AI coding agents must not assume that Lake Janagdan is already the final trail.
+- Developers and AI coding agents must not implement multiple-trail functionality merely to accommodate the unresolved final selection.
+
+The architecture should allow the selected trail to be represented as application data/configuration rather than unnecessarily scattering the trail name throughout the codebase, but this does **not** mean that TrailSync is intended to become a multi-trail system.
 
 ---
 
@@ -147,19 +170,33 @@ The central operational flow is:
 
 ```text
 BOOKING
+
    ↓
+
 CHECK-IN
+
    ↓
+
 GUIDE DISPATCH
+
    ↓
+
 TREK SESSION
+
    ↓
+
 GPS / CHECKPOINT / SAFETY MONITORING
+
    ↓
+
 TREK COMPLETION
+
    ↓
+
 DIGITAL CERTIFICATE
+
    ↓
+
 ANALYTICS
 ```
 
@@ -171,11 +208,17 @@ The currently confirmed standard package is:
 
 ```text
 1 Booking / Package
+
     ↓
+
 Up to 5 Guests
+
     ↓
+
 1 Assigned Guide
+
     ↓
+
 ₱550 Package Price
 ```
 
@@ -185,11 +228,17 @@ For example:
 
 ```text
 3 Guests
+
    ↓
+
 Still one booking/package
+
    ↓
+
 Still assigned 1 guide
+
    ↓
+
 Still pays ₱550
 ```
 
@@ -201,7 +250,9 @@ The data model should distinguish between:
 
 ```text
 Booking
+
    ↓
+
 Booking Participants
 ```
 
@@ -225,7 +276,9 @@ The current confirmed package rule is:
 
 ```text
 ₱550
+
 1 Guide
+
 Up to 5 Guests
 ```
 
@@ -235,9 +288,13 @@ Example:
 
 ```text
 5 Guests → ₱550
+
 4 Guests → ₱550
+
 3 Guests → ₱550
+
 2 Guests → ₱550
+
 1 Guest  → ₱550
 ```
 
@@ -257,13 +314,21 @@ The current workflow is:
 
 ```text
 Online Booking
+
       ↓
+
 Tourist Arrives
+
       ↓
+
 Coordinator Checks In Group
+
       ↓
+
 FIFO Guide Dispatch
+
       ↓
+
 Guide Assigned
 ```
 
@@ -287,8 +352,11 @@ Example:
 Available Guide Queue
 
 Juan
+
 Pedro
+
 Maria
+
 Carlo
 ```
 
@@ -296,7 +364,9 @@ If Juan receives an assignment:
 
 ```text
 Pedro
+
 Maria
+
 Carlo
 ```
 
@@ -304,8 +374,11 @@ After Juan completes the trek and checks out:
 
 ```text
 Pedro
+
 Maria
+
 Carlo
+
 Juan
 ```
 
@@ -339,15 +412,25 @@ The conceptual lifecycle is:
 
 ```text
 BOOKED
+
    ↓
+
 CHECKED_IN
+
    ↓
+
 GUIDE_ASSIGNED
+
    ↓
+
 TREK_STARTED
+
    ↓
+
 IN_PROGRESS
+
    ↓
+
 COMPLETED
 ```
 
@@ -355,8 +438,11 @@ Other possible states include:
 
 ```text
 CANCELLED
+
 NO_SHOW
+
 SUSPENDED
+
 EMERGENCY
 ```
 
@@ -378,15 +464,25 @@ Conceptually:
 
 ```text
 Trekking Group
+
       ↓
+
 Assigned Guide
+
       ↓
+
 Guide's Smartphone
+
       ↓
+
 GPS
+
       ↓
+
 TrailSync Backend
+
       ↓
+
 Coordinator Dashboard
 ```
 
@@ -397,8 +493,6 @@ The system should use the wording:
 Avoid claiming:
 
 > Real-time tracking of every individual hiker.
-
-That would overstate what the system actually measures.
 
 ---
 
@@ -430,7 +524,9 @@ When connected:
 
 ```text
 GPS Point
+
    ↓
+
 Send to Backend
 ```
 
@@ -438,13 +534,21 @@ When offline:
 
 ```text
 GPS Point
+
    ↓
+
 Store Locally
+
    ↓
+
 Connection Returns
+
    ↓
+
 Synchronize Buffered Points
+
    ↓
+
 Backend
 ```
 
@@ -469,11 +573,11 @@ The system is expected to support:
 - Local/offline checkpoint recording
 - Synchronization when connectivity returns
 
-Because the system supports only one selected trail, checkpoint data will belong to that selected trail.
+Because the system supports only **one final selected trail**, checkpoint data will belong to that selected trail.
 
-The exact checkpoint locations have **not yet been finalized**.
+The exact checkpoint locations have **not yet been finalized** because the final trail itself has not yet been formally selected.
 
-The current trail name may also change later.
+The current working trail is Lake Janagdan, but it remains provisional until final trail selection.
 
 Do not invent:
 
@@ -483,6 +587,8 @@ Do not invent:
 - Hazard locations
 
 Actual geographic data should come from an appropriate legitimate source or field collection process.
+
+Once the final trail is officially selected, its actual geographic information should be treated as **project-specific fixed data** unless a formal project change is approved.
 
 ---
 
@@ -497,11 +603,13 @@ Potential uses include:
 - Location-based safety notifications
 - Operational monitoring
 
-Because TrailSync focuses on one trail, the geofencing system only needs to support the selected trail and its relevant safety zones.
+Because TrailSync focuses on one final selected trail, the geofencing system only needs to support that trail and its relevant safety zones.
 
-Actual geographic boundaries and hazard coordinates are currently **TBD** until reliable trail data is obtained.
+Actual geographic boundaries and hazard coordinates are currently **TBD** until reliable trail data is obtained and the final trail is selected.
 
 Do not create fake coordinates for demonstration and then treat them as real production data.
+
+Once legitimate geographic data is established for the final selected trail, it should be treated as part of the project's fixed trail-specific configuration unless an explicit project change requires otherwise.
 
 ---
 
@@ -530,7 +638,9 @@ For example:
 
 ```text
 Heavy rain > X
+
 Wind > Y
+
 Severe storm = true
 ```
 
@@ -560,7 +670,7 @@ TrailSync should support daily visitor/trail capacity management.
 
 Capacity should be configurable rather than hardcoded.
 
-Because the system focuses on one trail, the capacity configuration currently applies to the selected trail.
+Because the system focuses on one selected trail, the capacity configuration applies to the final selected trail.
 
 The exact official capacity for the trail is currently:
 
@@ -588,7 +698,9 @@ The currently confirmed package is:
 
 ```text
 ₱550 per booking/package
+
 1 guide
+
 Up to 5 guests
 ```
 
@@ -598,9 +710,13 @@ For example:
 
 ```text
 1 guest  → ₱550
+
 2 guests → ₱550
+
 3 guests → ₱550
+
 4 guests → ₱550
+
 5 guests → ₱550
 ```
 
@@ -618,7 +734,9 @@ Because one booking represents one group/package, the system should conceptually
 
 ```text
 BOOKING
+
    ↓
+
 BOOKING PARTICIPANTS
 ```
 
@@ -626,10 +744,15 @@ This allows:
 
 ```text
 Booking A
+
    ├── Hiker 1
+
    ├── Hiker 2
+
    ├── Hiker 3
+
    ├── Hiker 4
+
    └── Hiker 5
 ```
 
@@ -637,8 +760,11 @@ or:
 
 ```text
 Booking B
+
    ├── Hiker 1
+
    ├── Hiker 2
+
    └── Hiker 3
 ```
 
@@ -656,21 +782,37 @@ Conceptually:
 
 ```text
 Flutter App
+
     ↓
+
 Local SQLite Storage
+
     ↓
+
 Checkpoint Verification
+
     ↓
+
 Internet Unavailable
+
     ↓
+
 Data Remains Locally Stored
+
     ↓
+
 Internet Returns
+
     ↓
+
 Synchronization
+
     ↓
+
 Backend
+
     ↓
+
 PostgreSQL
 ```
 
@@ -703,6 +845,8 @@ Potential information includes:
 - Authorized signature/e-signature
 
 The exact certificate design and signing process are still subject to implementation requirements.
+
+The certificate should identify the officially selected project trail.
 
 ---
 
@@ -742,9 +886,13 @@ For safety-critical decisions:
 
 ```text
 Weather API
+
       ↓
+
 Deterministic Safety Rules
+
       ↓
+
 Trail Restriction
 ```
 
@@ -829,17 +977,29 @@ The intended authentication flow is:
 
 ```text
 React / Flutter
+
       ↓
+
 Firebase Authentication
+
       ↓
+
 Firebase ID Token
+
       ↓
+
 Express API
+
       ↓
+
 Firebase Token Verification
+
       ↓
+
 Application User
+
       ↓
+
 PostgreSQL
 ```
 
@@ -861,7 +1021,9 @@ The current development arrangement is:
 
 ```text
 Frontend Developer
+
       ↓
+
 React / Vite / TypeScript / Tailwind
 ```
 
@@ -869,7 +1031,9 @@ and:
 
 ```text
 Backend Collaborator
+
       ↓
+
 Node.js / Express / PostgreSQL
 ```
 
@@ -966,6 +1130,7 @@ Previously discussed endpoint examples included:
 
 ```text
 POST /api/users
+
 GET /api/users/:firebaseUid
 ```
 
@@ -1008,19 +1173,33 @@ Example authentication request flow:
 
 ```text
 React
+
    ↓
+
 Firebase Authentication
+
    ↓
+
 Firebase ID Token
+
    ↓
+
 Authorization: Bearer <token>
+
    ↓
+
 Express API
+
    ↓
+
 Verify Firebase Token
+
    ↓
+
 Identify Application User
+
    ↓
+
 PostgreSQL
 ```
 
@@ -1040,9 +1219,13 @@ Instead:
 
 ```text
 Frontend
+
    ↕
+
 Agreed API Contract
+
    ↕
+
 Backend
 ```
 
@@ -1060,30 +1243,57 @@ The conceptual data model may eventually include entities such as:
 
 ```text
 Users
+
 Guides
+
 Trails
+
 Trail Checkpoints
+
 Trail Geofences
+
 Bookings
+
 Booking Participants
+
 Trek Sessions
+
 Locations
+
 Checkpoint Logs
+
 Guide Queue
+
 Guide Assignments
+
 Incidents
+
 SOS Events
+
 Weather Records
+
 Weather Lockouts
+
 Payments
+
 Certificates
+
 Notifications
+
 Audit Logs
 ```
 
 This is a **conceptual model**, not a finalized database schema.
 
-The system currently focuses on **one selected trail**, but the data model should avoid unnecessary assumptions that the trail name will remain permanently unchanged.
+The system currently focuses on **one selected trail only**.
+
+The current working trail is **Lake Janagdan**, but it is still provisional because the final trail has not yet been formally selected.
+
+The data model should therefore represent the selected trail as a proper entity/reference where appropriate, rather than scattering the trail name as hardcoded text throughout the application.
+
+However, the system does **not** need to support multiple trails as an active user-facing feature.
+
+Once the final trail is officially selected, trail-specific records such as checkpoints, geofences, route information, and other geographic data should belong to that fixed project trail.
 
 Do not create every table immediately.
 
@@ -1103,17 +1313,29 @@ Potential conceptual modules include:
 
 ```text
 auth
+
 users
+
 trails
+
 bookings
+
 guides
+
 dispatch
+
 trekking
+
 tracking
+
 checkpoints
+
 weather
+
 safety
+
 certificates
+
 analytics
 ```
 
@@ -1133,11 +1355,17 @@ The conceptual backend dependency direction is:
 
 ```text
 Presentation
+
      ↓
+
 Application
+
      ↓
+
 Domain
+
      ↓
+
 Infrastructure
 ```
 
@@ -1189,15 +1417,25 @@ Conceptually:
 
 ```text
 src/
+
 ├── app/
+
 ├── components/
+
 ├── features/
+
 │   ├── auth/
+
 │   ├── booking/
+
 │   ├── coordinator/
+
 │   └── trekking/
+
 ├── hooks/
+
 ├── services/
+
 └── ...
 ```
 
@@ -1213,9 +1451,13 @@ The frontend authentication implementation should maintain a clear boundary:
 
 ```text
 React Component
+
       ↓
+
 Auth Service / Firebase Integration
+
       ↓
+
 Firebase Authentication
 ```
 
@@ -1223,8 +1465,11 @@ The authentication service should conceptually provide operations such as:
 
 ```text
 register()
+
 login()
+
 logout()
+
 getCurrentUser()
 ```
 
@@ -1300,11 +1545,15 @@ The current authority model is:
 
 ```text
 PostgreSQL
+
    ↓
+
 Server-side source of truth
 
 SQLite
+
    ↓
+
 Temporary local offline storage
 ```
 
@@ -1318,14 +1567,23 @@ The original frontend authentication milestone sequence was:
 
 ```text
 Phase 1 — Frontend Foundation
+
 Phase 2 — Authentication UI
+
 Phase 3 — Client-Side Validation
+
 Phase 4 — Authentication Service Architecture
+
 Phase 5 — Firebase Authentication
+
 Phase 6 — Backend API Integration
+
 Phase 7 — Authentication State Management
+
 Phase 8 — Loading / Error / Success States
+
 Phase 9 — Frontend Testing
+
 Phase 10 — Final Authentication Verification
 ```
 
@@ -1335,7 +1593,9 @@ The completed frontend tasks currently include:
 
 ```text
 Phase 1 — Frontend Foundation
+
 Phase 2 — Authentication UI
+
 Phase 3 — Client-Side Validation
 ```
 
@@ -1376,23 +1636,33 @@ The next frontend task should be explicitly agreed upon rather than assumed from
 
 The frontend and backend are being developed separately.
 
-The frontend developer should not assume backend implementation details.
-
 The recommended collaboration process is:
 
 ```text
 Frontend Requirement
+
        ↓
+
 Draft/Discuss API Contract
+
        ↓
+
 Backend Collaborator Reviews
+
        ↓
+
 Agreed API Contract
+
        ↓
+
 Frontend Implementation
+
        +
+
 Backend Implementation
+
        ↓
+
 Integration Testing
 ```
 
@@ -1426,7 +1696,9 @@ The following should be treated as **TBD** rather than assumptions:
 The following are currently **confirmed**:
 
 - TrailSync focuses on one trail only.
-- Lake Janagdan is the current working/target trail, but the final trail may change.
+- Lake Janagdan is the current working/provisional trail, but it has not yet been formally selected as the final project trail.
+- Once the final trail is formally selected and approved, that trail becomes the fixed trail scope of the project unless a formal project change is approved.
+- TrailSync does not need runtime multi-trail switching.
 - One booking represents one trekking group/package.
 - The standard package is ₱550.
 - The standard package includes one guide and up to five guests.
@@ -1450,27 +1722,31 @@ Instead:
 
 AI coding agents working on TrailSync must not assume:
 
-- That Lake Janagdan is permanently the final trail
-- That more than one trail is currently required
-- A specific trail capacity
-- Pricing rules beyond the confirmed ₱550 package
-- That fewer than five guests receive a lower package price
-- Rules for groups exceeding five guests unless explicitly defined
-- Fake GPS coordinates
-- Fake checkpoint locations
-- A finalized API response
-- That Firebase is the database
-- That PostgreSQL can be accessed directly from the frontend
-- That hikers have GPS tracking on their own phones
-- That every hiker is individually tracked
-- That guide selection is available
-- That AI controls safety decisions
-- That the backend architecture can be changed freely
-- That an unrequested library is necessary
-- That a future idea is automatically a current requirement
-- That an older MongoDB instruction is still valid
-- That previously proposed API endpoints are automatically final
-- That the frontend may modify backend responsibilities without agreement
+- That Lake Janagdan is already the final project trail.
+- That TrailSync supports multiple trails.
+- That the project should be designed for runtime trail switching.
+- That a final trail has already been approved when it has not.
+- That a specific trail can be casually changed after final selection.
+- That a final trail change would have no architectural, geographic, mapping, or data implications.
+- A specific trail capacity.
+- Pricing rules beyond the confirmed ₱550 package.
+- That fewer than five guests receive a lower package price.
+- Rules for groups exceeding five guests unless explicitly defined.
+- Fake GPS coordinates.
+- Fake checkpoint locations.
+- A finalized API response.
+- That Firebase is the database.
+- That PostgreSQL can be accessed directly from the frontend.
+- That hikers have GPS tracking on their own phones.
+- That every hiker is individually tracked.
+- That guide selection is available.
+- That AI controls safety decisions.
+- That the backend architecture can be changed freely.
+- That an unrequested library is necessary.
+- That a future idea is automatically a current requirement.
+- That an older MongoDB instruction is still valid.
+- That previously proposed API endpoints are automatically final.
+- That the frontend may modify backend responsibilities without agreement.
 
 If a requirement is unclear:
 
@@ -1506,6 +1782,14 @@ Prefer the simplest design that satisfies the actual requirement.
 
 Use confirmed requirements and documented decisions.
 
+## Respect Trail Selection
+
+Until the final trail is officially selected, treat Lake Janagdan as provisional.
+
+After the final trail is approved, treat the selected trail as fixed project scope unless an explicit project decision changes it.
+
+Do not introduce multi-trail runtime functionality simply because the final trail has not yet been selected.
+
 ## Verify
 
 Run appropriate tests, linting, builds, or other verification before claiming the task is complete.
@@ -1522,20 +1806,31 @@ TrailSync uses separate documents with different purposes.
 
 ```text
 PROJECT_CONTEXT.md
+
         ↓
+
 What is TrailSync?
+
 What are the system rules?
+
 What has been decided?
+
 What is still TBD?
 
 FRONTEND_MILESTONES.md
+
         ↓
+
 What should the frontend implement?
+
 What is the development sequence?
 
 CODING_PRINCIPLES.md
+
         ↓
+
 How should code be written?
+
 How should an AI coding agent behave?
 ```
 
@@ -1551,13 +1846,21 @@ General priority:
 
 ```text
 Explicitly confirmed project decision
+
         ↓
+
 Current project documentation
+
         ↓
+
 Current implementation
+
         ↓
+
 Earlier assumptions
+
         ↓
+
 AI guess
 ```
 
@@ -1573,28 +1876,41 @@ The following are currently established:
 
 ```text
 Web:
+
 React
+
 Vite
+
 TypeScript
+
 Tailwind CSS
 
 Mobile:
+
 Flutter
 
 Backend:
+
 Node.js
+
 Express.js
 
 Database:
+
 PostgreSQL
 
 Authentication:
+
 Firebase Authentication
 
 Development:
+
 Git
+
 GitHub
+
 ESLint
+
 Prettier
 ```
 
@@ -1608,44 +1924,79 @@ Current architectural direction:
 
 ```text
                     ┌─────────────────────┐
+
                     │   Mountain Hiker    │
+
                     │       Web App       │
+
                     └──────────┬──────────┘
+
                                │
+
                     ┌──────────▼──────────┐
+
                     │      React Web      │
+
                     │ Vite + TypeScript   │
+
                     │    Tailwind CSS     │
+
                     └──────────┬──────────┘
+
                                │
+
                                │ API
+
                                │
+
                     ┌──────────▼──────────┐
+
                     │   Node + Express    │
+
                     │   Backend API       │
+
                     └───────┬─────┬──────┘
+
                             │     │
+
                     ┌───────▼─┐ ┌─▼────────────┐
+
                     │Firebase │ │ PostgreSQL   │
+
                     │  Auth   │ │ Application  │
+
                     └─────────┘ └──────────────┘
 
 
+
                     ┌─────────────────────┐
+
                     │    Local Guide      │
+
                     │   Flutter Mobile    │
+
                     └──────────┬──────────┘
+
                                │
+
                                │ API / Sync
+
                                │
+
                     ┌──────────▼──────────┐
+
                     │   Node + Express    │
+
                     └─────────────────────┘
 ```
 
 The architecture is intentionally a **modular monolith**, not microservices.
 
-The system currently operates around one selected trekking trail.
+The system currently operates around **one selected trekking trail**.
+
+The final trail is not yet selected.
+
+Once the final trail is approved, the system will operate around that single fixed trail as the project's trail scope.
 
 ---
 
@@ -1696,7 +2047,7 @@ unless a real requirement justifies them.
 
 TrailSync will eventually require real geographic information for its single selected trail.
 
-Until legitimate data is obtained, do not invent:
+Until legitimate data is obtained and the final trail is officially selected, do not invent:
 
 - Trail coordinates
 - Checkpoint coordinates
@@ -1705,9 +2056,11 @@ Until legitimate data is obtained, do not invent:
 - Route paths
 - Elevation data
 
-Lake Janagdan is the current working trail name, but the final selected trail may change.
+Lake Janagdan is the current working/provisional trail, but it is not yet confirmed as the final trail.
 
 Mock data may be used for development only when it is clearly identified as mock/test data and is not represented as real trail information.
+
+Once the final trail is officially selected, real trail-specific geographic data should be treated as part of the fixed project configuration unless an explicit project change is approved.
 
 ---
 
@@ -1729,7 +2082,9 @@ The currently confirmed package rule is:
 
 ```text
 ₱550
+
 1 guide
+
 Up to 5 guests
 ```
 
@@ -1791,6 +2146,22 @@ Incorrect:
 
 > Guests pay ₱110 each.
 
+Correct:
+
+> Lake Janagdan is the current provisional working trail while final trail selection is still pending.
+
+Incorrect:
+
+> Lake Janagdan is already the permanent TrailSync trail.
+
+Correct:
+
+> After formal final-trail selection, the selected trail is treated as fixed project scope unless a formal change is approved.
+
+Incorrect:
+
+> The system can freely switch between trails.
+
 The system documentation, UI, proposal, and implementation should not overclaim system capabilities or business rules.
 
 ---
@@ -1809,6 +2180,10 @@ When modifying existing code:
 
 A task should solve the requested problem without creating unnecessary changes elsewhere.
 
+For trail-specific changes, additional care is required because the final project trail will eventually be tied to actual geographic data and map-related functionality.
+
+Changing the final trail should therefore not be treated as a normal configuration change after final approval.
+
 ---
 
 # 50. Definition of Done
@@ -1819,19 +2194,33 @@ Completion should generally mean:
 
 ```text
 Requirement understood
+
         ↓
+
 Implementation completed
+
         ↓
+
 Existing behavior preserved
+
         ↓
+
 Relevant tests/checks completed
+
         ↓
+
 Lint passes
+
         ↓
+
 Build passes
+
         ↓
+
 Important edge cases considered
+
         ↓
+
 Result verified
 ```
 
@@ -1845,23 +2234,47 @@ The core TrailSync flow should remain understandable:
 
 ```text
 BOOKING
+
    ↓
+
 CHECK-IN
+
    ↓
+
 GUIDE DISPATCH
+
    ↓
+
 TREK SESSION
+
    ↓
+
 TRACKING / CHECKPOINTS / SAFETY
+
    ↓
+
 COMPLETION
+
    ↓
+
 CERTIFICATE
+
    ↓
+
 ANALYTICS
 ```
 
 The system currently focuses on **one selected trail**.
+
+The final trail has not yet been formally selected.
+
+Lake Janagdan is the current working/provisional trail used while development proceeds.
+
+Once the team formally approves the final trail, that trail becomes the **fixed project trail** and should be treated as part of the project's established scope.
+
+Any later change to that trail should require an explicit project decision because trail-specific implementation may depend on actual mapping, geographic, checkpoint, boundary, hazard, and safety data.
+
+TrailSync does not need to support multiple trails or runtime switching between different trails.
 
 Every major feature should support this operational flow or provide a clear supporting capability.
 
@@ -1884,7 +2297,9 @@ The frontend authentication foundation has been completed to the currently assig
 
 ```text
 Phase 1 — Frontend Foundation ✅
+
 Phase 2 — Authentication UI ✅
+
 Phase 3 — Client-Side Validation ✅
 ```
 
@@ -1911,6 +2326,10 @@ Do not invent requirements.
 Do not cross architectural boundaries without agreement.
 
 Do not claim capabilities the system does not actually provide.
+
+Do not treat an unfinalized trail as a finalized project decision.
+
+Do not assume the final trail can be casually changed after approval.
 
 Implement incrementally.
 

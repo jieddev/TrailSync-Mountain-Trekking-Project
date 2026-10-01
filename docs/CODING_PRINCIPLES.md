@@ -809,7 +809,7 @@ Prefer meaningful types for:
 Avoid:
 
 ```typescript
-any
+any;
 ```
 
 when a meaningful type can reasonably be defined.
@@ -964,7 +964,7 @@ Avoid:
 
 ```javascript
 try {
-  doSomething()
+  doSomething();
 } catch (error) {}
 ```
 
@@ -1027,11 +1027,11 @@ Good naming is one of the cheapest forms of documentation.
 Prefer:
 
 ```typescript
-isAuthenticated
-isLoading
-hasPermission
-getUserProfile
-calculateTotalPrice
+isAuthenticated;
+isLoading;
+hasPermission;
+getUserProfile;
+calculateTotalPrice;
 ```
 
 Avoid:
@@ -1114,7 +1114,7 @@ Bad:
 
 ```javascript
 // Increment counter
-counter++
+counter++;
 ```
 
 Good:
