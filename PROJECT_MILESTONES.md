@@ -23,10 +23,10 @@ Legend:
 | PostgreSQL user profile                                    | Implemented in code   | Prisma `User` model and migration, authenticated profile creation, and current-user lookup exist; live database/migration execution is unverified.  |
 | Authorization and role-based experience                    | Partially implemented | Firebase identity protects user endpoints and `/home`; backend role authorization and role-specific experiences are not implemented.                |
 | Authenticated hiker home                                   | Implemented in code   | `/home` is protected and responsive; welcome/account details come from Firebase session data, not the PostgreSQL current-user endpoint.             |
-| Booking, check-in, and guide dispatch                      | Not implemented       | No booking, check-in, assignment, or dispatch domain implementation is present.                                                                     |
+| Booking foundation                                         | Partially implemented | Backend booking persistence and authenticated create/list/detail/reschedule/coordinator-confirm operations are implemented; no booking UI, check-in, or dispatch exists. |
 | Guide mobile application                                   | Not implemented       | No Flutter/mobile application is present.                                                                                                           |
-| Trek monitoring, safety, certificates, analytics, payments | Not implemented       | No implementation evidence for these feature domains is present.                                                                                    |
-| Automated verification                                     | Partially implemented | Frontend validation and backend user API tests exist; this review did not run checks or verify live Firebase/PostgreSQL integration.                |
+| Trek monitoring, safety, certificates, analytics, real payments | Not implemented    | These feature domains have no implementation evidence; booking downpayment verification is simulated only.                                            |
+| Automated verification                                     | Partially implemented | Backend tests (19), TypeScript typecheck, Prisma validation, and client generation passed; live Firebase/PostgreSQL integration is not verified.     |
 
 ---
 
@@ -110,7 +110,7 @@ Legend:
 - [x] Display a welcome message and account summary using Firebase display name, with email-based/fallback labeling when a display name is unavailable.
 - [x] Provide a visible booking entry point marked as unavailable until booking is implemented; no booking logic is included.
 - [x] Show an authentication loading state while Firebase restores the current session.
-- [x] Keep the shell compatible with the current single-trail scope and avoid assuming Lake Janagdan is permanent.
+- [x] Keep the shell compatible with the current single-trail scope.
 - [x] Avoid inventing booking information or adding multi-trail functionality.
 - [ ] Add trail details, booking records, or other feature data only when supported by an agreed backend contract and implemented feature.
 - [?] Verify route transitions and responsive behavior through interactive browser testing.
@@ -148,7 +148,7 @@ Hiker Home
 ## Frontend
 
 - [ ] Build the trail/trek information view for the **single selected trail**.
-- [ ] The current working trail is **Lake Janagdan**, but the selected trail may change later.
+- [x] The final project trail is **Lake Janagdan**; booking requests cannot choose a trail.
 - [ ] Build the group booking form and participant-entry flow.
 - [ ] Build hiker booking status, cancellation/no-show information, and trekking-information views after API contracts exist.
 - [ ] Present capacity, pricing, and availability supplied by the backend.
@@ -156,14 +156,17 @@ Hiker Home
 
 ## Backend
 
-- [ ] Define confirmed booking, participant, trail, availability, and state-transition requirements before schema expansion.
-- [ ] Add persistence models for the selected trail, bookings, and booking participants.
-- [ ] Preserve the rule that one booking represents one trekking group/package.
-- [ ] Implement authenticated booking APIs with server-side validation and ownership checks.
-- [ ] Implement explicit booking/trek lifecycle transitions.
-- [ ] Enforce the standard package participant rule.
+- [x] Add booking and booking-participant persistence with owner relationships and a migration.
+- [x] Implement authenticated booking creation with profile-derived owner identity and transactional participant creation.
+- [x] Implement owner-scoped booking list and detail operations.
+- [x] Implement confirmed-booking rescheduling in place, retaining participants and verified downpayment credit.
+- [x] Implement coordinator-only confirmation with simulated downpayment verification.
+- [x] Validate participant information, schedule format, and the maximum of five participants including the owner.
+- [x] Derive Lake Janagdan, ₱800 package price, and ₱400 downpayment requirement on the backend.
+- [x] Add backend booking endpoint tests and verify typecheck, Prisma validation, and Prisma Client generation.
 - [ ] Enforce daily trail capacity transactionally once the official daily capacity policy is confirmed.
-- [ ] Design retry/idempotency and concurrency handling for booking submissions.
+- [ ] Add server-side idempotency if a future requirement establishes a retry guarantee.
+- [ ] Implement check-in, guide assignment, and trek lifecycle operations in their respective milestones.
 
 ## Confirmed Booking Package
 
@@ -176,17 +179,17 @@ The current standard package is:
    ↓
 Up to 5 Guests
    ↓
-₱550
+₱800
 ```
 
 The following are valid examples:
 
 ```text
-1 guest  → ₱550
-2 guests → ₱550
-3 guests → ₱550
-4 guests → ₱550
-5 guests → ₱550
+1 guest  → ₱800
+2 guests → ₱800
+3 guests → ₱800
+4 guests → ₱800
+5 guests → ₱800
 ```
 
 A group does **not** receive a lower package price simply because it has fewer than five guests.
@@ -195,10 +198,11 @@ Rules for groups exceeding five guests remain TBD.
 
 ## Dependencies
 
-- Booking requires authenticated users and an agreed API contract.
+- Booking APIs require Firebase-authenticated profiles; current Booking API proposal supplies the implemented contract.
 - The standard package price and five-guest package limit are confirmed.
 - Daily trail carrying capacity remains TBD.
-- Cancellation, refund, payment provider, and payment verification rules remain TBD.
+- Payment provider and real payment processing remain out of scope; current verification is simulated.
+- Cancellation and refund rules remain TBD/out of scope.
 
 ---
 
@@ -305,7 +309,7 @@ Guide selection by hikers is not part of the current design.
 
 Monitoring and checkpoint functionality currently applies to **one selected trail**.
 
-Lake Janagdan is the current working trail, but the final trail may change.
+Lake Janagdan is the final project trail. Geographic details remain unverified/TBD.
 
 ## Dependencies
 
@@ -365,8 +369,9 @@ AI must not make safety-critical decisions.
 
 ## Backend
 
-- [ ] Implement the confirmed ₱550 standard package pricing.
-- [ ] Define payment provider and payment verification workflow.
+- [x] Implement the confirmed ₱800 standard package pricing and ₱400 downpayment requirement in the booking API.
+- [x] Implement simulated coordinator verification; no real money is processed.
+- [ ] Define a real payment provider and verification workflow if future scope requires it.
 - [ ] Define cancellation/refund rules.
 - [ ] Define retry/idempotency behavior for payment operations.
 - [ ] Generate a digital completion certificate as a PDF for an eligible completed trek.
@@ -380,12 +385,12 @@ AI must not make safety-critical decisions.
 The standard package is:
 
 ```text
-₱550
+₱800
 1 guide
 Up to 5 guests
 ```
 
-Fewer than five guests still pay the full ₱550 package price.
+Fewer than five guests still pay the full ₱800 package price.
 
 ## Dependencies
 
@@ -416,8 +421,9 @@ Fewer than five guests still pay the full ₱550 package price.
 
 - [x] Frontend validation unit tests are present in the repository; execution was not verified during this review.
 - [?] Frontend typecheck, lint, production build, and formatting checks were not run during this review.
-- [x] Backend API tests for user creation and current-user lookup are present; execution was not verified during this review.
-- [?] Backend TypeScript typecheck and Prisma schema validation were not run during this review.
+- [x] Backend API tests for user/profile and booking endpoints pass (19 tests).
+- [x] Backend TypeScript typecheck, Prisma schema validation, and Prisma Client generation pass.
+- [?] Backend has no build or lint script; live Firebase/PostgreSQL integration and migration application were not verified.
 - [ ] Run frontend and backend checks and record their results.
 - [ ] Add frontend component tests for auth feedback, loading, protected routing, and Firebase/API service boundaries. (Existing suite currently covers validation only.)
 - [ ] Add end-to-end coverage for registration, login, session restoration, logout, protected routing, and role authorization.
@@ -444,23 +450,25 @@ The initial authenticated shell is implemented:
 - [ ] Connect the hiker shell to the authoritative TrailSync profile endpoint if required for the intended profile/role experience.
 - [?] Run automated checks and interactive browser verification; results have not been confirmed in this review.
 
-The shell does not implement booking, booking records, or trail-specific functionality. It avoids treating Lake Janagdan as the permanent selected trail.
+The shell does not implement booking UI or trail-specific information views. Booking records and the backend booking API are tracked in the booking milestone below.
 
 ---
 
-## Next Step — Establish the Booking Foundation
+## Completed Step — Establish the Backend Booking Foundation
 
-After the authenticated home is established:
+The Version 1 backend booking persistence and API are implemented:
 
-- [ ] Confirm booking state model.
-- [ ] Confirm participant information.
-- [ ] Confirm daily capacity rules.
-- [ ] Update/finalize the API contract for the implemented current-user endpoint and profile-creation behavior.
-- [ ] Confirm booking API contract.
-- [ ] Implement trail/booking/participant persistence.
-- [ ] Implement authenticated booking APIs.
-- [ ] Implement hiker booking UI.
-- [ ] Implement coordinator check-in.
+- [x] Persist bookings and owner/additional participants.
+- [x] Create bookings for authenticated Hikers using verified Firebase identity and the TrailSync profile.
+- [x] Enforce owner-as-participant and the five-person total limit.
+- [x] Apply fixed Lake Janagdan trail, ₱800 package, and ₱400 downpayment requirement server-side.
+- [x] Start bookings as `PENDING_CONFIRMATION` with `PENDING_VERIFICATION` downpayment status.
+- [x] Support owner-scoped list/detail and eligible rescheduling.
+- [x] Support coordinator-only confirmation with simulated downpayment verification.
+- [x] Add booking API tests; backend tests (19), typecheck, Prisma validation, and client generation passed.
+- [ ] Implement Hiker booking UI in its separate frontend milestone.
+- [ ] Implement coordinator check-in and guide dispatch in their separate milestones.
+- [ ] Verify migrations and end-to-end behavior against live PostgreSQL/Firebase infrastructure.
 
 The confirmed standard package is:
 
@@ -468,10 +476,10 @@ The confirmed standard package is:
 1 booking
 1 guide
 up to 5 guests
-₱550
+₱800
 ```
 
-A group with fewer than five guests still pays ₱550.
+A group with fewer than five guests still pays ₱800. Downpayment verification is simulated only; no real payment is processed.
 
 ---
 
@@ -506,26 +514,26 @@ The following are currently confirmed:
 
 ```text
 Trail scope:
-One selected trail only
-
-Current working trail:
-Lake Janagdan
+One fixed trail only
 
 Final trail:
-May change later
+Lake Janagdan
 
 Booking:
 One booking = one trekking group/package
 
 Standard package:
-₱550
+₱800
 
 Standard package includes:
 1 guide
 Up to 5 guests
 
 Fewer than 5 guests:
-Still ₱550
+Still ₱800
+
+Required downpayment:
+50% / ₱400 (simulated verification only)
 
 Guide assignment:
 At physical check-in
@@ -559,22 +567,21 @@ Modular Monolith
 
 # TBD / Decisions Still Needed
 
-- [ ] Final selected trail name
+- [x] Final selected trail name: Lake Janagdan
 - [ ] Legitimate trail coordinates
 - [ ] Trail boundaries
 - [ ] Checkpoint locations
 - [ ] Hazard zones
 - [ ] Official daily trail capacity
 - [ ] Rules for groups exceeding 5 guests
-- [ ] Payment provider
-- [ ] Payment verification process
+- [ ] Real payment provider and real-money verification workflow
 - [ ] Cancellation and refund rules
 - [ ] Official weather safety thresholds
 - [ ] Weather restriction authority/workflow
 - [ ] Final guide queue state transitions
 - [ ] Guide-role provisioning process
-- [ ] Final API response formats for future domain endpoints
-- [ ] Final database schema
+- [ ] API response formats for future domain endpoints
+- [ ] Database schemas for future domains
 - [ ] Certificate design and signing process
 - [ ] Certificate storage/access requirements
 - [ ] Notification channels
@@ -602,8 +609,8 @@ AI coding agents working on TrailSync must:
 - Never allow frontend code to directly access PostgreSQL.
 - Never treat client-side roles as authorization authority.
 - Never implement multi-trail functionality unless explicitly required.
-- Never assume Lake Janagdan is permanently the final trail.
-- Never assume fewer than five guests receive a lower package price.
+- Treat Lake Janagdan as the fixed project trail.
+- Enforce the ₱800 package price for one through five participants.
 - Never invent rules for groups exceeding five guests.
 - Verify implementation with appropriate tests, linting, typechecking, builds, and manual checks.
 - Report important assumptions and unresolved decisions.
@@ -648,7 +655,7 @@ TREKKING
 COMPLETION
 ```
 
-TrailSync currently focuses on **one selected trail**. Lake Janagdan is the current working trail, but the final selected trail may change.
+TrailSync currently focuses on **one fixed trail: Lake Janagdan**.
 
 The system should remain simple, maintainable, testable, secure, and faithful to confirmed requirements.
 

@@ -4,6 +4,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { prisma } from "./lib/prisma.js";
+import { bookingsRouter } from "./routes/bookings.js";
 import {
   type AuthenticatedRequest,
   requireFirebaseAuth,
@@ -20,6 +21,8 @@ app.use(express.json());
 app.get("/health", (_request, response) => {
   response.status(200).json({ status: "ok" });
 });
+
+app.use("/api/v1/bookings", bookingsRouter);
 
 type RequestWithLogger = Request & {
   id?: string;
@@ -183,8 +186,16 @@ app.use(
       "Unhandled request error",
     );
 
-    response.status(500).json({
-      message: "Internal server error.",
+    const malformedJson =
+      error instanceof SyntaxError &&
+      typeof error === "object" &&
+      "status" in error &&
+      (error as { status?: number }).status === 400;
+    response.status(malformedJson ? 400 : 500).json({
+      error: {
+        code: malformedJson ? "INVALID_JSON" : "INTERNAL_SERVER_ERROR",
+        message: malformedJson ? "Request body must contain valid JSON." : "Internal server error.",
+      },
       requestId: requestId(request),
     });
   },
