@@ -21,19 +21,15 @@ The system aims to improve how trekking activities are managed by replacing manu
 
 The system will focus on **one trekking trail only**.
 
-The current working/provisional trail is:
+The officially selected and final trail for this project is:
 
 > **Lake Janagdan**
-
-However, **Lake Janagdan has not yet been officially finalized as the project's permanent trail**.
 
 The current project decision is:
 
 > **TrailSync will support one selected trail only.**
 
-The team is still determining which trail will be the final selected trail. Until that decision is formally made, Lake Janagdan should be treated as the **provisional working trail for development and discussion**, not as the final production trail.
-
-Once the final trail is formally selected and approved, that trail becomes the **fixed trail scope of the project**. The system is not intended to support casual switching between different trails.
+Lake Janagdan is the **fixed project trail**. The system is not intended to support casual switching between different trails.
 
 Any change to the selected trail after final approval should be treated as a **formal project-level change** because trail-specific implementation may depend on:
 
@@ -48,11 +44,10 @@ Any change to the selected trail after final approval should be treated as a **f
 
 Therefore:
 
-- Before final selection: the trail is **TBD**, with Lake Janagdan as the current working/provisional trail.
-- After final selection: the chosen trail is treated as the **fixed project trail** unless an explicit project decision approves changing it.
+- Lake Janagdan is the officially selected and **final project trail**.
+- Trail-specific data will be associated with Lake Janagdan as it is collected and verified; authoritative geographic data remains **TBD** where not yet confirmed.
 - The system does **not** need runtime multi-trail switching functionality.
-- Developers and AI coding agents must not assume that Lake Janagdan is already the final trail.
-- Developers and AI coding agents must not implement multiple-trail functionality merely to accommodate the unresolved final selection.
+- Developers and AI coding agents must treat Lake Janagdan as the final trail and must not implement multiple-trail functionality.
 
 The architecture should allow the selected trail to be represented as application data/configuration rather than unnecessarily scattering the trail name throughout the codebase, but this does **not** mean that TrailSync is intended to become a multi-trail system.
 
@@ -219,7 +214,7 @@ Up to 5 Guests
 
     ↓
 
-₱550 Package Price
+₱800 Package Price
 ```
 
 A group does **not** have to reach five participants to make a booking.
@@ -239,12 +234,12 @@ Still assigned 1 guide
 
    ↓
 
-Still pays ₱550
+Still pays ₱800
 ```
 
 Therefore, the package price is **not reduced simply because the group has fewer than five guests**.
 
-The exact rules for groups exceeding five participants are currently **TBD** unless explicitly established later.
+The standard package is limited to five guests. Groups exceeding five require additional package/guide arrangements. Exact grouping rules and pricing are **TBD**.
 
 The data model should distinguish between:
 
@@ -258,7 +253,7 @@ Booking Participants
 
 rather than assuming that one booking always represents exactly one individual.
 
-A hiker booking alone is valid and represents a one-person group.
+A booking owner is also one of the guests/participants. A hiker booking alone is valid and represents a one-person group and one package; the owner is not counted in addition to the five-person limit.
 
 ---
 
@@ -268,68 +263,24 @@ These are current project decisions and should not be changed casually.
 
 ## 5.1 One Booking = One Group / Package
 
-Each booking represents one trekking group and one package.
+Each booking represents one standard trekking group/package with one guide, up to five guests total, and a fixed price of **₱800 per package**. Groups of one through five all pay ₱800. One-person bookings are valid.
 
-A group can contain fewer than five participants.
+The booking owner is also a participant and counts toward the five-guest limit: one owner plus up to four additional participants. The owner must be associated with the booking and represented among its participants, not counted in addition to the five-person limit.
 
-The current confirmed package rule is:
-
-```text
-₱550
-
-1 Guide
-
-Up to 5 Guests
-```
-
-A group with fewer than five participants still pays the full **₱550 package price**.
-
-Example:
-
-```text
-5 Guests → ₱550
-
-4 Guests → ₱550
-
-3 Guests → ₱550
-
-2 Guests → ₱550
-
-1 Guest  → ₱550
-```
-
-This rule should be treated as confirmed.
-
-The exact pricing and package rules for groups exceeding five participants are currently **TBD**.
-
-The system should record the actual participants separately from the booking itself.
+The system should record participants separately from the booking itself. A standard package is limited to five; groups exceeding five require additional package/guide arrangements. Exact grouping rules, package count/pricing, guide requirements, and representation of related packages/groups remain **TBD**.
 
 ---
 
 ## 5.2 Guide Assignment Happens at Check-In
 
-A guide is **not assigned when the online booking is created**.
+A guide is **not assigned when the booking is created**. Physical check-in occurs at the tourism/operations office. Current field information indicates that assignment occurs after check-in and depends on currently available guides.
 
-The current workflow is:
+The current operational flow is:
 
 ```text
-Online Booking
-
-      ↓
-
-Tourist Arrives
-
-      ↓
-
-Coordinator Checks In Group
-
-      ↓
-
-FIFO Guide Dispatch
-
-      ↓
-
-Guide Assigned
+Facebook / Messenger → Choose Date and Time → Provide Booking Information
+→ 50% Downpayment → Booking → Tourist Arrives → Tourism/Operations Office Check-In
+→ Automatic Guide Assignment from Available Guides
 ```
 
 Therefore, a newly created booking may initially have:
@@ -340,11 +291,9 @@ guide_id = NULL
 
 until the group is physically checked in and a guide is assigned.
 
----
-
 ## 5.3 FIFO Guide Dispatch
 
-Guide assignment uses a **First-In, First-Out (FIFO)** queue.
+Guide assignment is automatic after physical check-in and depends on currently available guides. Among available guides, the agreed dispatch ordering should follow the existing **First-In, First-Out (FIFO)** rule unless the team explicitly revises it. The exact interaction between guide availability and FIFO is a future implementation decision.
 
 Example:
 
@@ -396,11 +345,9 @@ Current rule:
 
 > Hikers do not choose their guide.
 
-Guide assignment is automatic through the FIFO dispatch system.
+Guide assignment is automatic after physical check-in based on guide availability, following the existing FIFO ordering among available guides unless explicitly revised. Hikers do not choose guides.
 
-Whether hikers should eventually be allowed to request/select a specific guide is **TBD**.
-
-Do not add guide-selection UI unless this requirement is explicitly approved.
+Do not add guide-selection UI; tourists do not choose guides under the field-confirmed operation.
 
 ---
 
@@ -437,8 +384,6 @@ COMPLETED
 Other possible states include:
 
 ```text
-CANCELLED
-
 NO_SHOW
 
 SUSPENDED
@@ -446,7 +391,7 @@ SUSPENDED
 EMERGENCY
 ```
 
-The exact final state machine should be finalized during backend/domain implementation.
+Cancellation is currently not allowed. Rescheduling is allowed, and a no-show may be handled through rescheduling. The exact final state machine and detailed rescheduling/no-show rules should be finalized during booking requirements and backend/domain implementation.
 
 The system should avoid relying on vague boolean flags when the business process has meaningful states.
 
@@ -575,9 +520,7 @@ The system is expected to support:
 
 Because the system supports only **one final selected trail**, checkpoint data will belong to that selected trail.
 
-The exact checkpoint locations have **not yet been finalized** because the final trail itself has not yet been formally selected.
-
-The current working trail is Lake Janagdan, but it remains provisional until final trail selection.
+The exact checkpoint locations and other authoritative geographic data for Lake Janagdan remain **TBD** until collected and verified.
 
 Do not invent:
 
@@ -588,7 +531,7 @@ Do not invent:
 
 Actual geographic data should come from an appropriate legitimate source or field collection process.
 
-Once the final trail is officially selected, its actual geographic information should be treated as **project-specific fixed data** unless a formal project change is approved.
+Once collected and verified, Lake Janagdan's actual geographic information should be treated as **project-specific fixed data** unless a formal project change is approved.
 
 ---
 
@@ -605,7 +548,7 @@ Potential uses include:
 
 Because TrailSync focuses on one final selected trail, the geofencing system only needs to support that trail and its relevant safety zones.
 
-Actual geographic boundaries and hazard coordinates are currently **TBD** until reliable trail data is obtained and the final trail is selected.
+Actual geographic boundaries and hazard coordinates for Lake Janagdan are currently **TBD** until reliable trail data is obtained.
 
 Do not create fake coordinates for demonstration and then treat them as real production data.
 
@@ -672,11 +615,7 @@ Capacity should be configurable rather than hardcoded.
 
 Because the system focuses on one selected trail, the capacity configuration applies to the final selected trail.
 
-The exact official capacity for the trail is currently:
-
-**TBD**
-
-The system should be designed so that capacity can eventually be configured by authorized tourism personnel.
+The Tourism Officer determines daily booking/visitor capacity operationally, and available guides also constrain it. No fixed numeric capacity is confirmed. The formal capacity rule remains **TBD**. The system should be designed so capacity can eventually be configured by authorized tourism personnel.
 
 Capacity may need to distinguish between:
 
@@ -692,39 +631,41 @@ Do not invent capacity numbers.
 
 # 14. Booking and Pricing
 
-A booking represents one trekking group/package.
-
-The currently confirmed package is:
+The following are **field-confirmed current operational rules**:
 
 ```text
-₱550 per booking/package
+Current channel: Facebook / Messenger
+Tourist chooses: date and time
+Current booking information: name, age, address
+Downpayment: 50%
+Cancellation: not allowed
+Rescheduling: allowed
+No-show: may be handled through rescheduling
+Check-in: physical tourism/operations office
+Guide selection by tourist: not allowed
+Guide assignment: automatic after check-in, based on guide availability
 
-1 guide
-
-Up to 5 guests
+Standard package: ₱800
+Guests per standard package: up to 5 total, including the booking owner
+Guide per standard package: 1
+Price for 1, 2, 3, 4, or 5 guests: ₱800
 ```
 
-The package price remains **₱550 even when fewer than five guests participate**.
+Facebook/Messenger describes today's manual real-world process. TrailSync's future goal is a centralized digital booking process; the current channel is not itself a TrailSync implementation requirement.
 
-For example:
+The booking owner provides their own information and may list other participants. The owner is represented as a booking participant and counts within the five-person maximum. A one-person booking is valid. Conceptually, preserve `Booking → Booking Participants`.
 
-```text
-1 guest  → ₱550
+Groups exceeding five require additional package/guide arrangements. Exact grouping for 6–10 or larger groups, whether each additional group is capped at five, whether each package requires a guide, independent payment, multiple-package pricing, and database representation are **TBD**. Do not infer calculations for differences between booked guests and actual arrivals: an excess arrival requires an additional package/guide arrangement, while cases such as booked 5/arrived 3, booked 3/arrived 5, and booked 3/arrived 7 need clarification.
 
-2 guests → ₱550
+The current process requires a 50% downpayment. Payment provider, verification process, deadline, refund rules, payment statuses, and handling of the downpayment on rescheduling remain **TBD**. Future TrailSync booking should represent downpayment/payment status explicitly; payment implementation is a future feature.
 
-3 guests → ₱550
+Daily booking/visitor capacity is determined operationally by the Tourism Officer and is also constrained by available guide capacity. No fixed numeric capacity is confirmed. The formal capacity rule and the relationship between visitor capacity, group/package capacity, and guide availability are **TBD**.
 
-4 guests → ₱550
+Rescheduling is allowed; the number of times, notice period, eligible dates, availability behavior, treatment after the original date, and downpayment handling are **TBD**. A no-show may be handled through rescheduling; deadlines, additional downpayment, whether the same booking is reused, and consequences for repeated no-shows are **TBD**.
 
-5 guests → ₱550
-```
+The exact booking confirmation process, date/time scheduling model, lifecycle/state machine, Booking API request/response, database schema, and frontend flow remain **TBD**. Additional required participant information beyond name, age, and address is also **TBD**.
 
-The package therefore represents a fixed booking/package price rather than a per-person price for the first five participants.
-
-The exact pricing/package rules for groups exceeding five participants are currently **TBD**.
-
-Pricing should eventually be represented as configurable business data rather than scattered hardcoded values.
+Pricing should eventually be represented as business data rather than scattered hardcoded values.
 
 ---
 
@@ -768,7 +709,7 @@ Booking B
    └── Hiker 3
 ```
 
-Both are valid bookings.
+Both are valid bookings. In each, the booking owner is one of the participants and counts toward the five-person total; a five-person package allows the owner plus at most four additional participants.
 
 The exact database implementation belongs to the backend.
 
@@ -1287,13 +1228,13 @@ This is a **conceptual model**, not a finalized database schema.
 
 The system currently focuses on **one selected trail only**.
 
-The current working trail is **Lake Janagdan**, but it is still provisional because the final trail has not yet been formally selected.
+Lake Janagdan is the officially selected and final project trail.
 
 The data model should therefore represent the selected trail as a proper entity/reference where appropriate, rather than scattering the trail name as hardcoded text throughout the application.
 
 However, the system does **not** need to support multiple trails as an active user-facing feature.
 
-Once the final trail is officially selected, trail-specific records such as checkpoints, geofences, route information, and other geographic data should belong to that fixed project trail.
+Trail-specific records such as checkpoints, geofences, route information, and other geographic data should belong to Lake Janagdan as they are collected and verified.
 
 Do not create every table immediately.
 
@@ -1676,35 +1617,52 @@ A frontend developer may propose an API design, but it should be treated as a pr
 
 The following should be treated as **TBD** rather than assumptions:
 
-- Final selected trail name
-- Official trail carrying capacity
-- Exact rules for groups exceeding the standard five-guest package
-- Official trail GPS coordinates
-- Trail boundaries
-- Checkpoint locations
-- Hazard zones
+- Verified Lake Janagdan geographic data: map, route, coordinates, boundaries, checkpoints, and hazard zones
+- Exact formal daily capacity rule and its relationship to visitor, group/package, and guide capacity
+- Exact grouping and additional-package rules for groups exceeding the standard five-guest package
+- Exact additional-package pricing and whether each additional package requires another guide
+- Whether participants may independently pay for another package and exact representation of related packages/groups
 - Official weather safety thresholds
+- Exact Booking API request/response format
+- Exact booking lifecycle/state machine
+- Exact date/time scheduling model
+- Exact guide availability states
+- Payment provider and downpayment verification process
+- Payment deadline, refund rules, and payment status values
+- Downpayment handling during rescheduling
+- Rescheduling limits and notice period
+- No-show policy details
+- Whether participants need information beyond name, age, and address
+- Exact booking confirmation process
+- Exact booking database schema
+- Exact frontend booking flow
 - Exact authentication API contract
 - Exact API response formats
 - Final database schema
 - Exact guide queue state machine
 - Final payment implementation
 - Final certificate signing process
-- Whether hikers may request/select guides
+- Exact interaction between guide availability and the existing FIFO ordering
 - Advanced AI analytics requirements
 
 The following are currently **confirmed**:
 
 - TrailSync focuses on one trail only.
-- Lake Janagdan is the current working/provisional trail, but it has not yet been formally selected as the final project trail.
-- Once the final trail is formally selected and approved, that trail becomes the fixed trail scope of the project unless a formal project change is approved.
+- Lake Janagdan is the officially selected and final project trail.
+- Lake Janagdan is the fixed project trail unless an explicit project-level change is approved.
 - TrailSync does not need runtime multi-trail switching.
+- The current manual booking channel is Facebook/Messenger; the tourist chooses date and time.
+- Current booking information collected is name, age, and address. Additional required information is TBD.
+- The current process requires a 50% downpayment.
+- Cancellation is not allowed; rescheduling is allowed. A no-show may be handled through rescheduling.
+- Physical check-in takes place at the tourism/operations office.
 - One booking represents one trekking group/package.
-- The standard package is ₱550.
-- The standard package includes one guide and up to five guests.
-- A group with fewer than five guests still pays the full ₱550 package price.
-- Guide assignment occurs at check-in.
-- Guide assignment uses FIFO.
+- The standard package price is ₱800 per package.
+- The standard package includes one guide and up to five guests total, including the booking owner.
+- A group with one through five guests still pays the full ₱800 package price.
+- The booking owner is included as one participant, leaving up to four additional participants in a five-person package.
+- Groups over five require additional package/guide arrangements; detailed rules remain TBD.
+- Guide assignment occurs automatically after physical check-in based on guide availability; preserve FIFO ordering among available guides unless explicitly revised.
 - Hikers do not choose guides under the current design.
 - Group tracking is based on the assigned guide's device rather than individual hiker devices.
 
@@ -1722,14 +1680,14 @@ Instead:
 
 AI coding agents working on TrailSync must not assume:
 
-- That Lake Janagdan is already the final project trail.
+
 - That TrailSync supports multiple trails.
 - That the project should be designed for runtime trail switching.
-- That a final trail has already been approved when it has not.
+
 - That a specific trail can be casually changed after final selection.
 - That a final trail change would have no architectural, geographic, mapping, or data implications.
 - A specific trail capacity.
-- Pricing rules beyond the confirmed ₱550 package.
+- Pricing rules beyond the confirmed ₱800 standard package and explicitly TBD larger-group arrangements.
 - That fewer than five guests receive a lower package price.
 - Rules for groups exceeding five guests unless explicitly defined.
 - Fake GPS coordinates.
@@ -1784,11 +1742,9 @@ Use confirmed requirements and documented decisions.
 
 ## Respect Trail Selection
 
-Until the final trail is officially selected, treat Lake Janagdan as provisional.
+Treat Lake Janagdan as the officially selected final trail and fixed project scope unless an explicit project decision changes it.
 
-After the final trail is approved, treat the selected trail as fixed project scope unless an explicit project decision changes it.
-
-Do not introduce multi-trail runtime functionality simply because the final trail has not yet been selected.
+Do not introduce multi-trail runtime functionality; Lake Janagdan is the final project trail.
 
 ## Verify
 
@@ -1994,9 +1950,7 @@ The architecture is intentionally a **modular monolith**, not microservices.
 
 The system currently operates around **one selected trekking trail**.
 
-The final trail is not yet selected.
-
-Once the final trail is approved, the system will operate around that single fixed trail as the project's trail scope.
+Lake Janagdan is the officially selected final trail and fixed project scope.
 
 ---
 
@@ -2047,7 +2001,7 @@ unless a real requirement justifies them.
 
 TrailSync will eventually require real geographic information for its single selected trail.
 
-Until legitimate data is obtained and the final trail is officially selected, do not invent:
+Until legitimate data is obtained and verified for Lake Janagdan, do not invent:
 
 - Trail coordinates
 - Checkpoint coordinates
@@ -2056,11 +2010,11 @@ Until legitimate data is obtained and the final trail is officially selected, do
 - Route paths
 - Elevation data
 
-Lake Janagdan is the current working/provisional trail, but it is not yet confirmed as the final trail.
+Lake Janagdan is the officially selected and final project trail.
 
 Mock data may be used for development only when it is clearly identified as mock/test data and is not represented as real trail information.
 
-Once the final trail is officially selected, real trail-specific geographic data should be treated as part of the fixed project configuration unless an explicit project change is approved.
+Once verified, real Lake Janagdan geographic data should be treated as part of the fixed project configuration unless an explicit project change is approved.
 
 ---
 
@@ -2072,7 +2026,7 @@ Do not invent:
 - Rules for groups exceeding five guests
 - Guide selection rules
 - Weather thresholds
-- Payment rules beyond the confirmed ₱550 package
+- Payment rules beyond the confirmed ₱800 package
 - Queue policies
 - Certificate requirements
 
@@ -2081,14 +2035,14 @@ when the actual rule has not been confirmed.
 The currently confirmed package rule is:
 
 ```text
-₱550
+₱800
 
 1 guide
 
 Up to 5 guests
 ```
 
-A group with fewer than five guests still pays ₱550.
+A group with one through five guests still pays ₱800. The booking owner counts among those guests.
 
 If a rule is not confirmed, use:
 
@@ -2140,23 +2094,15 @@ Incorrect:
 
 Correct:
 
-> The standard booking package costs ₱550 for up to five guests with one guide.
+> The standard booking package costs ₱800 for up to five guests with one guide.
 
 Incorrect:
 
-> Guests pay ₱110 each.
+> The ₱800 package is a per-person charge.
 
 Correct:
 
-> Lake Janagdan is the current provisional working trail while final trail selection is still pending.
-
-Incorrect:
-
-> Lake Janagdan is already the permanent TrailSync trail.
-
-Correct:
-
-> After formal final-trail selection, the selected trail is treated as fixed project scope unless a formal change is approved.
+> Lake Janagdan is the officially selected and final project trail, treated as fixed project scope unless a formal change is approved.
 
 Incorrect:
 
@@ -2266,11 +2212,7 @@ ANALYTICS
 
 The system currently focuses on **one selected trail**.
 
-The final trail has not yet been formally selected.
-
-Lake Janagdan is the current working/provisional trail used while development proceeds.
-
-Once the team formally approves the final trail, that trail becomes the **fixed project trail** and should be treated as part of the project's established scope.
+Lake Janagdan is the officially selected and final project trail. It is the fixed project trail and part of the project's established scope.
 
 Any later change to that trail should require an explicit project decision because trail-specific implementation may depend on actual mapping, geographic, checkpoint, boundary, hazard, and safety data.
 
@@ -2327,9 +2269,9 @@ Do not cross architectural boundaries without agreement.
 
 Do not claim capabilities the system does not actually provide.
 
-Do not treat an unfinalized trail as a finalized project decision.
+Treat Lake Janagdan as the finalized project trail.
 
-Do not assume the final trail can be casually changed after approval.
+Do not assume Lake Janagdan can be casually changed after final selection.
 
 Implement incrementally.
 

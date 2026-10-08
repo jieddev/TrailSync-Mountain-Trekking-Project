@@ -40,9 +40,10 @@ export async function requireFirebaseAuth(
       'Firebase authentication rejected because the bearer token was missing or malformed',
     );
 
-    return response
-      .status(401)
-      .json({ message: 'A valid Firebase ID token is required.' });
+    return response.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Authentication is required.' },
+      requestId: (request as Request & { id?: string }).id,
+    });
   }
 
   try {
@@ -60,8 +61,9 @@ export async function requireFirebaseAuth(
       'Firebase authentication rejected because ID token verification failed',
     );
 
-    return response
-      .status(401)
-      .json({ message: 'A valid Firebase ID token is required.' });
+    return response.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Authentication is invalid.' },
+      requestId: (request as Request & { id?: string }).id,
+    });
   }
 }

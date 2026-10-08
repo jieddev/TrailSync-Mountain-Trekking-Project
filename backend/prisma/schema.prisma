@@ -13,6 +13,21 @@ enum UserRole {
   COORDINATOR
 }
 
+enum BookingStatus {
+  PENDING_CONFIRMATION
+  CONFIRMED
+}
+
+enum DownpaymentStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+}
+
+enum BookingParticipantType {
+  BOOKING_OWNER
+  ADDITIONAL_PARTICIPANT
+}
+
 model User {
   id          String   @id @default(cuid())
   firebaseUid String   @unique
@@ -21,6 +36,38 @@ model User {
   role        UserRole @default(HIKER)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  bookings    Booking[]
 
   @@map("users")
+}
+
+model Booking {
+  id                String             @id @default(cuid())
+  ownerId           String
+  owner             User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  trail             String             @default("Lake Janagdan")
+  scheduledDate     String
+  scheduledTime     String
+  packagePrice      Int                @default(800)
+  status            BookingStatus      @default(PENDING_CONFIRMATION)
+  downpaymentStatus DownpaymentStatus  @default(PENDING_VERIFICATION)
+  participants      BookingParticipant[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([ownerId, createdAt])
+  @@map("bookings")
+}
+
+model BookingParticipant {
+  id          String                @id @default(cuid())
+  bookingId   String
+  booking     Booking               @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  kind        BookingParticipantType
+  name        String
+  age         Int
+  address     String
+
+  @@index([bookingId])
+  @@map("booking_participants")
 }
