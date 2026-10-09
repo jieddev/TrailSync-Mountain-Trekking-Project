@@ -1,6 +1,6 @@
 # TrailSync Booking API Contract Proposal
 
-**Status: PROPOSED FOR TEAM REVIEW — not approved and not implemented**
+**Status: REVISED CONTRACT PROPOSAL FOR TEAM REVIEW — not approved**
 
 Labels used below:
 
@@ -10,22 +10,20 @@ Labels used below:
 
 ## 1. Purpose
 
-This document proposes the first Hiker-facing Booking API for TrailSync. It defines resource boundaries, routes, request and response examples, security expectations, and unresolved decisions so the team can review the design before implementation.
-
-This is a planning artifact only. The repository contains no booking API or booking database model today. Nothing in this proposal should be read as an approved contract or implemented business behavior.
+This document proposes revisions to the existing Booking Foundation contract, including trail catalog integration. Booking persistence and core booking routes already exist in the repository. The proposal remains subject to team review; proposed catalog and trail-aware contract changes are not implemented.
 
 ## 2. Repository Findings
 
 ### Backend and current API
 
-- **CONFIRMED in repository:** the backend is Node.js, Express 5, TypeScript, Prisma, and PostgreSQL. The Prisma schema currently contains only `User` and `UserRole`; no booking, participant, schedule, payment, guide assignment, or trek-session model exists.
-- `backend/src/app.ts` currently defines the routes directly in one Express app module. It uses JSON parsing, CORS, `pino-http` request logging, and a global safe-error handler. There are not yet route/controller/service/domain folders to extend.
+- **CONFIRMED in repository:** the backend is Node.js, Express 5, TypeScript, Prisma, and PostgreSQL. Prisma includes `User`, `Booking`, and `BookingParticipant` models plus booking/downpayment enums. There are no trail catalog, guide assignment, or trek-session models.
+- `backend/src/app.ts` mounts the booking router. `backend/src/routes/bookings.ts` implements authenticated create/list/detail/reschedule/coordinator-confirm routes. The app uses JSON parsing, CORS, `pino-http` request logging, and a global safe-error handler.
 - The actual implemented versioned profile route is `GET /api/v1/users/me`. It is also registered under the legacy alias `/users/me`. `POST /users` is currently unversioned. For new routes, the versioned route is the clearest available precedent and matches `docs/API_CONTRACT_V1.md`.
 - `GET /api/v1/users/me` requires a Firebase Bearer token, looks up the PostgreSQL user by the verified Firebase UID, and returns only `{ id, fullName, email, role }`. It does not trust request-body identity or role fields. A missing profile returns `404 PROFILE_NOT_FOUND`.
-- `requireFirebaseAuth` verifies the Firebase ID token and places verified `firebaseUid` and optional email on the request. It does not load the TrailSync profile, authorize a role, or implement resource ownership checks. Booking handlers will need to resolve the profile and enforce authorization themselves or through a future shared helper.
+- `requireFirebaseAuth` verifies the Firebase ID token and places verified `firebaseUid` and optional email on the request. It does not load the TrailSync profile or authorize a role. Booking handlers resolve the profile, enforce HIKER/COORDINATOR role checks, and scope Hiker booking list/detail/reschedule to the authenticated owner.
 - The current API has inconsistent error shapes: the versioned current-user route uses `{ error: { code, message }, requestId }` for 404/500, while authentication middleware and unversioned profile creation return a top-level `message`; profile creation also uses `400` for validation and `409` for unique conflicts. `docs/API_CONTRACT_V1.md` recommends an error envelope and documents `422` for well-formed requests failing validation. Booking endpoints should follow that documented envelope consistently; this is a proposed choice, not a description of all current routes.
 - `pino-http` supplies a request ID and response header; the API contract recommends returning the request ID with errors. Internal errors are logged and should not be exposed.
-- Current `GET /api/v1/users/me` tests use Vitest, Supertest, and mocked Firebase Admin/Prisma. Booking endpoint tests should follow that lightweight pattern and cover auth, ownership, validation, and conflicts.
+- Booking endpoint tests exist in `backend/src/bookings.test.ts`; the foundation has been implemented and tested in the repository. This documentation task does not rerun tests.
 
 ### Frontend and API use
 
@@ -42,16 +40,16 @@ This is a planning artifact only. The repository contains no booking API or book
 
 These are confirmed project rules and workflow clarifications, not API-design guesses:
 
-- Lake Janagdan is the final project trail. TrailSync supports one trail only. Its authoritative maps, coordinates, route, boundaries, checkpoints, and hazards remain TBD until collected and verified.
+- The initial release supports Lake Janagdan only. Additional approved trails may be added through a controlled development/configuration change; no other trail is approved for the initial catalog.
 - One booking represents one trekking group/package.
-- A standard package costs **₱800** and includes one guide for up to **five participants total**. A group of one, two, three, four, or five still pays ₱800. The initial Booking API rejects a single booking above five; it does not split or link bookings automatically.
+- Every supported trail uses one package per booking, one guide, a maximum of five total participants including the owner, a 50% downpayment, and the full selected-trail price for one through five participants. Lake Janagdan costs **₱800**; future approved trails may have different approved package prices.
 - The booking owner is also a participant. The owner counts within the five-person maximum; at most four additional participants may be listed. A one-person booking is valid.
 - Current field-confirmed booking information is name, age, and address. Additional information may be required later but is TBD.
 - Today's manual process uses Facebook/Messenger. The tourist chooses a date and time, supplies booking information, and makes a **50% downpayment**. This is current operational context, not a requirement that TrailSync use Facebook/Messenger.
 - The Hiker submits a booking request; the Hiker does not confirm it. A submitted booking starts in `PENDING_CONFIRMATION`. The Tourism Officer reviews it and verifies the required downpayment before changing it to `CONFIRMED`.
 - For current development, payment processing and the Tourism Officer's payment verification step are **SIMULATED / MOCK**. No real money is transferred or processed, and no provider or gateway is connected.
-- The standard package downpayment requirement is 50% of ₱800, or **₱400**.
-- Cancellation is not allowed. Rescheduling is allowed. The existing booking retains the same downpayment credit when rescheduled; a date change alone does not require a second 50% downpayment. A no-show may currently be handled through rescheduling.
+- Lake Janagdan downpayment is 50% of ₱800, or **₱400**. For any future trail, the backend must calculate 50% from that trail’s approved price.
+- Hiker cancellation is not allowed. Rescheduling retains the same booking, selected trail, participants, agreed package price, and downpayment credit. A date change alone does not require another downpayment. Reschedule limits, notice periods, date eligibility, and no-show handling details remain TBD.
 - Physical check-in occurs at the tourism/operations office. Hikers do not choose a guide. Guide assignment happens automatically after check-in based on available guides; existing project intent is FIFO among eligible/available guides.
 - If more people arrive than the booking allows, the additional/overlapping participant(s) require another package/guide arrangement. Exact handling of under-arrival and over-arrival combinations remains TBD and belongs in detailed booking/check-in requirements.
 - Daily booking/visitor capacity is set operationally by the Tourism Officer and constrained by guide availability. There is no confirmed numeric capacity.
@@ -68,14 +66,14 @@ These are confirmed project rules and workflow clarifications, not API-design gu
 | Exact rules for groups above five: group split, maximum per additional package, package count, guide count, separate payer, and pricing                              | Determines whether one booking can represent related packages or whether a group requires multiple bookings.                                                         |
 | Guide availability states and the exact FIFO interaction                                                                                                             | Determines which operational facts the Booking/coordinator confirmation flow can rely on.                                                                            |
 | Exact mock-verification interaction for development; future real provider, transaction reference, actual status, gateway, verification, and refunds                  | Keeps the current simulated step simple while identifying future real-money integration needs. No provider or real processing is selected now.                       |
-| Reschedule count, notice period, eligible dates, availability behavior, post-date behavior, and whether a rescheduled confirmed booking needs officer reconfirmation | Determines validation, status transitions, and conflict outcomes. The same downpayment credit stays with the same booking.                                           |
+| Reschedule count, notice period, eligible dates, availability behavior, and post-date behavior | Determines validation and conflict outcomes. Rescheduling retains the same booking, selected trail, participants, agreed price, and downpayment credit; a date change alone does not require another downpayment. |
 | Whether a no-show reuses the same booking, has a deadline, or has repeat consequences                                                                                | Determines no-show transitions and rescheduling eligibility. Any rescheduling retains the same booking's downpayment credit.                                         |
 | Exact participant fields and age/address validation requirements                                                                                                     | Determines request validation and participant response shape. Name, age, and address are confirmed as collected; more fields and field constraints are not.          |
 | Whether a Hiker notification or booking reference is needed after Tourism Officer confirmation                                                                       | Determines whether the Hiker's booking-status view is sufficient or another user-facing confirmation mechanism is needed.                                            |
-| Exact booking schema and frontend booking flow                                                                                                                       | Affects persistence and client integration; neither is implemented.                                                                                                  |
-| Role provisioning and role authorization mechanism                                                                                                                   | The User role exists, but the backend does not yet implement role authorization. Hiker-only access needs a defined enforcement point.                                |
+| Trail-aware booking persistence and frontend booking flow                                                                                                          | Core Booking/Participant schema exists; trail catalog linkage, price/downpayment snapshots, and booking UI remain to be implemented.                                |
+| Authorized provisioning of GUIDE and COORDINATOR roles and role policy for future operational endpoints                                                              | Booking routes enforce HIKER/COORDINATOR checks; provisioning and broader operational role policy remain to be defined.                                              |
 
-The contract below gives practical recommendations where possible. The pending-to-confirmed workflow and simulated payment verification are the current recommended project workflow. Other **PROPOSED** details remain design recommendations, not business rules. Implementation should wait on open questions that affect the applicable operation.
+The Booking Foundation already implements the core workflow. Proposed contract revisions cover trail selection/catalog integration and trail-derived price/downpayment snapshots; other **PROPOSED** details remain subject to review. Capacity, large-group, schedule, and payment-provider questions remain open.
 
 ## 5. Recommended API Design
 
@@ -104,6 +102,7 @@ An idempotency key is not required for the initial Booking Foundation; see secti
 
 ```json
 {
+  "trailId": "tr_opaque_supported_trail",
   "scheduledDate": "2026-11-20",
   "scheduledTime": "08:00",
   "ownerDetails": {
@@ -127,7 +126,7 @@ An idempotency key is not required for the initial Booking Foundation; see secti
 
 `scheduledDate` and `scheduledTime` illustrate a **PROPOSED** local-date/local-time representation. `Asia/Manila` is the operational context, but the team must confirm that timezone and scheduling granularity before implementation. The authenticated Firebase UID resolves the TrailSync `User` profile; the backend uses that profile ID and `fullName` as the booking owner identity/name. The client supplies only booking-specific owner details not stored on the current profile (`age` and `address`). `additionalParticipants` contains only people besides the owner and may be empty.
 
-**Do not accept as client authority:** trail selection, owner/user IDs, participant count, package price, downpayment amount, lifecycle status, guide ID, payment verification/status, or capacity override. The server derives the fixed trail and package price from confirmed project configuration and calculates count from the owner plus the array.
+**Do not accept as client authority:** owner/user IDs, participant count, package price, downpayment amount, lifecycle status, guide ID, payment verification/status, or capacity override. The create request includes the selected `trailId`; the server validates it against the approved catalog and derives trail details and price from that resource. Calculate count from the owner plus the participant array.
 
 **Success:** `201 Created` with the submitted booking in `PENDING_CONFIRMATION` and `downpaymentStatus: PENDING_VERIFICATION`. The response confirms only that the request was recorded; the Hiker has not confirmed the booking and no real payment was processed. A Tourism Officer must review the request and complete the simulated 50% downpayment verification before the booking becomes `CONFIRMED` and the downpayment status becomes `VERIFIED`.
 
@@ -136,6 +135,7 @@ Example response:
 ```json
 {
   "id": "bk_opaque_123",
+  "trail": { "id": "tr_opaque_lake_janagdan", "name": "Lake Janagdan" },
   "status": "PENDING_CONFIRMATION",
   "downpaymentStatus": "PENDING_VERIFICATION",
   "scheduledDate": "2026-11-20",
@@ -153,6 +153,8 @@ Example response:
   }
 }
 ```
+
+This Lake Janagdan example includes the selected trail display information, its ₱800 package price, and the calculated ₱400 downpayment. The proposed shared response representation later in this section applies to create, list, detail, reschedule, and confirmation responses.
 
 The expected downpayment is currently **simulated/mock** in development; no actual funds move. The amount and requirement do not indicate that a payment was made or verified. Tourism Officer confirmation is still required. The full owner-scoped response DTO is illustrated later in this section.
 
@@ -192,7 +194,7 @@ The expected downpayment is currently **simulated/mock** in development; no actu
   "items": [
     {
       "id": "bk_opaque_123",
-      "trail": "Lake Janagdan",
+      "trail": { "id": "tr_opaque_supported_trail", "name": "Supported trail name" },
       "scheduledDate": "2026-11-20",
       "scheduledTime": "08:00",
       "status": "PENDING_CONFIRMATION",
@@ -259,9 +261,9 @@ The example values/shape are **PROPOSED**. `downpaymentStatus` describes only th
 **Path:** `/api/v1/bookings/:bookingId/confirm`  
 **Purpose:** Review a pending request, record simulated downpayment verification, and confirm the booking. This is a coordinator-side operation, not a Hiker endpoint.  
 **Authentication:** Required; Firebase ID token.  
-**Authorization:** Require an authorized coordinator. The repository's existing role enum is `COORDINATOR` (there is no `TOURISM_OFFICER` role); using that role is **PROPOSED** and must be enforced by the backend when role authorization is designed. The request cannot grant its caller a role.
+**Authorization:** Require an authorized coordinator. The existing handler enforces the `COORDINATOR` role from the resolved profile. There is no `TOURISM_OFFICER` role in the current enum. A reusable role-authorization middleware/policy and authorized role provisioning are not implemented; the request cannot grant its caller a role.
 
-**Request:** No body. The authenticated coordinator's action represents the review and simulated verification. The backend derives the required ₱400 amount and must not accept a client-provided verified flag, amount, payment status, or provider reference.
+**Request:** No body. The authenticated coordinator's action represents review and simulated verification. The backend must not accept a client-provided verified flag, amount, payment status, or provider reference. For Lake Janagdan the required amount is ₱400; future trail amounts are 50% of that trail’s server-approved price.
 
 **Success:** `200 OK` with the updated booking. The backend verifies that the booking is eligible and currently `PENDING_CONFIRMATION`. For a newly submitted booking with `downpaymentStatus: PENDING_VERIFICATION`, the coordinator action performs the simulated verification and sets it to `VERIFIED`. For a rescheduled booking whose downpayment is already `VERIFIED`, the action reviews the new schedule and retains that status; it does not require another payment or verification. In either case, the booking changes to `CONFIRMED`.
 
@@ -270,6 +272,7 @@ Example response fields:
 ```json
 {
   "id": "bk_opaque_123",
+  "trail": { "id": "tr_opaque_lake_janagdan", "name": "Lake Janagdan" },
   "status": "CONFIRMED",
   "downpaymentStatus": "VERIFIED",
   "package": {
@@ -298,7 +301,7 @@ The following is a proposed public DTO, not a raw Prisma object:
 ```json
 {
   "id": "bk_opaque_123",
-  "trail": "Lake Janagdan",
+  "trail": { "id": "tr_opaque_supported_trail", "name": "Supported trail name" },
   "scheduledDate": "2026-11-20",
   "scheduledTime": "08:00",
   "status": "PENDING_CONFIRMATION",
@@ -339,12 +342,12 @@ A newly submitted booking has `PENDING_CONFIRMATION` plus `PENDING_VERIFICATION`
 
 ## 6. Booking and Participant Data Model Expectations
 
-Conceptual only; no schema is prescribed here.
+The Booking Foundation schema exists. The following describes the intended direction for the trail-aware revision; it does not prescribe migration details.
 
 ```text
 Booking
   ├── authenticated owner reference (server-derived)
-  ├── one fixed project trail reference (server-derived)
+  ├── exactly one selected trail reference (validated against approved catalog)
   ├── selected date/time
   ├── package price snapshot (server-derived)
   ├── booking status (`PENDING_CONFIRMATION` → `CONFIRMED` → `CHECKED_IN`)
@@ -362,7 +365,7 @@ Recommended expectations:
 - Participant count is derived, never accepted as authoritative: `1 + additionalParticipants.length`.
 - Do not model the booking owner as an extra person outside the five-person limit. A one-person booking has one owner participant and zero additional participants.
 - Store the applied package price with the booking so later price changes do not rewrite historical bookings; source the current price from server-side configuration/domain policy. Whether price configuration requires a table is an implementation choice; do not introduce a pricing subsystem absent a need.
-- TrailSync is single-trail. The client need not submit a trail ID; the backend binds the final Lake Janagdan project trail. Any persisted trail reference/schema is an implementation decision.
+- Each booking references exactly one selected trail. The client submits its stable `trailId`; the backend validates it against the approved catalog. The current schema stores a defaulted trail string, not a first-class trail reference. A stable trail resource/reference and migration are required subsequent work.
 - `downpaymentStatus` is a minimal simulated-workflow field, not a payment subsystem. Do not add payment transactions/providers. Guide assignment, check-in records, and trek sessions are separate concerns and should not be modeled as participant fields.
 
 ## 7. Validation Rules
@@ -372,25 +375,26 @@ Recommended expectations:
 - Exactly one booking owner is present, derived from auth and represented in participants.
 - `additionalParticipants` contains at most four people. Therefore, total participants are from one through five.
 - One booking maps to one standard package. More than five must be rejected for this endpoint; do not silently split, link multiple bookings, or multiply price/guide counts. A party of six cannot be represented as one six-participant request.
-- Package price is server-owned and is ₱800 regardless of participant count from one to five.
-- Trail is fixed to Lake Janagdan and server-owned.
+- Package price is server-owned and follows the selected trail. Lake Janagdan is ₱800. The revised contract should preserve the applied trail price and its calculated 50% downpayment as booking snapshots so price changes do not alter existing bookings.
+- Require a selected `trailId`; validate it server-side against the approved catalog. Reject missing or unsupported trail identifiers using the shared validation/error conventions.
 - Hikers cannot choose or submit a guide.
 
 ### Proposed request validation
 
 - Require valid JSON with `scheduledDate`, `scheduledTime`, `ownerDetails`, and `additionalParticipants`; `ownerDetails` contains age/address only, and the additional-participant array may be empty.
 - Require the authenticated owner profile to have a usable `fullName`; use it as the owner participant name rather than accepting a second owner name from the request. Require non-empty trimmed owner address and integer age; require non-empty trimmed name/address and integer age for each additional participant. Exact age bounds, maximum field lengths, address normalization, Unicode/name rules, and time/date lead-time rules are TBD and must not be invented.
-- Reject unexpected authority fields (`userId`, `ownerId`, `firebaseUid`, `role`, `price`, `status`, `guideId`, `trailId`, `participantCount`) rather than trusting them. Whether to reject all unknown properties or ignore non-authority extras should be standardized with the backend request-validation convention.
+- Reject unexpected authority fields (`userId`, `ownerId`, `firebaseUid`, `role`, `price`, `status`, `guideId`, `participantCount`) rather than trusting them. Whether to reject all unknown properties or ignore non-authority extras should be standardized with the backend request-validation convention.
 - Validate date/time syntax and reject dates/times that fail the approved scheduling policy. Do not hardcode a capacity number in frontend or backend validation.
 - Apply participant, schedule-format, ownership, package, and any approved operational checks on the server even if the UI performs client-side validation.
 
 ## 8. Pricing and Downpayment
 
-### Confirmed business information
+### Existing package information and scope
 
-- Standard package price: **₱800** for one guide and up to five participants.
-- Required downpayment: **50%**, currently calculated as **₱400**.
-- The same downpayment credit stays with the same booking when it is rescheduled; a date change alone does not require a second downpayment.
+- Every supported trail uses one guide, a five-participant maximum including the owner, a 50% downpayment, and full trail price for participants one through five.
+- Lake Janagdan is **₱800**, so its downpayment is **₱400**. Future approved trails may have different approved prices.
+- The backend retrieves the selected trail price and calculates the downpayment. The proposed contract stores price and downpayment amount snapshots on the booking.
+- Rescheduling retains the same booking, participants, selected trail, price snapshot, and downpayment credit; a date change alone requires no second downpayment.
 
 ### Current development behavior
 
@@ -405,7 +409,7 @@ VERIFIED
 
 A new Hiker submission is `status: PENDING_CONFIRMATION` plus `downpaymentStatus: PENDING_VERIFICATION`. The coordinator confirmation action changes it to `status: CONFIRMED` plus `downpaymentStatus: VERIFIED`. If a previously confirmed booking is rescheduled, it returns to `PENDING_CONFIRMATION` while retaining `downpaymentStatus: VERIFIED`; the Officer reviews the new schedule without requiring a second downpayment or simulated verification.
 
-The Hiker booking response may show the ₱800 package price and ₱400 requirement. `PENDING_CONFIRMATION` means the Hiker submitted the booking; it is not a payment status. Only the Tourism Officer's review plus simulated verification advances the booking to `CONFIRMED`. Do not imply from the API response that payment was submitted, received, or transferred.
+The Hiker booking response returns the selected trail price snapshot and calculated 50% downpayment amount (₱800 and ₱400 for Lake Janagdan). `PENDING_CONFIRMATION` means the Hiker submitted the booking; it is not a payment status. Only the Tourism Officer's review plus simulated verification advances the booking to `CONFIRMED`. Do not imply from the API response that payment was submitted, received, or transferred.
 
 ### Future payment boundary
 
@@ -450,7 +454,7 @@ This pending → confirmed sequence is the **current recommended project workflo
 
 The Hiker Web Application supports login, clicking **New Booking**, entering booking information, submitting a request, viewing the Hiker's own bookings and status, and requesting rescheduling. A Hiker cannot confirm a booking, verify payment, check in, assign a guide, or perform coordinator operations.
 
-The future Tourism Officer/Coordinator Web Application reviews pending requests, performs the simulated downpayment verification, confirms eligible bookings, and later handles physical office check-in and operational dispatch. Confirmation is a secure coordinator-authorized Booking-domain operation, separate from the Hiker-facing API. The proposed confirmation endpoint is defined in section 5.5; implementation of coordinator authorization, role provisioning, and other coordinator operations remains outside this proposal.
+The future Tourism Officer/Coordinator Web Application reviews pending requests, performs simulated downpayment verification, confirms eligible bookings, and later handles physical office check-in and operational dispatch. The existing booking confirmation handler checks the `COORDINATOR` role inline. A reusable authorization policy, authorized role provisioning, and other coordinator operations remain future work.
 
 Conceptually:
 
@@ -522,14 +526,14 @@ The operation must:
 4. Update the same booking's date/time and return it to `PENDING_CONFIRMATION` for Tourism Officer review, keeping its verified downpayment status.
 5. Return the updated booking or a safe conflict.
 
-Rescheduling retains the same booking ID, package, participants, and ₱400 downpayment credit. A date change alone does not require another 50% downpayment. The number of reschedules, notice period, date range, and behavior after the original date remain **TBD**. Since the request returns to officer review, the Hiker receives `PENDING_CONFIRMATION` while `downpaymentStatus` remains `VERIFIED`; the Officer reviews and confirms the revised schedule.
+In the existing workflow, rescheduling retains the same booking ID, selected trail, package, participants, and downpayment credit. A date change alone does not require another 50% downpayment. The number of reschedules, notice period, date range, and behavior after the original date remain **TBD**. Since the request returns to officer review, the Hiker receives `PENDING_CONFIRMATION` while `downpaymentStatus` remains `VERIFIED`; the Officer reviews and confirms the revised schedule.
 
 ## 12. Security and Authorization
 
 - Require `Authorization: Bearer <Firebase ID token>` and verify it through the existing Firebase Admin middleware.
 - Derive Firebase UID from verified token claims, then resolve the TrailSync `User` profile. Do not accept the booking owner ID, Firebase UID, email, or role in booking request bodies.
 - Bind `ownerId` from the resolved profile in the backend. Filter list queries by this owner. For detail/reschedule, scope by both booking ID and owner ID, returning 404 for missing and non-owned bookings.
-- Enforce the intended Hiker role server-side if role policy is adopted. The current repository has a role column but no role authorization middleware; role assignment/provisioning and enforcement need to be agreed. Never rely on a frontend route or submitted role.
+- Booking handlers already enforce `HIKER` on create/list/detail/reschedule and `COORDINATOR` on confirmation with inline role checks. Reusable role-authorization middleware/policies are not implemented. Authorized role provisioning and broader role-specific experiences remain future work. Never rely on a frontend route or submitted role.
 - Reject or ignore authority fields from the client; never allow client values to set trail, package price, participants count, booking state, payment state, or guide assignment.
 - Do not expose Firebase UIDs, credentials, raw Prisma objects, stack traces, SQL details, or internal guide availability data in Hiker responses.
 - Coordinator list/check-in/dispatch routes need separate authorization and are out of this Hiker contract.
@@ -609,31 +613,30 @@ Use ordinary database transaction boundaries to avoid partially saving a booking
 ### Payment: full payment resource now vs simulated requirement only
 
 - A real payment resource/status workflow would require a future provider, transaction, actual status, deadline, refund, and real verification decisions that are not confirmed.
-- Returning the confirmed package price and expected 50% downpayment makes the current requirement visible while the development verification remains mocked.
+- Returning the selected trail price and calculated 50% downpayment makes the requirement visible while development verification remains mocked.
 - **Recommendation:** return the price snapshot and payment requirement only; keep Tourism Officer verification simulated in the current workflow and defer future real-payment resources, statuses, and endpoints.
 
 ### Hiker API and coordinator operation boundary
 
 Routes 5.1–5.4 are Hiker-facing operations. The `POST /api/v1/bookings/:bookingId/confirm` route in 5.5 is a separate coordinator operation requiring coordinator authorization. The proposal does not define the coordinator's pending-booking list/review, check-in, or guide-dispatch APIs.
 
-### Trail selection: client field vs fixed server context
+### Trail selection and catalog retrieval
 
-- A client-supplied trail ID adds a choice the product does not support and could imply multi-trail behavior.
-- Server-derived single trail matches the confirmed scope.
-- **Recommendation:** omit trail ID from create request and return Lake Janagdan in the booking representation.
+- Hikers must select one trail from the backend-provided approved catalog; arbitrary trail creation is not supported.
+- **PROPOSED:** `GET /api/v1/trails` returns supported trail identifiers and user-facing trail information, including name/description and map/route references or data as established by the trail contract. Authentication/access policy should follow existing Firebase Bearer conventions and be confirmed before implementation.
+- `POST /api/v1/bookings` requires `trailId`. The backend validates that it exists and is currently supported; invalid selections use `422 VALIDATION_ERROR` with a field detail, following the proposed shared error envelope.
+- Booking list/detail/create responses return the selected trail identifier and safe trail information. Rescheduling changes schedule only and preserves the selected trail association.
 
 ## 16. Recommended Future Implementation Sequence
 
 Planning only; no implementation is performed by this document.
 
-1. Team confirms the remaining Booking contract decisions, especially schedule/timezone, how pending requests affect capacity, Hiker/coordinator authorization, and the simple mock-verification interaction. `PENDING_CONFIRMATION` is the initial status; real payment integration is not a prerequisite.
-2. Frontend and backend review and approve the Hiker DTOs, error codes, timezone, and authorization. Keep idempotency outside the first implementation unless a concrete duplicate/retry requirement is identified.
-3. Backend defines the minimal booking/participant persistence and concurrency guarantees consistent with approved rules; no schema is prescribed here.
-4. Backend implements authenticated create, own-list, and own-detail operations. Create derives owner/trail/price/count, records `PENDING_CONFIRMATION`, and never confirms from the Hiker request.
-5. Define and implement the secure coordinator-side simulated verification/confirmation operation in its own operational scope. It advances an eligible pending booking to `CONFIRMED` only after Tourism Officer review and simulated downpayment verification.
-6. Backend adds the reschedule operation with the confirmed same-booking/same-downpayment behavior and returns the booking to `PENDING_CONFIRMATION` for Tourism Officer review. Capacity/availability automation is deferred until its rules are defined.
-7. Frontend builds the Hiker flow and separate coordinator experience against their respective approved contracts; the Hiker cannot confirm or verify payment.
-8. Team verifies end-to-end Hiker submission, officer review/mock verification, confirmation, rescheduling, and operational edge cases before enabling booking to users.
+1. Review and approve the trail-aware API contract while retaining the existing booking workflow, authentication, ownership, and authorization boundaries.
+2. Implement the Lake Janagdan catalog entry and proposed `GET /api/v1/trails`; define the stable trail identifier and response DTO.
+3. Update booking persistence and create/list/detail/reschedule contracts to validate and retain the selected trail and snapshot its approved price and calculated 50% downpayment.
+4. Preserve the existing `PENDING_CONFIRMATION` / `PENDING_VERIFICATION` request and coordinator simulated verification to `CONFIRMED` / `VERIFIED`. Keep rescheduling on the same booking and retain participants, trail, price, and downpayment.
+5. Build the Hiker UI only after the approved catalog and trail-aware booking contract are available.
+6. Define capacity, scheduling, large-group, and detailed reschedule rules in their own issues; real payment integration remains out of scope.
 
 Real payment processing/provider integration is a future extension and should not complicate the initial workflow. Check-in, guide dispatch, and trek-session operations retain their own authorization and contracts.
 
@@ -646,9 +649,9 @@ These questions materially affect this contract:
 3. Do pending requests hold capacity, and if so for how long? If they do not, what capacity check is required when the Tourism Officer confirms one?
 4. The initial API rejects any single booking above five participants. If a group over five is represented through multiple separate bookings, should those bookings be linked, and what package/guide/pricing rules apply?
 5. What participant age/address constraints apply, and are any participant fields required beyond name, age, and address?
-6. What are the reschedule limit, notice period, eligible dates, and after-date behavior? Does a reschedule of a confirmed booking require officer reconfirmation? Does a no-show reuse the same booking, and are there repeat/no-show consequences? The same downpayment credit remains on the same booking.
+6. What are the reschedule limit, notice period, eligible dates, and after-date behavior? Does a no-show reuse the same booking, and are there repeat/no-show consequences? The existing workflow returns a rescheduled booking to officer review while retaining its verified downpayment credit; a date change alone requires no second downpayment.
 7. Should `CHECKED_IN` be a Booking status or a related check-in record, how should no-show be represented, and which state changes are coordinator-only?
-8. How will a verified token map to an authorized Hiker profile, and where will Hiker/Coordinator role authorization be enforced?
+8. What is the authorized process for provisioning HIKER/COORDINATOR roles, and what reusable role-authorization policy should protect future endpoints? Existing Booking handlers already enforce these two roles inline.
 9. How should a Tourism Officer decline or otherwise resolve a pending request that cannot be confirmed, and how is the Hiker informed?
 10. What, if any, mock-verification UX/details are needed for initial development? Future real-money provider, transaction/reference, payment status, deadline, verification, and refund rules remain outside the current workflow and TBD.
 11. If duplicate/retry problems justify future hardening, what idempotency guarantee should the API provide? This is not a V1 blocker.
@@ -682,10 +685,24 @@ POST   /api/v1/bookings/:bookingId/confirm
        downpayment verification when still pending, then confirms it
 ```
 
-The backend derives the owner from the authenticated TrailSync profile, uses that profile's name for the owner participant, and derives participant count, Lake Janagdan, ₱800 package price, one-guide package, ₱400 expected downpayment, and initial statuses. The owner is one of at most five participants; at most four additional participants are accepted, and a larger single-booking request is rejected without splitting or linking bookings.
+The backend derives the owner from the authenticated TrailSync profile, uses that profile's name for the owner participant, validates the requested trail against the approved catalog, retrieves its approved price, calculates the 50% downpayment, and derives participant count and initial statuses. Package limit and guide arrangement are shared rules. The owner is one of at most five participants; at most four additional participants are accepted, and a larger single-booking request is rejected without splitting or linking bookings.
 
 A new request starts as `PENDING_CONFIRMATION` plus `downpaymentStatus: PENDING_VERIFICATION`. Coordinator mock verification changes it to `CONFIRMED` plus `VERIFIED`. A rescheduled confirmed booking returns to `PENDING_CONFIRMATION` while retaining `VERIFIED` downpayment credit; no second downpayment is required for the date change. Payment processing is simulated/mock and no real money is transferred.
 
 No V1 availability endpoint, Hiker cancellation, Hiker confirmation, guide selection, or guide dispatch endpoint is proposed. Check-in, guide assignment/FIFO, and trek-session actions remain operational responsibilities beyond the Hiker Booking API.
 
-**Review status:** This proposal is not approved and the Booking API has not been implemented.
+**Review status:** This revised contract proposal is not approved. The Booking Foundation exists; trail catalog retrieval, stable trail references, selected-trail validation, and trail-derived price/downpayment snapshots remain unimplemented.
+
+
+## 19. Trail Catalog and Booking Integration (proposed future contract)
+
+The initial release catalog contains Lake Janagdan only. Future approved trails may be added through controlled development/configuration change. The proposed API capability is:
+
+- `GET /api/v1/trails` returns the approved catalog with stable identifiers and trail information needed for booking (including approved package price). The exact response shape and access policy remain for contract review. No public trail creation/edit endpoint is proposed.
+- `POST /api/v1/bookings` requires `trailId`. The backend validates that the identifier is in the approved catalog, retrieves its approved price, calculates 50% downpayment, and rejects unsupported/missing selections using the shared validation conventions.
+- Create/list/detail responses return the selected trail and stored price/downpayment amounts. Rescheduling retains the same booking, participants, trail, price, and downpayment snapshots.
+- Proposed persistence should snapshot both the package price and calculated downpayment amount so later catalog price changes do not alter existing bookings. The current schema has a `packagePrice` field but no persisted downpayment amount field; current code calculates 50% from a hardcoded Lake Janagdan price.
+
+Shared rules for every supported trail: one package per booking, one guide, up to five total participants including the owner, 50% downpayment, and full selected-trail price for participants one through five. Lake Janagdan is ₱800 with a ₱400 downpayment. Future approved trails may have different approved prices.
+
+The current repository implementation stores trail as a defaulted string, hardcodes Lake Janagdan and ₱800 during create, returns the trail string, and calculates ₱400 from constants. It has no catalog endpoint, stable trail reference, selected-trail validation, or dynamic trail price. Existing create/list/detail/reschedule/coordinator-confirm workflows and booking/participant persistence do exist. Maps, routes, checkpoints, and geographic integrations are outside this booking proposal and remain separate requirements/data work.
