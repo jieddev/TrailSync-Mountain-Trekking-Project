@@ -1,989 +1,242 @@
-# TrailSync API Contract
+# TrailSync API Contract (v1)
 
-## 1. Purpose
-
-This document defines the communication contract between the TrailSync frontend, mobile application, and backend API.
-
-The contract specifies:
-
-- API URL structure
-- HTTP methods
-- Authentication requirements
-- Request and response formats
-- Error formats
-- Resource naming
-- Authorization expectations
-- Rules for evolving the API
-
-The goal is to allow frontend, backend, and mobile development to proceed independently without inventing incompatible request or response formats.
+This is the single source of truth for the HTTP API shared by the web frontend, the future guide mobile app, and the backend. It documents **implemented** endpoints in full and lists planned resources briefly. Business rules live in [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md); the roadmap lives in [`PROJECT_MILESTONES.md`](PROJECT_MILESTONES.md).
 
 ---
 
-# 2. API Architecture
+## 1. Conventions
 
-TrailSync uses a **REST-style JSON API**.
+### Architecture
 
-Recommended base path:
-
-```text
-/api/v1
-```
-
-Example:
+TrailSync is a modular monolith exposing a REST-style JSON API under `/api/v1`. Clients talk only to the API, never to PostgreSQL. Firebase Authentication is the identity provider; PostgreSQL is the application database.
 
 ```text
-GET /api/v1/users/me
+Web / Mobile ──HTTPS + JSON──▶ TrailSync API (Express) ──▶ PostgreSQL
+                                     │
+                                     └── Firebase Admin (token verification)
 ```
 
-The API is part of the TrailSync **modular monolith**.
+### Authentication
 
-The frontend and mobile applications communicate with the backend API.
-
-```text
-Web Frontend
-      │
-      │ HTTPS + JSON
-      ▼
-TrailSync Backend API
-      │
-      ├── Authentication / Authorization
-      ├── User Profiles
-      ├── Trails
-      ├── Bookings
-      ├── Check-In / Dispatch
-      ├── Trek Sessions
-      ├── Monitoring
-      ├── Safety / Incidents
-      ├── Certificates
-      └── Analytics
-      │
-      ▼
-PostgreSQL
-```
-
-Firebase Authentication remains the authentication provider.
-
-PostgreSQL remains the TrailSync application database.
-
-The frontend and mobile applications must not access PostgreSQL directly.
-
----
-
-# 3. Authentication Contract
-
-TrailSync uses Firebase Authentication for user authentication.
-
-Authenticated requests send the Firebase ID token using the standard Bearer authorization header:
+Authenticated requests send a Firebase ID token:
 
 ```http
 Authorization: Bearer <firebase-id-token>
 ```
 
-Example:
+The backend verifies the token with Firebase Admin, takes the Firebase UID from the verified token, and loads the matching TrailSync `User`. The client is never authoritative for identity, role, ownership, price, status, or guide assignment; such fields in a request body are ignored.
 
-```http
-GET /api/v1/users/me
-Authorization: Bearer eyJ...
-```
+### Requests and responses
 
-The backend must:
+- JSON bodies with `Content-Type: application/json`.
+- IDs are opaque strings. Timestamps are ISO 8601 (`2026-10-07T01:00:00.000Z`).
+- A single resource is returned directly. A collection is returned as `{ "items": [...] }`. Add pagination only when an endpoint needs it.
 
-1. Receive the Firebase ID token.
-2. Verify the token using Firebase Admin.
-3. Obtain the authenticated Firebase UID from the verified token.
-4. Use that identity to locate the corresponding TrailSync user.
-5. Apply backend authorization rules where required.
-
-The client must not be treated as authoritative for:
-
-- user identity
-- user role
-- guide assignment
-- booking ownership
-- trek ownership
-- coordinator permissions
-- safety permissions
-- other privileged decisions
-
----
-
-# 4. Common HTTP and JSON Rules
-
-Requests and responses use JSON unless an endpoint explicitly requires another representation, such as a PDF certificate.
-
-Recommended content type:
-
-```http
-Content-Type: application/json
-```
-
-Dates and timestamps should use ISO 8601 format.
-
-Example:
-
-```text
-2026-09-24T15:30:00.000Z
-```
-
-IDs should be treated by clients as opaque strings.
-
-The frontend must not depend on the internal database ID-generation implementation.
-
----
-
-# 5. Common Success Responses
-
-Successful responses should return the resource or result directly unless the endpoint has a specific reason to use another structure.
-
-Example:
-
-```json
-{
-  "id": "user-id",
-  "fullName": "Juan Dela Cruz",
-  "email": "juan@example.com",
-  "role": "HIKER"
-}
-```
-
-For collections, use:
-
-```json
-{
-  "items": []
-}
-```
-
-Pagination should only be introduced on endpoints where it is actually needed.
-
-Do not add pagination to every endpoint automatically.
-
----
-
-# 6. Common Error Response
-
-Backend errors should use a consistent JSON structure.
-
-Recommended format:
+### Errors
 
 ```json
 {
   "error": {
-    "code": "PROFILE_NOT_FOUND",
-    "message": "User profile was not found."
+    "code": "VALIDATION_ERROR",
+    "message": "Review the booking details and try again.",
+    "details": [{ "field": "trailId", "code": "UNSUPPORTED_TRAIL", "message": "Select a supported trail." }]
   },
   "requestId": "request-id"
 }
 ```
 
-The `message` should be safe for clients.
+`details` is optional and appears on validation errors. Messages are safe for clients; stack traces, database/Firebase internals, and secrets are never returned. `requestId` matches the `X-Request-Id` response header and the server logs.
 
-The backend must not expose:
+| Status | Use                                                                 |
+| ------ | ------------------------------------------------------------------- |
+| `200`  | Success                                                             |
+| `201`  | Resource created                                                    |
+| `400`  | Malformed request (`INVALID_JSON`)                                  |
+| `401`  | Missing or invalid token (`UNAUTHORIZED`)                           |
+| `403`  | Authenticated but not allowed (`FORBIDDEN`)                         |
+| `404`  | Resource missing or not visible to the caller                       |
+| `409`  | Request conflicts with the resource's current state                 |
+| `422`  | Well-formed request that fails validation (`VALIDATION_ERROR`)      |
+| `500`  | Unexpected server error (`INTERNAL_SERVER_ERROR`)                   |
 
-- stack traces
-- database errors
-- Firebase Admin internals
-- SQL details
-- secrets
-- tokens
-- internal implementation details
+### Roles and authorization
 
-The existing request ID should be preserved when available.
+Roles are `HIKER`, `GUIDE`, and `COORDINATOR`, stored on the backend. The frontend may use the role for navigation, but every protected endpoint checks the role itself; a hidden button is not authorization. Public registration always creates a `HIKER`. Provisioning of `GUIDE`/`COORDINATOR` accounts is not yet defined.
 
----
+### Changing the contract
 
-# 7. Recommended HTTP Status Codes
-
-Use HTTP status codes consistently.
-
-| Status | Meaning                                               |
-| ------ | ----------------------------------------------------- |
-| `200`  | Successful request                                    |
-| `201`  | Resource successfully created                         |
-| `204`  | Successful request with no response body              |
-| `400`  | Invalid request format                                |
-| `401`  | Authentication missing or invalid                     |
-| `403`  | Authenticated but not authorized                      |
-| `404`  | Requested resource does not exist or is not available |
-| `409`  | Request conflicts with current state                  |
-| `422`  | Request is well-formed but fails validation           |
-| `500`  | Unexpected server error                               |
-
-The exact status should reflect the actual situation rather than being used arbitrarily.
+Any new or changed endpoint must be documented here in the same PR: method, path, auth, role, request, success response, and error codes. Renaming or removing a field that another layer depends on is a breaking change and must be agreed first; additive changes are preferred.
 
 ---
 
-# 8. Current User/Profile Contract
+## 2. Users
 
-This is the first API contract required for the current Hiker Home task.
+### `POST /users`
 
-## Endpoint
+Creates the TrailSync profile for the verified Firebase account. **Auth:** Bearer token. **Role:** any.
 
-```http
-GET /api/v1/users/me
+```json
+{ "fullName": "Juan Dela Cruz" }
 ```
 
-## Authentication
+`201` returns the created user. Email and Firebase UID come from the token; the role is always `HIKER`.
 
-Required.
+| Status | Body                                                              |
+| ------ | ----------------------------------------------------------------- |
+| `400`  | `{ "message": "fullName is required and must be a non-empty string." }` |
+| `400`  | Verified account has no email                                     |
+| `401`  | `UNAUTHORIZED`                                                    |
+| `409`  | Profile with this Firebase UID or email already exists            |
 
-The request must contain:
+> Legacy: this route is unversioned and returns a top-level `message` instead of the error envelope. Move it to `/api/v1/users` with the standard envelope when it is next changed.
 
-```http
-Authorization: Bearer <firebase-id-token>
+### `GET /api/v1/users/me`
+
+Returns the caller's profile. **Auth:** Bearer token. **Role:** any. (Also served at the legacy alias `/users/me`.)
+
+```json
+{ "id": "user-id", "fullName": "Juan Dela Cruz", "email": "juan@example.com", "role": "HIKER" }
 ```
 
-## Request Body
+Errors: `401 UNAUTHORIZED`, `404 PROFILE_NOT_FOUND` (valid Firebase account without a TrailSync profile), `500 INTERNAL_SERVER_ERROR`.
 
-None.
+---
 
-The frontend must not send:
+## 3. Trails
+
+TrailSync is a multi-trail system. Trails are catalog rows with stable IDs; Lake Janagdan (`trl_lake_janagdan`) is currently the only one. Trails are added or retired by database migration (see `backend/README.md`); there are no create/update endpoints.
+
+### `GET /api/v1/trails`
+
+Lists active trails, ordered by name. **Auth:** none.
 
 ```json
 {
-  "userId": "...",
-  "firebaseUid": "...",
-  "role": "HIKER"
+  "items": [
+    {
+      "id": "trl_lake_janagdan",
+      "slug": "lake-janagdan",
+      "name": "Lake Janagdan",
+      "description": null,
+      "package": { "price": { "amount": 800, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
+      "paymentRequirement": { "downpaymentPercent": 50, "amount": 400, "currency": "PHP" }
+    }
+  ]
 }
 ```
 
-The backend derives the authenticated identity from the verified Firebase token.
+### `GET /api/v1/trails/:trailId`
 
-## Successful Response
+Returns one active trail in the same shape. Errors: `404 TRAIL_NOT_FOUND` (unknown or inactive), `500`.
 
-```http
-200 OK
-```
+Map, route, checkpoint, and geographic fields will be added only when verified trail data exists.
 
-Example:
+---
+
+## 4. Bookings
+
+One booking is one trekking group/package: one guide, up to five participants **including the owner**, and the selected trail's full package price regardless of group size. A 50% downpayment is required; verification is **simulated** — no real payment is processed.
+
+All booking routes require a Bearer token. Hiker routes are scoped to bookings the caller owns.
+
+### Booking representation
+
+Returned by every booking endpoint:
 
 ```json
 {
-  "id": "user-id",
-  "fullName": "Juan Dela Cruz",
-  "email": "juan@example.com",
-  "role": "HIKER"
+  "id": "booking-id",
+  "trail": { "id": "trl_lake_janagdan", "name": "Lake Janagdan" },
+  "scheduledDate": "2026-11-20",
+  "scheduledTime": "08:00",
+  "status": "PENDING_CONFIRMATION",
+  "downpaymentStatus": "PENDING_VERIFICATION",
+  "participants": [
+    { "id": "p1", "kind": "BOOKING_OWNER", "name": "Juan Dela Cruz", "age": 28, "address": "Ormoc City, Leyte" },
+    { "id": "p2", "kind": "ADDITIONAL_PARTICIPANT", "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte" }
+  ],
+  "participantCount": 2,
+  "package": { "price": { "amount": 800, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
+  "paymentRequirement": { "downpaymentPercent": 50, "amount": 400, "currency": "PHP" },
+  "createdAt": "2026-10-07T01:00:00.000Z",
+  "updatedAt": "2026-10-07T01:00:00.000Z"
 }
 ```
 
-These are the currently appropriate profile fields for the authenticated application shell.
+`package.price.amount` and `paymentRequirement.amount` are **snapshots** taken from the trail when the booking was created; later catalog price changes do not affect existing bookings.
 
-Additional profile fields may be added later through an explicit contract change.
+### Lifecycle
 
-## Missing Authentication
+| `status`               | `downpaymentStatus`    | Meaning                                                  |
+| ---------------------- | ---------------------- | -------------------------------------------------------- |
+| `PENDING_CONFIRMATION` | `PENDING_VERIFICATION` | New request awaiting coordinator review                  |
+| `CONFIRMED`            | `VERIFIED`             | Coordinator confirmed and (simulated) downpayment verified |
+| `PENDING_CONFIRMATION` | `VERIFIED`             | Rescheduled; new date awaits review, downpayment credit kept |
 
-```http
-401 Unauthorized
-```
+Hikers cannot cancel or confirm bookings and never choose a guide. Check-in and guide assignment are future coordinator operations.
 
-Example:
+### `POST /api/v1/bookings`
+
+Creates a booking. **Role:** `HIKER`.
 
 ```json
 {
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Authentication is required."
-  },
-  "requestId": "request-id"
+  "trailId": "trl_lake_janagdan",
+  "scheduledDate": "2026-11-20",
+  "scheduledTime": "08:00",
+  "ownerDetails": { "age": 28, "address": "Ormoc City, Leyte" },
+  "additionalParticipants": [{ "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte" }]
 }
 ```
 
-## Invalid Firebase Token
+- `trailId` must be an active catalog trail.
+- `scheduledDate` is `YYYY-MM-DD`; `scheduledTime` is 24-hour `HH:mm`.
+- The owner's name comes from their profile; `ownerDetails` supplies only age and address.
+- `additionalParticipants` is optional, at most 4 people. Ages are positive integers; names and addresses are non-blank.
+- Owner, price, downpayment, status, and participant count are server-derived; client values are ignored.
 
-```http
-401 Unauthorized
-```
+`201` returns the booking with `PENDING_CONFIRMATION` / `PENDING_VERIFICATION`.
 
-Example:
+`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`. Other errors: `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+
+### `GET /api/v1/bookings`
+
+Lists the caller's bookings, newest first, as `{ "items": [...] }`. **Role:** `HIKER`. Errors: `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+
+### `GET /api/v1/bookings/:bookingId`
+
+Returns one booking owned by the caller. **Role:** `HIKER`. Errors: `401`, `403`, `404 BOOKING_NOT_FOUND` (also for bookings owned by someone else), `500`.
+
+### `POST /api/v1/bookings/:bookingId/reschedule`
+
+Moves a `CONFIRMED` booking to a new date/time. **Role:** `HIKER` (owner).
 
 ```json
-{
-  "error": {
-    "code": "INVALID_AUTH_TOKEN",
-    "message": "Authentication is invalid."
-  },
-  "requestId": "request-id"
-}
+{ "scheduledDate": "2026-11-21", "scheduledTime": "09:00" }
 ```
 
-## Firebase User Exists but TrailSync Profile Does Not Exist
+`200` returns the same booking with the new schedule and `status: PENDING_CONFIRMATION`. Trail, participants, price, and verified downpayment credit are kept; no second downpayment is required. Errors: `422 VALIDATION_ERROR`, `404 BOOKING_NOT_FOUND`, `409 RESCHEDULE_NOT_ALLOWED` (not currently `CONFIRMED`), `401`, `403`, `500`.
 
-Recommended response:
+### `POST /api/v1/bookings/:bookingId/confirm`
 
-```http
-404 Not Found
-```
+Coordinator review: records simulated downpayment verification and confirms the booking. **Role:** `COORDINATOR`. No request body.
 
-Example:
-
-```json
-{
-  "error": {
-    "code": "PROFILE_NOT_FOUND",
-    "message": "User profile was not found."
-  },
-  "requestId": "request-id"
-}
-```
-
-This situation should be handled explicitly rather than returning a fake profile.
+`200` returns the booking with `CONFIRMED` / `VERIFIED`. Errors: `404 BOOKING_NOT_FOUND`, `409 BOOKING_NOT_CONFIRMABLE` (not `PENDING_CONFIRMATION`), `401`, `403`, `500`.
 
 ---
 
-# 9. Current Hiker Home Integration
-
-The frontend Hiker Home can use the following flow:
-
-```text
-Firebase Authentication
-        ↓
-Authenticated Firebase Session
-        ↓
-GET /api/v1/users/me
-        ↓
-Backend verifies Firebase ID token
-        ↓
-Backend finds PostgreSQL User
-        ↓
-Profile returned
-        ↓
-Hiker Home displays profile information
-```
-
-Example frontend usage:
-
-```text
-GET /api/v1/users/me
-
-200 OK
-
-{
-  "id": "...",
-  "fullName": "Juan Dela Cruz",
-  "email": "juan@example.com",
-  "role": "HIKER"
-}
-```
-
-The Hiker Home may then display:
-
-```text
-Welcome, Juan Dela Cruz
-
-juan@example.com
-Hiker
-```
-
-The exact visual presentation belongs to the frontend implementation.
-
----
-
-# 10. User Role Contract
-
-The current roles are:
-
-```text
-HIKER
-GUIDE
-COORDINATOR
-```
-
-Roles are authoritative on the backend.
-
-The frontend may use the returned role to determine navigation or presentation.
-
-For example:
-
-```text
-role = HIKER
-→ Hiker experience
-```
-
-However:
-
-```text
-Frontend role check
-≠
-Backend authorization
-```
-
-A hidden button is not authorization.
-
-Every protected backend operation must independently verify whether the authenticated user is allowed to perform that operation.
-
----
-
-# 11. Resource Structure
-
-As TrailSync grows, API endpoints should be organized around resources.
-
-Recommended structure:
-
-```text
-/api/v1/users
-/api/v1/trails
-/api/v1/bookings
-/api/v1/check-ins
-/api/v1/guides
-/api/v1/treks
-/api/v1/locations
-/api/v1/checkpoints
-/api/v1/incidents
-/api/v1/certificates
-/api/v1/analytics
-```
-
-Not every resource needs to be implemented immediately.
-
-This structure is a roadmap for API organization, not permission to implement all of these features now.
-
----
-
-# 12. User API
-
-Currently required:
-
-```text
-GET /api/v1/users/me
-```
-
-Future user-profile operations may include:
-
-```text
-PATCH /api/v1/users/me
-```
-
-but this should only be implemented when the editable profile fields and validation rules are confirmed.
-
-The backend must never allow a normal user to modify privileged fields such as:
-
-```text
-role
-```
-
-through an ordinary profile-update endpoint.
-
----
-
-# 13. Trail API
-
-Trail functionality must support the current single-trail scope.
-
-The API should not hardcode:
-
-```text
-Lake Janagdan
-```
-
-as a permanent system assumption.
-
-Lake Janagdan is the current working trail, but the final selected trail may change.
-
-A future trail contract can therefore use a trail resource such as:
-
-```text
-GET /api/v1/trails/{trailId}
-```
-
-Possible future response:
-
-```json
-{
-  "id": "trail-id",
-  "name": "Lake Janagdan",
-  "description": "...",
-  "..."
-}
-```
-
-The exact fields remain TBD until legitimate trail information and project requirements are confirmed.
-
-Do not invent:
-
-- coordinates
-- boundaries
-- hazards
-- checkpoints
-- capacity
-- weather thresholds
-
-until those values are officially supplied.
-
----
-
-# 14. Booking API
-
-Booking is a future milestone and should not be implemented as part of the Hiker Home task.
-
-Once booking requirements are finalized, the API should follow a resource-based structure such as:
-
-```text
-POST /api/v1/bookings
-GET /api/v1/bookings/{bookingId}
-GET /api/v1/users/me/bookings
-```
-
-Future state-changing operations may follow the resource:
-
-```text
-POST /api/v1/bookings/{bookingId}/cancel
-```
-
-but cancellation and refund rules must be confirmed first.
-
-## Confirmed Booking Business Rule
-
-The standard package is:
-
-```text
-1 booking
-1 guide
-up to 5 guests
-₱550
-```
-
-Fewer than five guests still pay:
-
-```text
-₱550
-```
-
-The API must not invent discounted pricing for smaller groups.
-
-Rules for groups exceeding five guests remain TBD.
-
-Daily carrying capacity also remains TBD.
-
-Therefore, the final booking request and response schema should not be considered finalized until those decisions are confirmed.
-
----
-
-# 15. Check-In and Guide Dispatch API
-
-These are future backend operations.
-
-The future API should represent the operational sequence:
-
-```text
-Booking
-   ↓
-Tourist Arrives
-   ↓
-Coordinator Check-In
-   ↓
-FIFO Guide Dispatch
-   ↓
-Guide Assigned
-```
-
-Potential resource structure:
-
-```text
-POST /api/v1/check-ins
-GET /api/v1/guides/availability
-GET /api/v1/guides/queue
-POST /api/v1/assignments
-```
-
-These are proposed resource boundaries, not finalized contracts.
-
-The exact request/response schemas must be agreed when the dispatch milestone begins.
-
-The backend must enforce FIFO and concurrency rules.
-
-The frontend must not decide which guide receives a group.
-
----
-
-# 16. Trek Session API
-
-A future trek session should represent the actual trekking operation after guide assignment.
-
-Potential structure:
-
-```text
-POST /api/v1/treks
-GET /api/v1/treks/{trekId}
-POST /api/v1/treks/{trekId}/start
-POST /api/v1/treks/{trekId}/complete
-```
-
-The exact lifecycle states must be confirmed before implementation.
-
-The backend remains authoritative for trek state transitions.
-
----
-
-# 17. Monitoring and Checkpoint API
-
-Monitoring will describe:
-
-```text
-Near-real-time monitoring of trekking groups through assigned guide devices.
-```
-
-It must not be represented as:
-
-```text
-Individual real-time tracking of every hiker.
-```
-
-A future location endpoint may follow a structure such as:
-
-```text
-POST /api/v1/treks/{trekId}/locations
-```
-
-Checkpoint events may follow:
-
-```text
-POST /api/v1/treks/{trekId}/checkpoints
-```
-
-Offline synchronization must be designed to be retry-safe and idempotent.
-
-The detailed request schema remains TBD until the legitimate trail/checkpoint data and synchronization requirements are confirmed.
-
----
-
-# 18. Safety and Incident API
-
-Future safety functionality should use resource-based endpoints such as:
-
-```text
-GET /api/v1/weather/restrictions
-GET /api/v1/trails/{trailId}/restrictions
-POST /api/v1/incidents
-POST /api/v1/sos
-```
-
-These endpoint names are preliminary.
-
-Official weather thresholds, incident procedures, notification channels, and SOS escalation rules remain TBD.
-
-AI must not make safety-critical decisions.
-
-Safety rules must be deterministic and enforced by the backend.
-
----
-
-# 19. Certificate API
-
-Future certificate access may follow:
-
-```text
-GET /api/v1/treks/{trekId}/certificate
-```
-
-or another finalized certificate resource.
-
-The certificate must only be available when the trek meets the confirmed completion requirements.
-
-Certificate design, signing, storage, and issuance-history requirements remain TBD.
-
----
-
-# 20. Analytics API
-
-Analytics should be built from persisted operational records.
-
-A future coordinator-only structure could be:
-
-```text
-GET /api/v1/analytics/visitors
-GET /api/v1/analytics/bookings
-GET /api/v1/analytics/guides
-GET /api/v1/analytics/incidents
-```
-
-The exact endpoints depend on the final coordinator requirements.
-
-Analytics should not invent data or rely on AI recommendations unless a confirmed non-safety-critical use case exists.
-
----
-
-# 21. Authorization Rules
-
-Authentication answers:
-
-```text
-Who are you?
-```
-
-Authorization answers:
-
-```text
-Are you allowed to do this?
-```
-
-Firebase authentication provides identity.
-
-TrailSync backend authorization determines permissions.
-
-Examples:
-
-```text
-HIKER
-→ access own profile
-→ access own bookings
-→ access own trekking information
-
-GUIDE
-→ access assigned guide operations
-→ submit authorized trek/session information
-
-COORDINATOR
-→ perform authorized check-in
-→ manage operational guide dispatch
-→ access authorized monitoring data
-→ access authorized analytics
-```
-
-These examples describe the intended direction of the role model.
-
-Exact permissions should be finalized per feature rather than creating a huge permission system prematurely.
-
----
-
-# 22. API Contract Rules for Both Developers
-
-Whenever one developer creates or changes an API endpoint, the change should document:
-
-```text
-1. HTTP method
-2. URL
-3. Authentication requirement
-4. Authorization requirement
-5. Request headers
-6. Request body
-7. Success status
-8. Success response
-9. Possible error statuses
-10. Error response
-```
-
-Example:
-
-```text
-Endpoint:
-GET /api/v1/users/me
-
-Auth:
-Firebase Bearer token required
-
-Request body:
-None
-
-Success:
-200
-
-Response:
-{
-  "id": "...",
-  "fullName": "...",
-  "email": "...",
-  "role": "HIKER"
-}
-
-Errors:
-401 UNAUTHORIZED
-401 INVALID_AUTH_TOKEN
-404 PROFILE_NOT_FOUND
-```
-
-The frontend and backend should implement the same contract.
-
----
-
-# 23. Contract Change Rule
-
-Do not silently change an API response after another part of the system depends on it.
-
-For example, changing:
-
-```json
-{
-  "fullName": "Juan Dela Cruz"
-}
-```
-
-to:
-
-```json
-{
-  "name": "Juan Dela Cruz"
-}
-```
-
-is an API contract change.
-
-Changes should be discussed before implementation when they affect another application layer.
-
-Backward-compatible additions are preferred.
-
-For example, adding:
-
-```json
-{
-  "id": "...",
-  "fullName": "...",
-  "email": "...",
-  "role": "HIKER",
-  "createdAt": "..."
-}
-```
-
-is generally easier to adopt than renaming an existing field.
-
----
-
-# 24. Current Development Contract
-
-For the immediate milestone, the only backend/frontend contract that needs to be finalized is:
-
-```text
-GET /api/v1/users/me
-```
-
-with:
-
-```text
-Authentication:
-Firebase ID token
-
-Response:
-id
-fullName
-email
-role
-```
-
-Therefore the two current tasks can proceed in parallel:
-
-```text
-YOU
-────────────────────────────
-Create Authenticated Hiker Home
-
-- protected route
-- post-login redirect
-- application shell
-- navigation
-- booking entry point
-- logout
-- responsive UI
-- loading/empty states
-- consume current-user profile
-────────────────────────────
-
-COLLABORATOR
-────────────────────────────
-Create Current User/Profile API
-
-- GET /api/v1/users/me
-- verify Firebase token
-- obtain Firebase UID
-- query PostgreSQL User
-- return profile
-- handle 401/404/errors
-- backend tests
-────────────────────────────
-```
-
-Then integrate:
-
-```text
-Your frontend
-      ↓
-GET /api/v1/users/me
-      ↓
-Collaborator's backend
-      ↓
-Firebase Admin verification
-      ↓
-PostgreSQL
-      ↓
-User profile
-      ↓
-Hiker Home
-```
-
----
-
-# 25. What Is NOT Finalized Yet
-
-The following must not be invented while implementing endpoints:
-
-```text
-Final trail
-Trail coordinates
-Trail boundaries
-Checkpoint coordinates
-Hazard zones
-Daily capacity
-Rules for groups > 5 guests
-Payment provider
-Payment verification
-Cancellation/refunds
-Weather thresholds
-Notification channels
-Incident escalation
-Guide queue state transitions
-Guide-role provisioning
-Certificate signing
-Certificate storage
-GPS retention
-Participant-data retention
-Offline-sync conflict rules
-```
-
-When one of these becomes necessary for an API implementation, the business rule should be confirmed before encoding it into the API.
-
----
-
-# 26. Recommended Repository Location
-
-Store this contract in the repository as:
-
-```text
-docs/api-contract.md
-```
-
-The contract should evolve together with the project.
-
-It should be updated when a domain's API is finalized, rather than attempting to fully specify every future feature before the business rules are known.
-
----
-
-# 27. Core Principle
-
-The API contract exists to answer one simple question for both developers:
-
-> "What exactly does the frontend expect the backend to provide, and what exactly does the backend expect the frontend to send?"
-
-For TrailSync, keep the contract explicit, small, and based only on confirmed requirements.
-
-The current integration contract is:
-
-```text
-Firebase Authentication
-        ↓
-Firebase ID Token
-        ↓
-GET /api/v1/users/me
-        ↓
-Firebase Admin verification
-        ↓
-PostgreSQL User
-        ↓
-{
-  id,
-  fullName,
-  email,
-  role
-}
-        ↓
-Hiker Home
-```
-
-This is the first stable boundary between the two developers and the foundation for the later booking, dispatch, trekking, monitoring, safety, certificate, and analytics APIs.
+## 5. Planned APIs
+
+Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
+
+| Resource                     | Purpose                                                              |
+| ---------------------------- | -------------------------------------------------------------------- |
+| Coordinator booking queue    | List pending bookings for review                                     |
+| `/api/v1/check-ins`          | Physical office check-in, comparing arrivals with booked participants |
+| `/api/v1/guides`             | Guide availability and FIFO dispatch                                 |
+| `/api/v1/treks`              | Trek sessions started/ended from the guide's app                     |
+| `/api/v1/treks/:id/locations`, `/api/v1/checkpoints` | Group location updates and offline-synced checkpoint events |
+| `/api/v1/incidents`, `/api/v1/trails/:id/restrictions` | SOS, incidents, weather-based trail restrictions |
+| `/api/v1/certificates`       | Digital completion certificates                                      |
+| `/api/v1/analytics`          | Coordinator tourism and operations analytics                         |
+| `PATCH /api/v1/users/me`     | Profile edits (never `role`), once editable fields are confirmed     |

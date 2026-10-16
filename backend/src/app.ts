@@ -5,6 +5,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { prisma } from "./lib/prisma.js";
 import { bookingsRouter } from "./routes/bookings.js";
+import { trailsRouter } from "./routes/trails.js";
 import {
   type AuthenticatedRequest,
   requireFirebaseAuth,
@@ -22,6 +23,7 @@ app.get("/health", (_request, response) => {
   response.status(200).json({ status: "ok" });
 });
 
+app.use("/api/v1/trails", trailsRouter);
 app.use("/api/v1/bookings", bookingsRouter);
 
 type RequestWithLogger = Request & {

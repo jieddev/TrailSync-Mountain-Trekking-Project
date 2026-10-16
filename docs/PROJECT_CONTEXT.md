@@ -19,7 +19,7 @@ The system aims to improve how trekking activities are managed by replacing manu
 - Digital certificates
 - Tourism analytics
 
-The initial TrailSync release supports **Lake Janagdan only**. The architecture must allow additional approved trails to be added through a controlled development/configuration change; do not include other trails in the initial catalog.
+TrailSync is a **multi-trail** system. Lake Janagdan is currently the only trail in the approved catalog. Additional approved trails are added through a controlled development change (a database migration with the trail's verified information); do not add unverified trails to the catalog.
 
 Hikers select exactly one trail from the backend approved catalog when creating a booking. A booking retains that trail association when viewed or rescheduled unless a future approved workflow explicitly changes it. TrailSync does not allow hikers to create arbitrary trails. Adding a trail is a deliberate development/configuration change that includes an approved catalog entry and that trail's verified information and map/route data; it must not require redesigning booking around a particular trail.
 
@@ -639,7 +639,7 @@ Daily booking/visitor capacity is determined operationally by the Tourism Office
 
 Rescheduling is allowed and retains the same booking, participants, selected trail, price, and downpayment credit. Number of reschedules, notice period, eligible dates, availability behavior, and treatment after the original date are **TBD**. A no-show may be handled through rescheduling; detailed no-show policy, deadlines, and consequences for repeated no-shows are **TBD**. Hiker cancellation is not allowed and refund policy details remain **TBD**.
 
-The Booking Foundation workflow is implemented as `PENDING_CONFIRMATION` plus `PENDING_VERIFICATION`, followed by coordinator review and simulated verification to `CONFIRMED` plus `VERIFIED`. Exact scheduling details and future trail-aware API/schema revisions remain **TBD**. Additional required participant information beyond name, age, and address is also **TBD**.
+The Booking Foundation workflow is implemented as `PENDING_CONFIRMATION` plus `PENDING_VERIFICATION`, followed by coordinator review and simulated verification to `CONFIRMED` plus `VERIFIED`. Bookings reference a catalog trail and snapshot its price and downpayment. Exact scheduling details remain **TBD**. Additional required participant information beyond name, age, and address is also **TBD**.
 
 Pricing should eventually be represented as business data rather than scattered hardcoded values.
 
@@ -1202,7 +1202,7 @@ Audit Logs
 
 This is a **conceptual model**, not a finalized database schema.
 
-The initial release supports Lake Janagdan only. Additional approved trails may be added through controlled development/configuration changes. Represent each trail as a first-class resource with a stable identifier and associate bookings and trail-specific records (maps, routes, checkpoints, geofences, and other verified geographic data) with the correct trail. Hikers select from the approved catalog; adding a trail is a controlled project change.
+TrailSync is a multi-trail system; Lake Janagdan is currently the only catalog trail. Additional approved trails are added through controlled development changes. Represent each trail as a first-class resource with a stable identifier and associate bookings and trail-specific records (maps, routes, checkpoints, geofences, and other verified geographic data) with the correct trail. Hikers select from the approved catalog; adding a trail is a controlled project change.
 
 Do not create every table immediately.
 
@@ -1616,11 +1616,11 @@ The following should be treated as **TBD** rather than assumptions:
 
 ## Booking implementation impact
 
-The Booking Foundation already persists bookings/participants and supports authenticated create, owner-scoped list/detail, reschedule, and coordinator confirmation. Booking handlers enforce HIKER roles on hiker operations and COORDINATOR on confirmation through inline checks; reusable authorization middleware/policies, authorized role provisioning, and broader role-specific experiences remain unimplemented. Current implementation stores the trail as a defaulted string, hardcodes Lake Janagdan and ₱800, and calculates ₱400 from constants; it has no trail catalog endpoint, stable trail reference, or selected-trail validation. Before the Hiker Booking UI, backend work must add the Lake Janagdan catalog entry and retrieval capability, stable trail association, server validation, and trail-derived price plus 50% downpayment snapshots in booking responses. Rescheduling must retain booking, participants, trail, price, and downpayment. Maps/routes and geographic integrations are separate work; capacity remains unresolved.
+The Booking Foundation already persists bookings/participants and supports authenticated create, owner-scoped list/detail, reschedule, and coordinator confirmation. Booking handlers enforce HIKER roles on hiker operations and COORDINATOR on confirmation through inline checks; reusable authorization middleware/policies, authorized role provisioning, and broader role-specific experiences remain unimplemented. The trail catalog is implemented: a `trails` table (seeded with Lake Janagdan at ₱800), public read-only `GET /api/v1/trails` and `GET /api/v1/trails/:trailId`, a required `trailId` on booking creation validated against active catalog trails, and `packagePrice`/`downpaymentAmount` snapshots copied from the selected trail. Booking responses return `trail: { id, name }` and the stored amounts. Rescheduling retains booking, participants, trail, price, and downpayment. Maps/routes and geographic integrations are separate work; capacity remains unresolved.
 
 The following are currently **confirmed**:
 
-- The initial release supports Lake Janagdan only.
+- TrailSync is a multi-trail system; Lake Janagdan is currently the only catalog trail.
 - Additional approved trails may be added later through controlled development/configuration changes.
 - Hikers select exactly one supported trail per booking; arbitrary user-created trails are not allowed.
 - Adding a trail is a controlled development/configuration change with its approved catalog entry and trail-specific information/map data.
@@ -1650,7 +1650,7 @@ Instead:
 AI coding agents working on TrailSync must not assume:
 
 
-- That any trail besides Lake Janagdan is approved for the initial release.
+- That any trail besides Lake Janagdan is approved until it is added to the catalog with verified data.
 - That hikers may create arbitrary trails.
 - That trail-specific geographic or operating data is interchangeable across trails.
 - A specific trail capacity.
@@ -1709,7 +1709,7 @@ Use confirmed requirements and documented decisions.
 
 ## Respect Trail Selection
 
-Keep the initial release Lake Janagdan-only while supporting future controlled additions of approved trails. Hikers select one available catalog trail per booking; associate trail-specific data with its trail. Do not invent catalog entries or trail facts.
+TrailSync supports multiple trails through the backend catalog; Lake Janagdan is currently the only catalog trail. Hikers select one available catalog trail per booking; associate trail-specific data with its trail. Do not invent catalog entries or trail facts.
 
 ## Verify
 
@@ -1738,13 +1738,21 @@ What has been decided?
 
 What is still TBD?
 
-PROJECT_MILESTONES.md (repository root)
+PROJECT_MILESTONES.md
 
         ↓
 
 What should each application implement?
 
 What is the development sequence?
+
+API_CONTRACT_V1.md
+
+        ↓
+
+What endpoints exist?
+
+What do requests and responses look like?
 
 CODING_PRINCIPLES.md
 
@@ -1913,7 +1921,7 @@ Current architectural direction:
 
 The architecture is intentionally a **modular monolith**, not microservices.
 
-The initial release supports Lake Janagdan only. Additional approved trails may be added through controlled development/configuration changes.
+TrailSync is a multi-trail system. Lake Janagdan is currently the only trail in the approved catalog; additional approved trails are added through a controlled development change (a database migration with verified trail data).
 
 ---
 
@@ -2033,7 +2041,7 @@ Incorrect:
 
 Correct:
 
-> The initial release supports Lake Janagdan only; additional approved trails may be added through controlled development/configuration changes.
+> TrailSync supports multiple trails; Lake Janagdan is currently the only catalog trail, and additional approved trails are added through controlled development changes.
 
 Incorrect:
 
@@ -2155,7 +2163,7 @@ CERTIFICATE
 ANALYTICS
 ```
 
-The initial release supports Lake Janagdan only. The architecture allows a future approved trail to be added through a controlled project/configuration change with its own approved catalog entry and verified trail information. Each booking selects exactly one catalog trail.
+TrailSync is a multi-trail system. Lake Janagdan is currently the only trail in the approved catalog; additional approved trails are added through a controlled development change (a database migration with verified trail data). Each booking selects exactly one catalog trail.
 
 Every major feature should support this operational flow or provide a clear supporting capability.
 
