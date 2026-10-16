@@ -24,6 +24,23 @@ npm ci
 npm run dev
 ```
 
+### Google Maps 3D preview
+
+The authenticated home page includes a Google Maps 3D preview for the
+provisional Lake Janagdan trail. To enable it:
+
+1. Create or select a Google Cloud project, enable billing, and enable the
+   Maps JavaScript API with 3D Maps support.
+2. Create a browser-restricted API key with referrers for local development
+   and the deployed frontend.
+3. Copy `.env.example` to `.env.local` and set
+   `VITE_GOOGLE_MAPS_API_KEY` to the restricted key.
+
+The key is exposed to the browser by Vite, so it must be restricted in Google
+Cloud and must not be committed to the repository. See Google's
+[3D Maps getting started guide](https://developers.google.com/maps/documentation/javascript/3d/get-started)
+for the current Maps Platform setup details.
+
 Available frontend checks:
 
 ```bash
