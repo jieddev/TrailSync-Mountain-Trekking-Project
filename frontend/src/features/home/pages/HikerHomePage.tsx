@@ -4,6 +4,7 @@ import { useAuth } from '../../../app/AuthContext'
 import { ApiError, getCurrentUserProfile } from '../../../lib/users-api'
 import type { CurrentUserProfile } from '../../../lib/users-api'
 import HikerAppShell from '../components/HikerAppShell'
+import LakeJanagdanMap from '../components/LakeJanagdanMap'
 
 type ProfileState =
   | { status: 'loading' }
@@ -137,14 +138,21 @@ export default function HikerHomePage() {
               Your trekking experience
             </h2>
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <article className="rounded-2xl border border-[#d5e1da] bg-white p-6">
-                <p className="text-sm font-bold text-[#173a2e]">
-                  Trekking information
-                </p>
-                <p className="mt-2 text-sm leading-6 text-[#52675e]">
-                  Trail information will be available here when it is provided
-                  by TrailSync.
-                </p>
+              <article className="rounded-2xl border border-[#d5e1da] bg-white p-4 md:col-span-2 sm:p-6">
+                <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#173a2e]">
+                      Lake Janagdan
+                    </p>
+                    <p className="mt-1 text-sm text-[#52675e]">
+                      Provisional working trail
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-[#e8f1eb] px-3 py-1 text-xs font-bold text-[#006b43]">
+                    3D terrain preview
+                  </span>
+                </div>
+                <LakeJanagdanMap />
               </article>
               <article className="rounded-2xl border border-[#d5e1da] bg-white p-6">
                 <p className="text-sm font-bold text-[#173a2e]">Booking</p>
