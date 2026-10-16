@@ -53,6 +53,30 @@ Public profile creation always uses the `HIKER` role. A duplicate Firebase UID
 or email returns `409 Conflict`. Missing, invalid, or expired ID tokens return
 `401 Unauthorized`.
 
+## Trails
+
+TrailSync supports multiple trails. The `trails` table is the approved catalog;
+`GET /api/v1/trails` lists active trails and `GET /api/v1/trails/:trailId`
+returns one. Bookings must send a `trailId` from this catalog. The backend copies
+the trail's `packagePrice` and its 50% downpayment onto the booking, so later
+price changes do not affect existing bookings.
+
+Lake Janagdan (`trl_lake_janagdan`, ₱800) is currently the only catalog trail.
+There is no trail admin API. To add a trail, create a migration that inserts a
+row with verified data:
+
+```bash
+npm run prisma:migrate -- --name add_trail_<slug> --create-only
+```
+
+```sql
+INSERT INTO "trails" ("id", "slug", "name", "packagePrice", "isActive", "updatedAt")
+VALUES ('trl_<slug>', '<slug>', '<Trail Name>', <price>, true, CURRENT_TIMESTAMP);
+```
+
+To retire a trail, set `isActive = false` in a migration. Do not delete it,
+because existing bookings still reference it.
+
 ## Tests
 
 Run the backend tests with:

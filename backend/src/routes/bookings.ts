@@ -1,22 +1,10 @@
-import { Router, type Request, type Response } from "express";
+import { Router, type Response } from "express";
+import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
+import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
 import { requireFirebaseAuth, type AuthenticatedRequest } from "../middleware/require-firebase-auth.js";
 
-const TRAIL = "Lake Janagdan";
-const PACKAGE_PRICE = 800;
-const MAX_PARTICIPANTS = 5;
-const DOWNPAYMENT = PACKAGE_PRICE * 0.5;
-
-type BookingRequest = Request & { id?: string };
-type Details = { field: string; code: string; message: string };
-
-function fail(response: Response, status: number, code: string, message: string, details?: Details[]) {
-  const request = response.req as BookingRequest;
-  return response.status(status).json({
-    error: { code, message, ...(details?.length ? { details } : {}) },
-    requestId: request.id,
-  });
-}
+const bookingInclude = { participants: true, trail: { select: { id: true, name: true } } } as const;
 
 function validation(response: Response, details: Details[]) {
   return fail(response, 422, "VALIDATION_ERROR", "Review the booking details and try again.", details);
@@ -58,15 +46,15 @@ function bookingResponse(booking: any) {
   }));
   return {
     id: booking.id,
-    trail: booking.trail,
+    trail: { id: booking.trail.id, name: booking.trail.name },
     scheduledDate: booking.scheduledDate,
     scheduledTime: booking.scheduledTime,
     status: booking.status,
     downpaymentStatus: booking.downpaymentStatus,
     participants,
     participantCount: participants.length,
-    package: { price: { amount: booking.packagePrice, currency: "PHP" }, maximumParticipants: MAX_PARTICIPANTS, guideCount: 1 },
-    paymentRequirement: { downpaymentPercent: 50, amount: DOWNPAYMENT, currency: "PHP" },
+    package: { price: { amount: booking.packagePrice, currency: CURRENCY }, maximumParticipants: MAX_PARTICIPANTS, guideCount: GUIDE_COUNT },
+    paymentRequirement: { downpaymentPercent: DOWNPAYMENT_PERCENT, amount: booking.downpaymentAmount, currency: CURRENCY },
     createdAt: booking.createdAt,
     updatedAt: booking.updatedAt,
   };
@@ -91,7 +79,9 @@ bookingsRouter.post("/", async (request, response) => {
     if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can create bookings.");
 
     const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body as Record<string, unknown> : {};
-    const details = validateSchedule(body);
+    const details: Details[] = [];
+    if (!nonblank(body.trailId)) details.push({ field: "trailId", code: "REQUIRED", message: "Select a trail." });
+    details.push(...validateSchedule(body));
     const ownerDetails = body.ownerDetails && typeof body.ownerDetails === "object" && !Array.isArray(body.ownerDetails) ? body.ownerDetails as Record<string, unknown> : {};
     if (!validAge(ownerDetails.age)) details.push({ field: "ownerDetails.age", code: "INVALID_AGE", message: "Age must be a positive integer." });
     if (!nonblank(ownerDetails.address)) details.push({ field: "ownerDetails.address", code: "REQUIRED", message: "Address is required." });
@@ -108,13 +98,17 @@ bookingsRouter.post("/", async (request, response) => {
     }
     if (details.length) return validation(response, details);
 
+    const trail = await prisma.trail.findFirst({ where: { id: body.trailId as string, isActive: true }, select: { id: true, packagePrice: true } });
+    if (!trail) return validation(response, [{ field: "trailId", code: "UNSUPPORTED_TRAIL", message: "Select a supported trail." }]);
+
     const booking = await prisma.$transaction(async (tx) => tx.booking.create({
       data: {
         ownerId: profile.id,
-        trail: TRAIL,
+        trailId: trail.id,
         scheduledDate: body.scheduledDate as string,
         scheduledTime: body.scheduledTime as string,
-        packagePrice: PACKAGE_PRICE,
+        packagePrice: trail.packagePrice,
+        downpaymentAmount: downpaymentFor(trail.packagePrice),
         status: "PENDING_CONFIRMATION",
         downpaymentStatus: "PENDING_VERIFICATION",
         participants: { create: [
@@ -124,7 +118,7 @@ bookingsRouter.post("/", async (request, response) => {
             name: (person.name as string).trim(), age: person.age as number, address: (person.address as string).trim(),
           })),
         ] },
-      }, include: { participants: true },
+      }, include: bookingInclude,
     }));
     return response.status(201).json(bookingResponse(booking));
   } catch (error) {
@@ -138,7 +132,7 @@ bookingsRouter.get("/", async (request, response) => {
     const profile = await currentProfile(request as AuthenticatedRequest);
     if ("error" in profile) return fail(response, profile.error === "UNAUTHORIZED" ? 401 : 404, profile.error, profile.error === "PROFILE_NOT_FOUND" ? "User profile was not found." : "Authentication is required.");
     if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can view these bookings.");
-    const bookings = await prisma.booking.findMany({ where: { ownerId: profile.id }, include: { participants: true }, orderBy: { createdAt: "desc" } });
+    const bookings = await prisma.booking.findMany({ where: { ownerId: profile.id }, include: bookingInclude, orderBy: { createdAt: "desc" } });
     return response.status(200).json({ items: bookings.map(bookingResponse) });
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking list failed");
@@ -151,7 +145,7 @@ bookingsRouter.get("/:bookingId", async (request, response) => {
     const profile = await currentProfile(request as AuthenticatedRequest);
     if ("error" in profile) return fail(response, profile.error === "UNAUTHORIZED" ? 401 : 404, profile.error, profile.error === "PROFILE_NOT_FOUND" ? "User profile was not found." : "Authentication is required.");
     if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can view bookings.");
-    const booking = await prisma.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, include: { participants: true } });
+    const booking = await prisma.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, include: bookingInclude });
     if (!booking) return fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
     return response.status(200).json(bookingResponse(booking));
   } catch (error) {
@@ -174,7 +168,7 @@ bookingsRouter.post("/:bookingId/reschedule", async (request, response) => {
         data: { scheduledDate: body.scheduledDate as string, scheduledTime: body.scheduledTime as string, status: "PENDING_CONFIRMATION" },
       });
       if (!updated.count) return null;
-      return tx.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, include: { participants: true } });
+      return tx.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, include: bookingInclude });
     });
     if (!booking) {
       const owned = await prisma.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, select: { id: true } });
@@ -198,7 +192,7 @@ bookingsRouter.post("/:bookingId/confirm", async (request, response) => {
         data: { status: "CONFIRMED", downpaymentStatus: "VERIFIED" },
       });
       if (!updated.count) return null;
-      return tx.booking.findUnique({ where: { id: request.params.bookingId }, include: { participants: true } });
+      return tx.booking.findUnique({ where: { id: request.params.bookingId }, include: bookingInclude });
     });
     if (!booking) {
       const existing = await prisma.booking.findUnique({ where: { id: request.params.bookingId }, select: { id: true } });

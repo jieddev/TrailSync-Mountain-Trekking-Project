@@ -5,6 +5,7 @@ vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
     user: { findUnique: vi.fn() },
+    trail: { findFirst: vi.fn() },
     booking: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -16,6 +17,7 @@ import { prisma } from "./lib/prisma.js";
 
 const verify = vi.mocked(firebaseAuth.verifyIdToken);
 const userLookup = vi.mocked(prisma.user.findUnique);
+const trailLookup = vi.mocked(prisma.trail.findFirst);
 const tx = {
   booking: {
     create: vi.mocked(prisma.booking.create),
@@ -27,17 +29,18 @@ const tx = {
 const transaction = vi.mocked(prisma.$transaction);
 const owner = { id: "owner-1", fullName: "Hiker One", role: "HIKER" };
 const booking = (overrides: Record<string, unknown> = {}) => ({
-  id: "booking-1", trail: "Lake Janagdan", scheduledDate: "2026-11-20", scheduledTime: "08:00",
-  packagePrice: 800, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION",
+  id: "booking-1", trailId: "trl_lake_janagdan", trail: { id: "trl_lake_janagdan", name: "Lake Janagdan" }, scheduledDate: "2026-11-20", scheduledTime: "08:00",
+  packagePrice: 800, downpaymentAmount: 400, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION",
   createdAt: new Date("2026-10-07T00:00:00Z"), updatedAt: new Date("2026-10-07T00:00:00Z"),
   participants: [{ id: "participant-owner", kind: "BOOKING_OWNER", name: "Hiker One", age: 28, address: "Ormoc" }], ...overrides,
 });
-const createBody = (additionalParticipants: unknown[] = []) => ({ scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { age: 28, address: "Ormoc City" }, additionalParticipants });
+const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_lake_janagdan", scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { age: 28, address: "Ormoc City" }, additionalParticipants });
 
 beforeEach(() => {
   vi.resetAllMocks();
   verify.mockResolvedValue({ uid: "verified-uid" } as never);
   userLookup.mockResolvedValue(owner as never);
+  trailLookup.mockResolvedValue({ id: "trl_lake_janagdan", packagePrice: 800 } as never);
   transaction.mockImplementation(async (callback: any) => callback(tx) as never);
 });
 
@@ -49,10 +52,10 @@ describe("Booking Foundation", () => {
       status: "CONFIRMED", downpaymentStatus: "VERIFIED", guideId: "guide-1", trail: "other trail", participantCount: 99,
     });
     expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({ status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION", trail: "Lake Janagdan", participantCount: 1,
+    expect(response.body).toMatchObject({ status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION", trail: { id: "trl_lake_janagdan", name: "Lake Janagdan" }, participantCount: 1,
       package: { price: { amount: 800, currency: "PHP" } }, paymentRequirement: { downpaymentPercent: 50, amount: 400, currency: "PHP" },
       participants: [{ kind: "BOOKING_OWNER", name: "Hiker One" }] });
-    expect(tx.booking.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ ownerId: "owner-1", packagePrice: 800, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION" }) }));
+    expect(tx.booking.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ ownerId: "owner-1", trailId: "trl_lake_janagdan", packagePrice: 800, downpaymentAmount: 400, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION" }) }));
   });
 
   it("accepts four additional participants and rejects a fifth", async () => {
@@ -74,6 +77,32 @@ describe("Booking Foundation", () => {
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
+  it("requires a trail selection", async () => {
+    const { trailId: _omitted, ...body } = createBody();
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send(body);
+    expect(response.status).toBe(422);
+    expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "trailId", code: "REQUIRED" }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects trails outside the active catalog", async () => {
+    trailLookup.mockResolvedValue(null);
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send({ ...createBody(), trailId: "unknown-trail" });
+    expect(response.status).toBe(422);
+    expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "trailId", code: "UNSUPPORTED_TRAIL" }));
+    expect(trailLookup).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "unknown-trail", isActive: true } }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
+  });
+
+  it("snapshots the selected trail's price and downpayment", async () => {
+    trailLookup.mockResolvedValue({ id: "trl_other", packagePrice: 1200 } as never);
+    tx.booking.create.mockResolvedValue(booking({ trailId: "trl_other", trail: { id: "trl_other", name: "Other Trail" }, packagePrice: 1200, downpaymentAmount: 600 }) as never);
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send({ ...createBody(), trailId: "trl_other", price: 1 });
+    expect(response.status).toBe(201);
+    expect(tx.booking.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ trailId: "trl_other", packagePrice: 1200, downpaymentAmount: 600 }) }));
+    expect(response.body).toMatchObject({ trail: { id: "trl_other", name: "Other Trail" }, package: { price: { amount: 1200 } }, paymentRequirement: { amount: 600 } });
+  });
+
   it("lists and retrieves only bookings owned by the verified profile", async () => {
     vi.mocked(prisma.booking.findMany).mockResolvedValue([booking()] as never);
     const list = await request(app).get("/api/v1/bookings?ownerId=other").set("Authorization", "Bearer token");
@@ -93,10 +122,11 @@ describe("Booking Foundation", () => {
   it("reschedules an owned confirmed booking in place, retaining verified credit", async () => {
     tx.booking.updateMany.mockResolvedValue({ count: 1 } as never);
     tx.booking.findFirst.mockResolvedValue(booking({ status: "PENDING_CONFIRMATION", downpaymentStatus: "VERIFIED", scheduledDate: "2026-11-21" }) as never);
-    const response = await request(app).post("/api/v1/bookings/booking-1/reschedule").set("Authorization", "Bearer token").send({ scheduledDate: "2026-11-21", scheduledTime: "09:00" });
+    const response = await request(app).post("/api/v1/bookings/booking-1/reschedule").set("Authorization", "Bearer token").send({ scheduledDate: "2026-11-21", scheduledTime: "09:00", trailId: "trl_other", packagePrice: 1 });
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ id: "booking-1", status: "PENDING_CONFIRMATION", downpaymentStatus: "VERIFIED" });
-    expect(tx.booking.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "booking-1", ownerId: "owner-1", status: "CONFIRMED" } }));
+    expect(response.body).toMatchObject({ id: "booking-1", status: "PENDING_CONFIRMATION", downpaymentStatus: "VERIFIED", trail: { id: "trl_lake_janagdan" }, paymentRequirement: { amount: 400 } });
+    expect(tx.booking.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "booking-1", ownerId: "owner-1", status: "CONFIRMED" },
+      data: { scheduledDate: "2026-11-21", scheduledTime: "09:00", status: "PENDING_CONFIRMATION" } }));
   });
 
   it("does not allow rescheduling another owner's booking", async () => {

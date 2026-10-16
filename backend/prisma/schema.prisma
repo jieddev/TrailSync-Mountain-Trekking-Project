@@ -41,14 +41,30 @@ model User {
   @@map("users")
 }
 
+model Trail {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  name         String
+  description  String?
+  packagePrice Int
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  bookings     Booking[]
+
+  @@map("trails")
+}
+
 model Booking {
   id                String             @id @default(cuid())
   ownerId           String
   owner             User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  trail             String             @default("Lake Janagdan")
+  trailId           String
+  trail             Trail              @relation(fields: [trailId], references: [id], onDelete: Restrict)
   scheduledDate     String
   scheduledTime     String
-  packagePrice      Int                @default(800)
+  packagePrice      Int
+  downpaymentAmount Int
   status            BookingStatus      @default(PENDING_CONFIRMATION)
   downpaymentStatus DownpaymentStatus  @default(PENDING_VERIFICATION)
   participants      BookingParticipant[]
@@ -56,6 +72,7 @@ model Booking {
   updatedAt         DateTime           @updatedAt
 
   @@index([ownerId, createdAt])
+  @@index([trailId, scheduledDate])
   @@map("bookings")
 }
 

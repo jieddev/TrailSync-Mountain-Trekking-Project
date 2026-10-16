@@ -67,6 +67,7 @@ The frontend communicates with the backend through an agreed API contract and ne
 
 ## Project documentation
 
-- [Project context](docs/PROJECT_CONTEXT.md)
-- [Project milestones](../PROJECT_MILESTONES.md)
-- [Coding principles](docs/CODING_PRINCIPLES.md)
+- [Project context](../docs/PROJECT_CONTEXT.md)
+- [Project milestones](../docs/PROJECT_MILESTONES.md)
+- [API contract](../docs/API_CONTRACT_V1.md)
+- [Coding principles](../docs/CODING_PRINCIPLES.md)
