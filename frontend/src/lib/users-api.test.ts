@@ -29,16 +29,14 @@ describe('getCurrentUserProfile', () => {
   it('preserves the missing-profile code without exposing backend text', async () => {
     vi.stubGlobal(
       'fetch',
-      vi
-        .fn()
-        .mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              error: { code: 'PROFILE_NOT_FOUND', message: 'internal message' },
-            }),
-            { status: 404 },
-          ),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: { code: 'PROFILE_NOT_FOUND', message: 'internal message' },
+          }),
+          { status: 404 },
         ),
+      ),
     )
 
     await expect(getCurrentUserProfile('private-token')).rejects.toMatchObject({
