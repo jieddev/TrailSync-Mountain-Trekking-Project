@@ -5,14 +5,17 @@ type AuthFormFieldProps = {
   error?: string
   hint?: string
   id: string
+  inputMode?: 'numeric'
   label: string
+  min?: string
   name: string
   onBlur?: FocusEventHandler<HTMLInputElement>
   onChange: ChangeEventHandler<HTMLInputElement>
   placeholder?: string
+  readOnly?: boolean
   supplemental?: ReactNode
   trailingAction?: ReactNode
-  type: 'email' | 'password' | 'text'
+  type: 'date' | 'email' | 'password' | 'text' | 'time'
   value: string
 }
 
@@ -21,11 +24,14 @@ export default function AuthFormField({
   error,
   hint,
   id,
+  inputMode,
   label,
+  min,
   name,
   onBlur,
   onChange,
   placeholder,
+  readOnly,
   supplemental,
   trailingAction,
   type,
@@ -48,12 +54,15 @@ export default function AuthFormField({
           aria-describedby={describedBy}
           aria-invalid={Boolean(error)}
           autoComplete={autoComplete}
-          className={`block w-full rounded-xl border border-[#c8d7cf] bg-white px-4 py-3 text-[#173a2e] outline-none transition placeholder:text-[#83958c] focus:border-[#008755] focus:ring-2 focus:ring-[#008755]/15 ${trailingAction ? 'pr-12' : ''}`}
+          className={`block w-full rounded-xl border border-[#c8d7cf] bg-white px-4 py-3 text-[#173a2e] outline-none transition placeholder:text-[#83958c] focus:border-[#008755] focus:ring-2 focus:ring-[#008755]/15 read-only:bg-[#f3f6f2] read-only:text-[#52675e] ${trailingAction ? 'pr-12' : ''}`}
           id={id}
+          inputMode={inputMode}
+          min={min}
           name={name}
           onBlur={onBlur}
           onChange={onChange}
           placeholder={placeholder}
+          readOnly={readOnly}
           type={type}
           value={value}
         />

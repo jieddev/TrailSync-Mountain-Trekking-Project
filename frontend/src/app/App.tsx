@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import LoginPage from '../features/auth/pages/LoginPage'
 import RegisterPage from '../features/auth/pages/RegisterPage'
+import BookingFormPage from '../features/booking/pages/BookingFormPage'
 import TrailsPage from '../features/booking/pages/TrailsPage'
 import HikerLayout from '../features/home/components/HikerLayout'
 import HikerHomePage from '../features/home/pages/HikerHomePage'
@@ -49,6 +50,7 @@ export default function App() {
         <Route element={<ProtectedHikerLayout />}>
           <Route path="/home" element={<HikerHomePage />} />
           <Route path="/trails" element={<TrailsPage />} />
+          <Route path="/bookings/new" element={<BookingFormPage />} />
         </Route>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
