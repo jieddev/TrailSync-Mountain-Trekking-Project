@@ -10,18 +10,23 @@ import { app } from "./app.js";
 import { prisma } from "./lib/prisma.js";
 
 const sulfatara = { id: "trl_sulfatara", slug: "sulfatara", name: "Sulfatara", description: null, packagePrice: 550 };
+const mtMalingatong = { id: "trl_mt_malingatong", slug: "mt-malingatong", name: "Mt. Malingatong", description: null, packagePrice: 680 };
 
 beforeEach(() => {
   vi.resetAllMocks();
 });
 
 describe("Trail catalog", () => {
-  it("lists active trails with their package and downpayment", async () => {
-    vi.mocked(prisma.trail.findMany).mockResolvedValue([sulfatara] as never);
+  it("lists active trails, each with its own package price and downpayment", async () => {
+    vi.mocked(prisma.trail.findMany).mockResolvedValue([mtMalingatong, sulfatara] as never);
     const response = await request(app).get("/api/v1/trails");
     expect(response.status).toBe(200);
     expect(prisma.trail.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { isActive: true } }));
     expect(response.body).toEqual({ items: [{
+      id: "trl_mt_malingatong", slug: "mt-malingatong", name: "Mt. Malingatong", description: null,
+      package: { price: { amount: 680, currency: "PHP" }, maximumParticipants: 5, guideCount: 1 },
+      paymentRequirement: { downpaymentPercent: 50, amount: 340, currency: "PHP" },
+    }, {
       id: "trl_sulfatara", slug: "sulfatara", name: "Sulfatara", description: null,
       package: { price: { amount: 550, currency: "PHP" }, maximumParticipants: 5, guideCount: 1 },
       paymentRequirement: { downpaymentPercent: 50, amount: 275, currency: "PHP" },

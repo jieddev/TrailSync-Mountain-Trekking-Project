@@ -58,7 +58,7 @@ The roadmap, in build order. Each phase depends on the ones before it.
 
 **Backend — done**
 
-- [x] Trail catalog: `trails` table, `GET /api/v1/trails`, `GET /api/v1/trails/:trailId`. Sulfatara (₱550, ₱275 downpayment) is the only active trail; Lake Janagdan was retired.
+- [x] Trail catalog: `trails` table, `GET /api/v1/trails`, `GET /api/v1/trails/:trailId`. Active trails: Sulfatara (₱550, ₱275 downpayment) and Mt. Malingatong (₱680, ₱340 downpayment); Lake Janagdan was retired.
 - [x] Bookings and participants; the owner counts toward the 5-person limit.
 - [x] Create requires a valid `trailId`; price and 50% downpayment are copied from the trail.
 - [x] Hiker list, detail, and reschedule (keeps trail, price, and downpayment credit).

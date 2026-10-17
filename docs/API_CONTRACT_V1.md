@@ -104,7 +104,7 @@ Errors: `401 UNAUTHORIZED`, `404 PROFILE_NOT_FOUND` (valid Firebase account with
 
 ## 3. Trails
 
-TrailSync is a multi-trail system. Trails are catalog rows with stable IDs; Sulfatara (`trl_sulfatara`) is currently the only active one; Lake Janagdan (`trl_lake_janagdan`) has been retired. Trails are added or retired by database migration (see `backend/README.md`); there are no create/update endpoints.
+TrailSync is a multi-trail system. Trails are catalog rows with stable IDs; the active trails are Sulfatara (`trl_sulfatara`) and Mt. Malingatong (`trl_mt_malingatong`); Lake Janagdan (`trl_lake_janagdan`) has been retired. Trails are added or retired by database migration (see `backend/README.md`); there are no create/update endpoints.
 
 ### `GET /api/v1/trails`
 
@@ -113,6 +113,14 @@ Lists active trails, ordered by name. **Auth:** none.
 ```json
 {
   "items": [
+    {
+      "id": "trl_mt_malingatong",
+      "slug": "mt-malingatong",
+      "name": "Mt. Malingatong",
+      "description": null,
+      "package": { "price": { "amount": 680, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
+      "paymentRequirement": { "downpaymentPercent": 50, "amount": 340, "currency": "PHP" }
+    },
     {
       "id": "trl_sulfatara",
       "slug": "sulfatara",
