@@ -61,7 +61,8 @@ returns one. Bookings must send a `trailId` from this catalog. The backend copie
 the trail's `packagePrice` and its 50% downpayment onto the booking, so later
 price changes do not affect existing bookings.
 
-Lake Janagdan (`trl_lake_janagdan`, ₱800) is currently the only catalog trail.
+Sulfatara (`trl_sulfatara`, ₱550) is currently the only active catalog trail.
+Lake Janagdan (`trl_lake_janagdan`) was retired (`isActive = false`).
 There is no trail admin API. To add a trail, create a migration that inserts a
 row with verified data:
 

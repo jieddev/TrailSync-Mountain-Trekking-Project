@@ -104,7 +104,7 @@ Errors: `401 UNAUTHORIZED`, `404 PROFILE_NOT_FOUND` (valid Firebase account with
 
 ## 3. Trails
 
-TrailSync is a multi-trail system. Trails are catalog rows with stable IDs; Lake Janagdan (`trl_lake_janagdan`) is currently the only one. Trails are added or retired by database migration (see `backend/README.md`); there are no create/update endpoints.
+TrailSync is a multi-trail system. Trails are catalog rows with stable IDs; Sulfatara (`trl_sulfatara`) is currently the only active one; Lake Janagdan (`trl_lake_janagdan`) has been retired. Trails are added or retired by database migration (see `backend/README.md`); there are no create/update endpoints.
 
 ### `GET /api/v1/trails`
 
@@ -114,12 +114,12 @@ Lists active trails, ordered by name. **Auth:** none.
 {
   "items": [
     {
-      "id": "trl_lake_janagdan",
-      "slug": "lake-janagdan",
-      "name": "Lake Janagdan",
+      "id": "trl_sulfatara",
+      "slug": "sulfatara",
+      "name": "Sulfatara",
       "description": null,
-      "package": { "price": { "amount": 800, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
-      "paymentRequirement": { "downpaymentPercent": 50, "amount": 400, "currency": "PHP" }
+      "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
+      "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" }
     }
   ]
 }
@@ -146,7 +146,7 @@ Returned by every booking endpoint:
 ```json
 {
   "id": "booking-id",
-  "trail": { "id": "trl_lake_janagdan", "name": "Lake Janagdan" },
+  "trail": { "id": "trl_sulfatara", "name": "Sulfatara" },
   "scheduledDate": "2026-11-20",
   "scheduledTime": "08:00",
   "status": "PENDING_CONFIRMATION",
@@ -156,8 +156,8 @@ Returned by every booking endpoint:
     { "id": "p2", "kind": "ADDITIONAL_PARTICIPANT", "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte" }
   ],
   "participantCount": 2,
-  "package": { "price": { "amount": 800, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
-  "paymentRequirement": { "downpaymentPercent": 50, "amount": 400, "currency": "PHP" },
+  "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
+  "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" },
   "createdAt": "2026-10-07T01:00:00.000Z",
   "updatedAt": "2026-10-07T01:00:00.000Z"
 }
@@ -181,7 +181,7 @@ Creates a booking. **Role:** `HIKER`.
 
 ```json
 {
-  "trailId": "trl_lake_janagdan",
+  "trailId": "trl_sulfatara",
   "scheduledDate": "2026-11-20",
   "scheduledTime": "08:00",
   "ownerDetails": { "age": 28, "address": "Ormoc City, Leyte" },
