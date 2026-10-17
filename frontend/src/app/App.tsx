@@ -5,6 +5,8 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 
 import LoginPage from '../features/auth/pages/LoginPage'
 import RegisterPage from '../features/auth/pages/RegisterPage'
+import TrailsPage from '../features/booking/pages/TrailsPage'
+import HikerLayout from '../features/home/components/HikerLayout'
 import HikerHomePage from '../features/home/pages/HikerHomePage'
 import { AuthContext, type AuthState, useAuth } from './AuthContext'
 import { auth } from '../lib/firebase'
@@ -21,7 +23,7 @@ function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>
 }
 
-function ProtectedHome() {
+function ProtectedHikerLayout() {
   const { user, isLoading } = useAuth()
   if (isLoading)
     return (
@@ -29,7 +31,7 @@ function ProtectedHome() {
         Loading your TrailSync account…
       </main>
     )
-  return user ? <HikerHomePage /> : <Navigate to="/login" replace />
+  return user ? <HikerLayout /> : <Navigate to="/login" replace />
 }
 
 function LoginRoute() {
@@ -44,7 +46,10 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginRoute />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/home" element={<ProtectedHome />} />
+        <Route element={<ProtectedHikerLayout />}>
+          <Route path="/home" element={<HikerHomePage />} />
+          <Route path="/trails" element={<TrailsPage />} />
+        </Route>
         <Route path="/" element={<Navigate to="/home" replace />} />
         <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
