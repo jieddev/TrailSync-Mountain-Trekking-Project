@@ -4,8 +4,11 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { prisma } from "./lib/prisma.js";
+import { isPrismaUniqueConstraintError } from "./lib/prisma-errors.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { coordinatorBookingsRouter } from "./routes/coordinator-bookings.js";
+import { coordinatorGuideApplicationsRouter } from "./routes/coordinator-guide-applications.js";
+import { guideApplicationsRouter } from "./routes/guide-applications.js";
 import { trailsRouter } from "./routes/trails.js";
 import {
   type AuthenticatedRequest,
@@ -27,6 +30,8 @@ app.get("/health", (_request, response) => {
 app.use("/api/v1/trails", trailsRouter);
 app.use("/api/v1/bookings", bookingsRouter);
 app.use("/api/v1/coordinator/bookings", coordinatorBookingsRouter);
+app.use("/api/v1/guide-applications", guideApplicationsRouter);
+app.use("/api/v1/coordinator/guide-applications", coordinatorGuideApplicationsRouter);
 
 type RequestWithLogger = Request & {
   id?: string;
@@ -169,14 +174,6 @@ app.get(["/users/me", "/api/v1/users/me"], requireFirebaseAuth, async (request, 
     });
   }
 });
-
-function isPrismaUniqueConstraintError(error: unknown) {
-  return (
-    (error instanceof PrismaClientKnownRequestError ||
-      (typeof error === "object" && error !== null && "code" in error)) &&
-    (error as { code?: string }).code === "P2002"
-  );
-}
 
 app.use(
   (

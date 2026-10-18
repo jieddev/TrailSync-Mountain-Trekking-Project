@@ -12,6 +12,7 @@ import TrailsPage from '../features/booking/pages/TrailsPage'
 import CoordinatorLayout from '../features/coordinator/components/CoordinatorLayout'
 import BookingQueuePage from '../features/coordinator/pages/BookingQueuePage'
 import CoordinatorBookingDetailPage from '../features/coordinator/pages/CoordinatorBookingDetailPage'
+import GuideApplicationsPage from '../features/coordinator/pages/GuideApplicationsPage'
 import HikerLayout from '../features/home/components/HikerLayout'
 import HikerHomePage from '../features/home/pages/HikerHomePage'
 import { AuthContext, type AuthState, useAuth } from './AuthContext'
@@ -164,6 +165,10 @@ export default function App() {
             <Route
               path="bookings/:bookingId"
               element={<CoordinatorBookingDetailPage />}
+            />
+            <Route
+              path="guide-applications"
+              element={<GuideApplicationsPage />}
             />
           </Route>
           <Route path="/" element={<RoleHome />} />
