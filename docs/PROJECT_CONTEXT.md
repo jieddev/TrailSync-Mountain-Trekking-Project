@@ -19,7 +19,7 @@ The system aims to improve how trekking activities are managed by replacing manu
 - Digital certificates
 - Tourism analytics
 
-TrailSync is a **multi-trail** system. Lake Janagdan is currently the only trail in the approved catalog. Additional approved trails are added through a controlled development change (a database migration with the trail's verified information); do not add unverified trails to the catalog.
+TrailSync is a **multi-trail** system. Sulfatara and Mt. Malingatong are currently the trails in the approved catalog (Lake Janagdan was removed from scope and retired from the catalog). Additional approved trails are added through a controlled development change (a database migration with the trail's verified information); do not add unverified trails to the catalog.
 
 Hikers select exactly one trail from the backend approved catalog when creating a booking. A booking retains that trail association when viewed or rescheduled unless a future approved workflow explicitly changes it. TrailSync does not allow hikers to create arbitrary trails. Adding a trail is a deliberate development/configuration change that includes an approved catalog entry and that trail's verified information and map/route data; it must not require redesigning booking around a particular trail.
 
@@ -189,7 +189,7 @@ Up to 5 Guests
 
     ↓
 
-₱800 Package Price
+₱550 Package Price
 ```
 
 A group does **not** have to reach five participants to make a booking.
@@ -238,7 +238,7 @@ These are current project decisions and should not be changed casually.
 
 ## 5.1 One Booking = One Group / Package
 
-Each booking represents one trekking package/group with one guide and up to five participants total, including the booking owner. The package price belongs to the selected trail. For Lake Janagdan, the price is **₱800**. Participants one through five pay the full package price for their selected trail. One-person bookings are valid.
+Each booking represents one trekking package/group with one guide and up to five participants total, including the booking owner. The package price belongs to the selected trail. For Sulfatara, the price is **₱550**; for Mt. Malingatong, it is **₱680**. Participants one through five pay the full package price for their selected trail. One-person bookings are valid.
 
 The booking owner is also a participant and counts toward the five-guest limit: one owner plus up to four additional participants. The owner must be associated with the booking and represented among its participants, not counted in addition to the five-person limit.
 
@@ -495,7 +495,7 @@ The system is expected to support:
 
 Checkpoint data must be associated with its trail; each supported trail may have its own verified checkpoint and route data.
 
-The exact checkpoint locations and other authoritative geographic data for Lake Janagdan remain **TBD** until collected and verified.
+The exact checkpoint locations and other authoritative geographic data for Sulfatara and Mt. Malingatong remain **TBD** until collected and verified.
 
 Do not invent:
 
@@ -506,7 +506,7 @@ Do not invent:
 
 Actual geographic data should come from an appropriate legitimate source or field collection process.
 
-Once collected and verified, Lake Janagdan's geographic information belongs to Lake Janagdan. Other trails require their own verified data.
+Once collected and verified, each trail's geographic information (Sulfatara, Mt. Malingatong) belongs to that trail. Other trails require their own verified data.
 
 ---
 
@@ -523,7 +523,7 @@ Potential uses include:
 
 Geofencing and safety data must be associated with the relevant trail. Trail-specific boundaries and rules remain unresolved until confirmed.
 
-Actual geographic boundaries and hazard coordinates for Lake Janagdan are currently **TBD** until reliable trail data is obtained.
+Actual geographic boundaries and hazard coordinates for Sulfatara and Mt. Malingatong are currently **TBD** until reliable trail data is obtained.
 
 Do not create fake coordinates for demonstration and then treat them as real production data.
 
@@ -622,8 +622,10 @@ Guide selection by tourist: not allowed
 Guide assignment: automatic after check-in, based on guide availability
 
 Package rules for every supported trail: one booking/package, one guide, up to 5 participants including the booking owner, 50% downpayment
-Lake Janagdan package price: ₱800
-Lake Janagdan downpayment: ₱400
+Sulfatara package price: ₱550
+Sulfatara downpayment: ₱275
+Mt. Malingatong package price: ₱680
+Mt. Malingatong downpayment: ₱340
 For every supported trail, participants 1 through 5 pay that trail’s full package price
 ```
 
@@ -633,7 +635,7 @@ The booking owner provides their own information and may list other participants
 
 Groups exceeding five require additional package/guide arrangements. Exact grouping for 6–10 or larger groups, whether each additional group is capped at five, whether each package requires a guide, independent payment, multiple-package pricing, and database representation are **TBD**. Do not infer calculations for differences between booked guests and actual arrivals: an excess arrival requires an additional package/guide arrangement, while cases such as booked 5/arrived 3, booked 3/arrived 5, and booked 3/arrived 7 need clarification.
 
-Every supported trail requires a 50% downpayment calculated from that selected trail’s package price. Lake Janagdan’s ₱800 price therefore requires ₱400. Payment provider, deadline, refund rules, and other payment details remain **TBD**. TrailSync records the booking/downpayment statuses in its simulated workflow; real payment processing remains a future feature.
+Every supported trail requires a 50% downpayment calculated from that selected trail’s package price. Sulfatara’s ₱550 price therefore requires ₱275, and Mt. Malingatong’s ₱680 price requires ₱340. Payment provider, deadline, refund rules, and other payment details remain **TBD**. TrailSync records the booking/downpayment statuses in its simulated workflow; real payment processing remains a future feature.
 
 Daily booking/visitor capacity is determined operationally by the Tourism Officer and is also constrained by available guide capacity. No fixed numeric capacity is confirmed. The formal capacity rule and the relationship between visitor capacity, group/package capacity, and guide availability are **TBD**.
 
@@ -1202,7 +1204,7 @@ Audit Logs
 
 This is a **conceptual model**, not a finalized database schema.
 
-TrailSync is a multi-trail system; Lake Janagdan is currently the only catalog trail. Additional approved trails are added through controlled development changes. Represent each trail as a first-class resource with a stable identifier and associate bookings and trail-specific records (maps, routes, checkpoints, geofences, and other verified geographic data) with the correct trail. Hikers select from the approved catalog; adding a trail is a controlled project change.
+TrailSync is a multi-trail system; Sulfatara and Mt. Malingatong are currently the catalog trails. Additional approved trails are added through controlled development changes. Represent each trail as a first-class resource with a stable identifier and associate bookings and trail-specific records (maps, routes, checkpoints, geofences, and other verified geographic data) with the correct trail. Hikers select from the approved catalog; adding a trail is a controlled project change.
 
 Do not create every table immediately.
 
@@ -1585,7 +1587,7 @@ A frontend developer may propose an API design, but it should be treated as a pr
 
 The following should be treated as **TBD** rather than assumptions:
 
-- Verified map/route and geographic data for each supported trail, including Lake Janagdan
+- Verified map/route and geographic data for each supported trail, including Sulfatara and Mt. Malingatong
 - Exact formal daily capacity rule and its relationship to visitor, group/package, and guide capacity
 - Exact grouping and additional-package rules for groups exceeding the standard five-guest package
 - Exact additional-package pricing and whether each additional package requires another guide
@@ -1616,11 +1618,11 @@ The following should be treated as **TBD** rather than assumptions:
 
 ## Booking implementation impact
 
-The Booking Foundation already persists bookings/participants and supports authenticated create, owner-scoped list/detail, reschedule, and coordinator confirmation. Booking handlers enforce HIKER roles on hiker operations and COORDINATOR on confirmation through inline checks; reusable authorization middleware/policies, authorized role provisioning, and broader role-specific experiences remain unimplemented. The trail catalog is implemented: a `trails` table (seeded with Lake Janagdan at ₱800), public read-only `GET /api/v1/trails` and `GET /api/v1/trails/:trailId`, a required `trailId` on booking creation validated against active catalog trails, and `packagePrice`/`downpaymentAmount` snapshots copied from the selected trail. Booking responses return `trail: { id, name }` and the stored amounts. Rescheduling retains booking, participants, trail, price, and downpayment. Maps/routes and geographic integrations are separate work; capacity remains unresolved.
+The Booking Foundation already persists bookings/participants and supports authenticated create, owner-scoped list/detail, reschedule, and coordinator confirmation. Booking handlers enforce HIKER roles on hiker operations and COORDINATOR on confirmation through inline checks; reusable authorization middleware/policies, authorized role provisioning, and broader role-specific experiences remain unimplemented. The trail catalog is implemented: a `trails` table (seeded with Sulfatara at ₱550), public read-only `GET /api/v1/trails` and `GET /api/v1/trails/:trailId`, a required `trailId` on booking creation validated against active catalog trails, and `packagePrice`/`downpaymentAmount` snapshots copied from the selected trail. Booking responses return `trail: { id, name }` and the stored amounts. Rescheduling retains booking, participants, trail, price, and downpayment. Maps/routes and geographic integrations are separate work; capacity remains unresolved.
 
 The following are currently **confirmed**:
 
-- TrailSync is a multi-trail system; Lake Janagdan is currently the only catalog trail.
+- TrailSync is a multi-trail system; Sulfatara and Mt. Malingatong are currently the catalog trails.
 - Additional approved trails may be added later through controlled development/configuration changes.
 - Hikers select exactly one supported trail per booking; arbitrary user-created trails are not allowed.
 - Adding a trail is a controlled development/configuration change with its approved catalog entry and trail-specific information/map data.
@@ -1631,7 +1633,7 @@ The following are currently **confirmed**:
 - Physical check-in, coordinator review, and guide assignment are common workflow concepts; per-trail operating differences need confirmation.
 - One booking represents one trekking group/package in the existing contract.
 - Every supported trail has one guide per package and a five-participant maximum including the owner. Participants one through five pay the selected trail’s full package price.
-- Lake Janagdan costs ₱800 and its 50% downpayment is ₱400. Other trail prices are set when those trails are approved. Larger-group rules remain TBD.
+- Sulfatara costs ₱550 (₱275 downpayment) and Mt. Malingatong costs ₱680 (₱340 downpayment). Other trail prices are set when those trails are approved. Larger-group rules remain TBD.
 - Guide assignment occurs after physical check-in based on guide availability; preserve FIFO ordering in the existing workflow unless explicitly revised. Hikers do not choose guides under the established flow.
 - Group tracking is based on the assigned guide's device rather than individual hiker devices.
 
@@ -1650,11 +1652,11 @@ Instead:
 AI coding agents working on TrailSync must not assume:
 
 
-- That any trail besides Lake Janagdan is approved until it is added to the catalog with verified data.
+- That any trail besides Sulfatara and Mt. Malingatong is approved until it is added to the catalog with verified data.
 - That hikers may create arbitrary trails.
 - That trail-specific geographic or operating data is interchangeable across trails.
 - A specific trail capacity.
-- Treating Lake Janagdan’s ₱800 price as the price for every trail.
+- Treating Sulfatara’s ₱550 price as the price for every trail.
 - That fewer than five guests receive a lower package price.
 - Rules for groups exceeding five guests unless explicitly defined.
 - Fake GPS coordinates.
@@ -1709,7 +1711,7 @@ Use confirmed requirements and documented decisions.
 
 ## Respect Trail Selection
 
-TrailSync supports multiple trails through the backend catalog; Lake Janagdan is currently the only catalog trail. Hikers select one available catalog trail per booking; associate trail-specific data with its trail. Do not invent catalog entries or trail facts.
+TrailSync supports multiple trails through the backend catalog; Sulfatara and Mt. Malingatong are currently the catalog trails. Hikers select one available catalog trail per booking; associate trail-specific data with its trail. Do not invent catalog entries or trail facts.
 
 ## Verify
 
@@ -1921,7 +1923,7 @@ Current architectural direction:
 
 The architecture is intentionally a **modular monolith**, not microservices.
 
-TrailSync is a multi-trail system. Lake Janagdan is currently the only trail in the approved catalog; additional approved trails are added through a controlled development change (a database migration with verified trail data).
+TrailSync is a multi-trail system. Sulfatara and Mt. Malingatong are currently the trails in the approved catalog; additional approved trails are added through a controlled development change (a database migration with verified trail data).
 
 ---
 
@@ -1979,7 +1981,7 @@ TrailSync requires trail-specific verified geographic information. Do not invent
 - Route paths
 - Elevation data
 
-Lake Janagdan remains supported, and other approved trails require their own verified data. Mock data may be used only when clearly identified as mock/test data and not represented as real trail information.
+Sulfatara and Mt. Malingatong are currently supported, and other approved trails require their own verified data. Mock data may be used only when clearly identified as mock/test data and not represented as real trail information.
 
 ---
 
@@ -1997,7 +1999,7 @@ Do not invent:
 
 when the actual rule has not been confirmed.
 
-The confirmed shared package rules are one guide, up to five participants including the owner, and a 50% downpayment. Participants one through five pay the full price for their selected trail. Lake Janagdan costs ₱800, with a ₱400 downpayment; other approved trails may have different prices.
+The confirmed shared package rules are one guide, up to five participants including the owner, and a 50% downpayment. Participants one through five pay the full price for their selected trail. Sulfatara costs ₱550, with a ₱275 downpayment, and Mt. Malingatong costs ₱680, with a ₱340 downpayment; other approved trails may have different prices.
 
 If a rule is not confirmed, use:
 
@@ -2041,7 +2043,7 @@ Incorrect:
 
 Correct:
 
-> TrailSync supports multiple trails; Lake Janagdan is currently the only catalog trail, and additional approved trails are added through controlled development changes.
+> TrailSync supports multiple trails; Sulfatara and Mt. Malingatong are currently the catalog trails, and additional approved trails are added through controlled development changes.
 
 Incorrect:
 
@@ -2049,15 +2051,15 @@ Incorrect:
 
 Correct:
 
-> Lake Janagdan’s package costs ₱800 for up to five participants with one guide; other trails have their own approved price.
+> Sulfatara’s package costs ₱550 for up to five participants with one guide; other trails have their own approved price.
 
 Incorrect:
 
-> The ₱800 package is a per-person charge.
+> The ₱550 package is a per-person charge.
 
 Correct:
 
-> Lake Janagdan is the sole initially supported trail, and each booking selects one trail from the approved catalog.
+> Sulfatara and Mt. Malingatong are the currently supported trails, and each booking selects one trail from the approved catalog.
 
 Incorrect:
 
@@ -2163,7 +2165,7 @@ CERTIFICATE
 ANALYTICS
 ```
 
-TrailSync is a multi-trail system. Lake Janagdan is currently the only trail in the approved catalog; additional approved trails are added through a controlled development change (a database migration with verified trail data). Each booking selects exactly one catalog trail.
+TrailSync is a multi-trail system. Sulfatara and Mt. Malingatong are currently the trails in the approved catalog; additional approved trails are added through a controlled development change (a database migration with verified trail data). Each booking selects exactly one catalog trail.
 
 Every major feature should support this operational flow or provide a clear supporting capability.
 
@@ -2216,7 +2218,7 @@ Do not cross architectural boundaries without agreement.
 
 Do not claim capabilities the system does not actually provide.
 
-Keep Lake Janagdan as the sole initial trail. Additional trails require an approved controlled change. Shared package rules apply across trails, while price belongs to each trail. Do not invent trail facts.
+Keep Sulfatara and Mt. Malingatong as the current catalog trails. Additional trails require an approved controlled change. Shared package rules apply across trails, while price belongs to each trail. Do not invent trail facts.
 
 Implement incrementally.
 

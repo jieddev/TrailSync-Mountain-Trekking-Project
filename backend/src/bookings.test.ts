@@ -29,18 +29,18 @@ const tx = {
 const transaction = vi.mocked(prisma.$transaction);
 const owner = { id: "owner-1", fullName: "Hiker One", role: "HIKER" };
 const booking = (overrides: Record<string, unknown> = {}) => ({
-  id: "booking-1", trailId: "trl_lake_janagdan", trail: { id: "trl_lake_janagdan", name: "Lake Janagdan" }, scheduledDate: "2026-11-20", scheduledTime: "08:00",
-  packagePrice: 800, downpaymentAmount: 400, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION",
+  id: "booking-1", trailId: "trl_sulfatara", trail: { id: "trl_sulfatara", name: "Sulfatara" }, scheduledDate: "2026-11-20", scheduledTime: "08:00",
+  packagePrice: 550, downpaymentAmount: 275, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION",
   createdAt: new Date("2026-10-07T00:00:00Z"), updatedAt: new Date("2026-10-07T00:00:00Z"),
   participants: [{ id: "participant-owner", kind: "BOOKING_OWNER", name: "Hiker One", age: 28, address: "Ormoc" }], ...overrides,
 });
-const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_lake_janagdan", scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { age: 28, address: "Ormoc City" }, additionalParticipants });
+const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_sulfatara", scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { age: 28, address: "Ormoc City" }, additionalParticipants });
 
 beforeEach(() => {
   vi.resetAllMocks();
   verify.mockResolvedValue({ uid: "verified-uid" } as never);
   userLookup.mockResolvedValue(owner as never);
-  trailLookup.mockResolvedValue({ id: "trl_lake_janagdan", packagePrice: 800 } as never);
+  trailLookup.mockResolvedValue({ id: "trl_sulfatara", packagePrice: 550 } as never);
   transaction.mockImplementation(async (callback: any) => callback(tx) as never);
 });
 
@@ -52,10 +52,10 @@ describe("Booking Foundation", () => {
       status: "CONFIRMED", downpaymentStatus: "VERIFIED", guideId: "guide-1", trail: "other trail", participantCount: 99,
     });
     expect(response.status).toBe(201);
-    expect(response.body).toMatchObject({ status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION", trail: { id: "trl_lake_janagdan", name: "Lake Janagdan" }, participantCount: 1,
-      package: { price: { amount: 800, currency: "PHP" } }, paymentRequirement: { downpaymentPercent: 50, amount: 400, currency: "PHP" },
+    expect(response.body).toMatchObject({ status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION", trail: { id: "trl_sulfatara", name: "Sulfatara" }, participantCount: 1,
+      package: { price: { amount: 550, currency: "PHP" } }, paymentRequirement: { downpaymentPercent: 50, amount: 275, currency: "PHP" },
       participants: [{ kind: "BOOKING_OWNER", name: "Hiker One" }] });
-    expect(tx.booking.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ ownerId: "owner-1", trailId: "trl_lake_janagdan", packagePrice: 800, downpaymentAmount: 400, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION" }) }));
+    expect(tx.booking.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ ownerId: "owner-1", trailId: "trl_sulfatara", packagePrice: 550, downpaymentAmount: 275, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION" }) }));
   });
 
   it("accepts four additional participants and rejects a fifth", async () => {
@@ -124,7 +124,7 @@ describe("Booking Foundation", () => {
     tx.booking.findFirst.mockResolvedValue(booking({ status: "PENDING_CONFIRMATION", downpaymentStatus: "VERIFIED", scheduledDate: "2026-11-21" }) as never);
     const response = await request(app).post("/api/v1/bookings/booking-1/reschedule").set("Authorization", "Bearer token").send({ scheduledDate: "2026-11-21", scheduledTime: "09:00", trailId: "trl_other", packagePrice: 1 });
     expect(response.status).toBe(200);
-    expect(response.body).toMatchObject({ id: "booking-1", status: "PENDING_CONFIRMATION", downpaymentStatus: "VERIFIED", trail: { id: "trl_lake_janagdan" }, paymentRequirement: { amount: 400 } });
+    expect(response.body).toMatchObject({ id: "booking-1", status: "PENDING_CONFIRMATION", downpaymentStatus: "VERIFIED", trail: { id: "trl_sulfatara" }, paymentRequirement: { amount: 275 } });
     expect(tx.booking.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "booking-1", ownerId: "owner-1", status: "CONFIRMED" },
       data: { scheduledDate: "2026-11-21", scheduledTime: "09:00", status: "PENDING_CONFIRMATION" } }));
   });
