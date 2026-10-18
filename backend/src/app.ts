@@ -5,6 +5,7 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { prisma } from "./lib/prisma.js";
 import { bookingsRouter } from "./routes/bookings.js";
+import { coordinatorBookingsRouter } from "./routes/coordinator-bookings.js";
 import { trailsRouter } from "./routes/trails.js";
 import {
   type AuthenticatedRequest,
@@ -25,6 +26,7 @@ app.get("/health", (_request, response) => {
 
 app.use("/api/v1/trails", trailsRouter);
 app.use("/api/v1/bookings", bookingsRouter);
+app.use("/api/v1/coordinator/bookings", coordinatorBookingsRouter);
 
 type RequestWithLogger = Request & {
   id?: string;

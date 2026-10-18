@@ -1,57 +1,17 @@
-import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
 
-import { useAuth } from '../../../app/AuthContext'
-import { ApiError, getCurrentUserProfile } from '../../../lib/users-api'
-import type { CurrentUserProfile } from '../../../lib/users-api'
+import { useProfile } from '../../../app/ProfileContext'
 import type { HikerOutletContext } from '../hiker-profile'
 import HikerAppShell from './HikerAppShell'
 
-type ProfileState =
-  | { status: 'loading' }
-  | { status: 'loaded'; profile: CurrentUserProfile }
-  | { status: 'missing' }
-  | { status: 'error' }
-
 export default function HikerLayout() {
-  const { user } = useAuth()
-  const [profileState, setProfileState] = useState<ProfileState>({
-    status: 'loading',
-  })
-
-  useEffect(() => {
-    let isCurrent = true
-
-    async function loadProfile() {
-      setProfileState({ status: 'loading' })
-      try {
-        const idToken = await user!.getIdToken()
-        const profile = await getCurrentUserProfile(idToken)
-        if (isCurrent) setProfileState({ status: 'loaded', profile })
-      } catch (error) {
-        if (!isCurrent) return
-        setProfileState({
-          status:
-            error instanceof ApiError &&
-            error.status === 404 &&
-            error.code === 'PROFILE_NOT_FOUND'
-              ? 'missing'
-              : 'error',
-        })
-      }
-    }
-
-    void loadProfile()
-    return () => {
-      isCurrent = false
-    }
-  }, [user])
-
+  const profileState = useProfile()
   const profile = profileState.status === 'loaded' ? profileState.profile : null
 
   return (
     <HikerAppShell profile={profile}>
-      {profileState.status === 'loading' && (
+      {(profileState.status === 'loading' ||
+        profileState.status === 'signed-out') && (
         <section
           aria-live="polite"
           role="status"

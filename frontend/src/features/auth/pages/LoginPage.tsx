@@ -71,7 +71,8 @@ export default function LoginPage() {
         values.email.trim(),
         values.password,
       )
-      navigate('/home', { replace: true })
+      // "/" sends each role to its own area (see RoleHome in App.tsx).
+      navigate('/', { replace: true })
     } catch (error) {
       const code = (error as { code?: string }).code
 
