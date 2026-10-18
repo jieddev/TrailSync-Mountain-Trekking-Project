@@ -1,10 +1,9 @@
 import { Router, type Response } from "express";
 import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
-import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
+import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
+import { MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
 import { requireFirebaseAuth, type AuthenticatedRequest } from "../middleware/require-firebase-auth.js";
-
-const bookingInclude = { participants: true, trail: { select: { id: true, name: true } } } as const;
 
 function validation(response: Response, details: Details[]) {
   return fail(response, 422, "VALIDATION_ERROR", "Review the booking details and try again.", details);
@@ -34,30 +33,6 @@ function validateSchedule(body: Record<string, unknown>) {
   if (!validDate(body.scheduledDate)) details.push({ field: "scheduledDate", code: "INVALID_DATE", message: "Use a valid date in YYYY-MM-DD format." });
   if (!validTime(body.scheduledTime)) details.push({ field: "scheduledTime", code: "INVALID_TIME", message: "Use a valid time in HH:mm format." });
   return details;
-}
-
-function bookingResponse(booking: any) {
-  const participants = booking.participants.map((participant: any) => ({
-    id: participant.id,
-    kind: participant.kind,
-    name: participant.name,
-    age: participant.age,
-    address: participant.address,
-  }));
-  return {
-    id: booking.id,
-    trail: { id: booking.trail.id, name: booking.trail.name },
-    scheduledDate: booking.scheduledDate,
-    scheduledTime: booking.scheduledTime,
-    status: booking.status,
-    downpaymentStatus: booking.downpaymentStatus,
-    participants,
-    participantCount: participants.length,
-    package: { price: { amount: booking.packagePrice, currency: CURRENCY }, maximumParticipants: MAX_PARTICIPANTS, guideCount: GUIDE_COUNT },
-    paymentRequirement: { downpaymentPercent: DOWNPAYMENT_PERCENT, amount: booking.downpaymentAmount, currency: CURRENCY },
-    createdAt: booking.createdAt,
-    updatedAt: booking.updatedAt,
-  };
 }
 
 async function currentProfile(request: AuthenticatedRequest) {

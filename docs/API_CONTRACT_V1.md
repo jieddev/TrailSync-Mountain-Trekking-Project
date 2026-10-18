@@ -61,7 +61,7 @@ The backend verifies the token with Firebase Admin, takes the Firebase UID from 
 
 ### Roles and authorization
 
-Roles are `HIKER`, `GUIDE`, and `COORDINATOR`, stored on the backend. The frontend may use the role for navigation, but every protected endpoint checks the role itself; a hidden button is not authorization. Public registration always creates a `HIKER`. Provisioning of `GUIDE`/`COORDINATOR` accounts is not yet defined.
+Roles are `HIKER`, `GUIDE`, and `COORDINATOR`, stored on the backend. The frontend may use the role for navigation, but every protected endpoint checks the role itself; a hidden button is not authorization. Public registration always creates a `HIKER`. There is no endpoint for changing roles: an operator promotes an already-registered user from the backend with `npm run set-role -- <email> <ROLE>` (see `backend/README.md`).
 
 ### Changing the contract
 
@@ -181,7 +181,7 @@ Returned by every booking endpoint:
 | `CONFIRMED`            | `VERIFIED`             | Coordinator confirmed and (simulated) downpayment verified |
 | `PENDING_CONFIRMATION` | `VERIFIED`             | Rescheduled; new date awaits review, downpayment credit kept |
 
-Hikers cannot cancel or confirm bookings and never choose a guide. Check-in and guide assignment are future coordinator operations.
+Hikers cannot cancel or confirm bookings and never choose a guide. Coordinators list and review bookings through §5 and confirm them with `POST /api/v1/bookings/:bookingId/confirm`. Check-in and guide assignment are future coordinator operations.
 
 ### `POST /api/v1/bookings`
 
@@ -233,13 +233,49 @@ Coordinator review: records simulated downpayment verification and confirms the 
 
 ---
 
-## 5. Planned APIs
+## 5. Coordinator bookings
+
+Coordinator-only views across **all** bookings. **Auth:** Bearer token. **Role:** `COORDINATOR` (checked against the stored profile; a role sent by the client is ignored).
+
+### Coordinator booking representation
+
+The booking representation from §4 plus the owner's contact details:
+
+```json
+{
+  "id": "booking-id",
+  "trail": { "id": "trl_sulfatara", "name": "Sulfatara" },
+  "status": "PENDING_CONFIRMATION",
+  "owner": { "id": "user-id", "fullName": "Juan Dela Cruz", "email": "juan@example.com" }
+}
+```
+
+(Other fields are as in §4 and omitted here.)
+
+### `GET /api/v1/coordinator/bookings`
+
+Lists bookings as `{ "items": [...] }`, soonest trek first (`scheduledDate`, then `scheduledTime`, then `createdAt`, ascending).
+
+| Query    | Values                               | Default      |
+| -------- | ------------------------------------ | ------------ |
+| `status` | `PENDING_CONFIRMATION`, `CONFIRMED`  | all statuses |
+
+Errors: `422 VALIDATION_ERROR` (detail `INVALID_STATUS` on `status`), `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+
+### `GET /api/v1/coordinator/bookings/:bookingId`
+
+Returns any booking in the coordinator representation. Errors: `404 BOOKING_NOT_FOUND`, `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+
+To confirm, use `POST /api/v1/bookings/:bookingId/confirm` (§4); its response is the §4 representation without `owner`.
+
+---
+
+## 6. Planned APIs
 
 Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
 
 | Resource                     | Purpose                                                              |
 | ---------------------------- | -------------------------------------------------------------------- |
-| Coordinator booking queue    | List pending bookings for review                                     |
 | `/api/v1/check-ins`          | Physical office check-in, comparing arrivals with booked participants |
 | `/api/v1/guides`             | Guide availability and FIFO dispatch                                 |
 | `/api/v1/treks`              | Trek sessions started/ended from the guide's app                     |

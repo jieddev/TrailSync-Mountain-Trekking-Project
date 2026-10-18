@@ -18,14 +18,14 @@ The roadmap, in build order. Each phase depends on the ones before it.
 | 2. Authentication and user profiles     | ✅ Mostly done  |
 | 3. Hiker home                           | ✅ Done         |
 | 4. Trails and booking                   | ✅ Done — backend and hiker web UI; capacity and larger groups blocked |
-| 5. Coordinator review, check-in, dispatch | ⬜ Not started |
+| 5. Coordinator review, check-in, dispatch | 🟡 Review done — check-in and dispatch blocked |
 | 6. Guide mobile app and trek sessions   | ⬜ Not started  |
 | 7. Group monitoring and offline sync    | ⬜ Not started  |
 | 8. Weather, safety, and SOS             | ⬜ Not started  |
 | 9. Certificates and analytics           | ⬜ Not started  |
 | 10. Production readiness                | ⬜ Ongoing      |
 
-**Next up:** Phase 5 coordinator review (pending-booking queue and confirm screen).
+**Next up:** Phase 5 check-in, once the arrival-mismatch rules are decided.
 
 ---
 
@@ -45,8 +45,8 @@ The roadmap, in build order. Each phase depends on the ones before it.
 - [ ] Move `POST /users` to `/api/v1/users` and use the standard error envelope.
 - [ ] Replace `console.log` in `RegisterPage` with proper error handling.
 - [ ] Handle the case where Firebase sign-up succeeds but profile creation fails.
-- [ ] Reusable role-check middleware (booking routes currently check roles inline).
-- [ ] **Blocked:** how `GUIDE` and `COORDINATOR` accounts are created.
+- [~] Reusable role-check middleware: `requireRole` is used by coordinator routes; hiker booking routes still check roles inline.
+- [x] `GUIDE`/`COORDINATOR` accounts are promoted from the backend with `npm run set-role` (no HTTP endpoint). Self-service or admin-UI provisioning is not planned yet.
 
 ## 3. Hiker home ✅
 
@@ -82,10 +82,10 @@ The roadmap, in build order. Each phase depends on the ones before it.
 - [ ] **Blocked:** groups larger than 5.
 - [ ] **Blocked:** reschedule limits and notice period; no-show policy.
 
-## 5. Coordinator review, check-in, and dispatch
+## 5. Coordinator review, check-in, and dispatch 🟡
 
-- [ ] Coordinator web area (role-gated).
-- [ ] Pending-booking queue API and review screen using the existing confirm endpoint.
+- [x] Coordinator web area in the same web app: one shared `/login`, then role-based redirects to the coordinator layout under `/coordinator/*`.
+- [x] Booking queue API (`GET /api/v1/coordinator/bookings`, `GET /api/v1/coordinator/bookings/:bookingId`) and review screens (`/coordinator/bookings`, `/coordinator/bookings/:bookingId`) that use the existing confirm endpoint.
 - [ ] Physical check-in: compare who arrived with who was booked.
 - [ ] Guide model and availability.
 - [ ] FIFO guide dispatch that cannot assign one guide twice (transactional).

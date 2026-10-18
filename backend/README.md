@@ -53,6 +53,22 @@ Public profile creation always uses the `HIKER` role. A duplicate Firebase UID
 or email returns `409 Conflict`. Missing, invalid, or expired ID tokens return
 `401 Unauthorized`.
 
+## Coordinator and guide accounts
+
+Registration always creates a `HIKER`. To give someone coordinator (or guide)
+access, have them register first, then run from `backend/`:
+
+```bash
+npm run set-role -- coordinator@example.com COORDINATOR
+```
+
+The script uses `DATABASE_URL` from `.env` and prints the old and new role.
+There is deliberately no API endpoint for changing roles. Coordinators use the same
+`/login` page as hikers; the web app sends them to `/coordinator/bookings`.
+
+Coordinator-only routes use the `requireRole` middleware
+(`src/middleware/require-role.ts`) after `requireFirebaseAuth`.
+
 ## Trails
 
 TrailSync supports multiple trails. The `trails` table is the approved catalog;
