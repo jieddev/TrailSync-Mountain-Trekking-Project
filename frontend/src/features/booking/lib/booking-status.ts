@@ -1,6 +1,6 @@
 import type { Booking } from '../../../lib/bookings-api'
 
-export type StatusTone = 'pending' | 'success'
+export type StatusTone = 'pending' | 'success' | 'declined'
 
 type StatusLabel = { label: string; tone: StatusTone }
 

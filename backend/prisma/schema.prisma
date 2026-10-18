@@ -28,6 +28,12 @@ enum BookingParticipantType {
   ADDITIONAL_PARTICIPANT
 }
 
+enum GuideApplicationStatus {
+  PENDING
+  APPROVED
+  DECLINED
+}
+
 model User {
   id          String   @id @default(cuid())
   firebaseUid String   @unique
@@ -37,8 +43,28 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   bookings    Booking[]
+  reviewedGuideApplications GuideApplication[] @relation("GuideApplicationReviewer")
 
   @@map("users")
+}
+
+// A trek guide's request for an account. The GUIDE user is created only when a
+// coordinator approves it, so applicants have no TrailSync profile until then.
+model GuideApplication {
+  id            String                 @id @default(cuid())
+  firebaseUid   String                 @unique
+  fullName      String
+  email         String
+  status        GuideApplicationStatus @default(PENDING)
+  declineReason String?
+  reviewedById  String?
+  reviewedBy    User?                  @relation("GuideApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt    DateTime?
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([status, createdAt])
+  @@map("guide_applications")
 }
 
 model Trail {
