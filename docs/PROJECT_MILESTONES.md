@@ -17,7 +17,7 @@ The roadmap, in build order. Each phase depends on the ones before it.
 | 1. Project foundation                   | ✅ Done         |
 | 2. Authentication and user profiles     | ✅ Mostly done  |
 | 3. Hiker home                           | ✅ Done         |
-| 4. Trails and booking                   | 🟡 In progress — backend done, UI next |
+| 4. Trails and booking                   | ✅ Done — backend and hiker web UI; capacity and larger groups blocked |
 | 5. Coordinator review, check-in, dispatch | ⬜ Not started |
 | 6. Guide mobile app and trek sessions   | ⬜ Not started  |
 | 7. Group monitoring and offline sync    | ⬜ Not started  |
@@ -25,7 +25,7 @@ The roadmap, in build order. Each phase depends on the ones before it.
 | 9. Certificates and analytics           | ⬜ Not started  |
 | 10. Production readiness                | ⬜ Ongoing      |
 
-**Next up:** Phase 4 web booking UI, then Phase 5 coordinator review.
+**Next up:** Phase 5 coordinator review (pending-booking queue and confirm screen).
 
 ---
 
@@ -65,14 +65,15 @@ The roadmap, in build order. Each phase depends on the ones before it.
 - [x] Coordinator confirm with simulated downpayment verification.
 - [x] API tests for users, trails, and bookings.
 
-**Web — next**
+**Web — done**
 
-- [ ] Trail list/detail page from `GET /api/v1/trails`.
-- [ ] Booking form: pick a trail, date/time, owner age/address, up to 4 more participants.
-- [ ] Show price and downpayment returned by the API (never calculated in the browser).
-- [ ] My bookings list and booking detail with status.
-- [ ] Reschedule a confirmed booking.
-- [ ] No cancel button and no guide picker (not allowed by the rules).
+- [x] Trails page (`/trails`) from `GET /api/v1/trails`; each card links to the booking form with that trail preselected.
+- [x] Booking form (`/bookings/new`): pick a trail, date/time, owner age/address, up to 4 more participants (limit from the API package).
+- [x] Show price and downpayment returned by the API (never calculated in the browser).
+- [x] My bookings list (`/bookings`) and booking detail (`/bookings/:bookingId`) with status.
+- [x] Reschedule a confirmed booking.
+- [x] No cancel button and no guide picker (not allowed by the rules).
+- Past dates are blocked in the date picker as a usability guard only; the API does not enforce a date rule yet.
 
 **Later / blocked**
 

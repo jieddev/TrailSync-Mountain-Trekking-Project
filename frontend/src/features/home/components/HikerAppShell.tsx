@@ -5,6 +5,12 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import type { CurrentUserProfile } from '../../../lib/users-api'
 import { auth } from '../../../lib/firebase'
 
+const navItems = [
+  { to: '/home', label: 'Home', end: true },
+  { to: '/trails', label: 'Trails', end: false },
+  { to: '/bookings', label: 'My bookings', end: false },
+]
+
 type HikerAppShellProps = {
   children: ReactNode
   profile: CurrentUserProfile | null
@@ -39,21 +45,18 @@ export default function HikerAppShell({
           aria-label="Main navigation"
           className="mt-6 flex gap-2 overflow-x-auto lg:mt-12 lg:flex-col"
         >
-          <NavLink
-            className={({ isActive }) =>
-              `shrink-0 rounded-lg px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-[#e8f1eb] text-[#006b43]' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`
-            }
-            end
-            to="/home"
-          >
-            Home
-          </NavLink>
-          <span
-            aria-disabled="true"
-            className="shrink-0 rounded-lg px-3 py-2.5 text-sm text-[#9aa9a1]"
-          >
-            Booking · coming soon
-          </span>
+          {navItems.map((item) => (
+            <NavLink
+              className={({ isActive }) =>
+                `shrink-0 rounded-lg px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-[#e8f1eb] text-[#006b43]' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`
+              }
+              end={item.end}
+              key={item.to}
+              to={item.to}
+            >
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
         {profile && (
           <div className="mt-6 hidden border-t border-[#e7ece8] pt-5 lg:block lg:mt-10">

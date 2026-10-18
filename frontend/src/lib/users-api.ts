@@ -1,4 +1,6 @@
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+import { ApiError, apiBaseUrl } from './api'
+
+export { ApiError }
 
 type CreateUserInput = {
   fullName: string
@@ -10,17 +12,6 @@ export type CurrentUserProfile = {
   fullName: string
   email: string
   role: string
-}
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public readonly status: number,
-    public readonly code?: string,
-  ) {
-    super(message)
-    this.name = 'ApiError'
-  }
 }
 
 export async function createUser({ idToken, ...user }: CreateUserInput) {

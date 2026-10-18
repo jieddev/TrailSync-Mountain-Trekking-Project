@@ -1,0 +1,153 @@
+import type { ApiErrorDetail } from '../../../lib/api'
+import type {
+  CreateBookingInput,
+  ScheduleInput,
+} from '../../../lib/bookings-api'
+import type { Money } from '../../../lib/trails-api'
+
+// Form values stay as strings so inputs remain controlled; they are converted
+// to the API shape only on submit.
+export type ParticipantFormValues = {
+  name: string
+  age: string
+  address: string
+}
+
+export type BookingFormValues = {
+  trailId: string
+  scheduledDate: string
+  scheduledTime: string
+  ownerAge: string
+  ownerAddress: string
+  additionalParticipants: ParticipantFormValues[]
+}
+
+export type ScheduleFormValues = ScheduleInput
+
+// Keys: 'trailId', 'ownerAge', 'additionalParticipants.0.name', etc.
+export type BookingFormErrors = Record<string, string>
+
+export const emptyParticipant: ParticipantFormValues = {
+  name: '',
+  age: '',
+  address: '',
+}
+
+function isPositiveInteger(value: string) {
+  return /^\d+$/.test(value.trim()) && Number(value) > 0
+}
+
+// The date in the hiker's own timezone, as YYYY-MM-DD for <input type="date">.
+export function todayLocalIso(now = new Date()) {
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  return `${now.getFullYear()}-${month}-${day}`
+}
+
+export function validateSchedule(
+  values: ScheduleFormValues,
+  today = todayLocalIso(),
+): BookingFormErrors {
+  const errors: BookingFormErrors = {}
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(values.scheduledDate)) {
+    errors.scheduledDate = 'Choose a date.'
+  } else if (values.scheduledDate < today) {
+    errors.scheduledDate = 'Choose today or a later date.'
+  }
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(values.scheduledTime)) {
+    errors.scheduledTime = 'Choose a time.'
+  }
+  return errors
+}
+
+export function validateBookingForm(
+  values: BookingFormValues,
+  maxAdditionalParticipants: number,
+  today = todayLocalIso(),
+): BookingFormErrors {
+  const errors: BookingFormErrors = {}
+
+  if (!values.trailId) errors.trailId = 'Select a trail.'
+  Object.assign(errors, validateSchedule(values, today))
+  if (!isPositiveInteger(values.ownerAge)) {
+    errors.ownerAge = 'Enter your age as a whole number.'
+  }
+  if (!values.ownerAddress.trim()) errors.ownerAddress = 'Enter your address.'
+
+  if (values.additionalParticipants.length > maxAdditionalParticipants) {
+    errors.additionalParticipants = `You can add at most ${maxAdditionalParticipants} more participants.`
+  }
+  values.additionalParticipants.forEach((person, index) => {
+    const prefix = `additionalParticipants.${index}`
+    if (!person.name.trim()) errors[`${prefix}.name`] = 'Enter a name.'
+    if (!isPositiveInteger(person.age)) {
+      errors[`${prefix}.age`] = 'Enter the age as a whole number.'
+    }
+    if (!person.address.trim())
+      errors[`${prefix}.address`] = 'Enter an address.'
+  })
+
+  return errors
+}
+
+export function toCreateBookingInput(
+  values: BookingFormValues,
+): CreateBookingInput {
+  return {
+    trailId: values.trailId,
+    scheduledDate: values.scheduledDate,
+    scheduledTime: values.scheduledTime,
+    ownerDetails: {
+      age: Number(values.ownerAge),
+      address: values.ownerAddress.trim(),
+    },
+    additionalParticipants: values.additionalParticipants.map((person) => ({
+      name: person.name.trim(),
+      age: Number(person.age),
+      address: person.address.trim(),
+    })),
+  }
+}
+
+const apiFieldToFormField: Record<string, string> = {
+  'ownerDetails.age': 'ownerAge',
+  'ownerDetails.address': 'ownerAddress',
+}
+
+// Maps backend validation details onto form error keys. Backend messages are
+// written for clients (see API_CONTRACT_V1.md), so they are safe to show.
+export function fieldErrorsFromApi(
+  details: ApiErrorDetail[],
+): BookingFormErrors {
+  const errors: BookingFormErrors = {}
+  for (const detail of details) {
+    const field = apiFieldToFormField[detail.field] ?? detail.field
+    errors[field] ??= detail.message
+  }
+  return errors
+}
+
+export function formatMoney({ amount, currency }: Money) {
+  return new Intl.NumberFormat('en-PH', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+export function formatSchedule(scheduledDate: string, scheduledTime: string) {
+  const [year, month, day] = scheduledDate.split('-').map(Number)
+  const [hours, minutes] = scheduledTime.split(':').map(Number)
+  const date = new Date(year, month - 1, day, hours, minutes)
+  const datePart = new Intl.DateTimeFormat('en-PH', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)
+  const timePart = new Intl.DateTimeFormat('en-PH', {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)
+  return `${datePart} · ${timePart}`
+}
