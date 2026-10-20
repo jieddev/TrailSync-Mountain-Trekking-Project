@@ -1,5 +1,5 @@
 import { requestJson } from './api'
-import type { Booking, BookingStatus } from './bookings-api'
+import type { Booking, BookingStatus, ParticipantInput } from './bookings-api'
 
 export type CoordinatorBooking = Booking & {
   owner: { id: string; fullName: string; email: string }
@@ -7,11 +7,16 @@ export type CoordinatorBooking = Booking & {
 
 const coordinatorBookingsPath = '/api/v1/coordinator/bookings'
 
+// `today` limits the list to bookings scheduled for today in Asia/Manila.
 export async function listCoordinatorBookings(
   idToken: string,
   status?: BookingStatus,
+  { today = false }: { today?: boolean } = {},
 ) {
-  const query = status ? `?status=${encodeURIComponent(status)}` : ''
+  const params = new URLSearchParams()
+  if (status) params.set('status', status)
+  if (today) params.set('today', 'true')
+  const query = params.toString() ? `?${params}` : ''
   const { items } = await requestJson<{ items: CoordinatorBooking[] }>(
     `${coordinatorBookingsPath}${query}`,
     { idToken },
@@ -86,5 +91,85 @@ export function confirmBooking(idToken: string, bookingId: string) {
     `/api/v1/bookings/${encodeURIComponent(bookingId)}/confirm`,
     { idToken, method: 'POST' },
     'Could not confirm this booking.',
+  )
+}
+
+const bookingActionPath = (bookingId: string, action: string) =>
+  `${coordinatorBookingsPath}/${encodeURIComponent(bookingId)}/${action}`
+
+export type CheckInInput = {
+  attendance: { participantId: string; present: boolean }[]
+  walkIns: ParticipantInput[]
+}
+
+// Checks the group in and, in the same step, assigns the guide at the front of
+// the queue. With no guide available the booking stays CHECKED_IN.
+export function checkInBooking(
+  idToken: string,
+  bookingId: string,
+  input: CheckInInput,
+) {
+  return requestJson<CoordinatorBooking>(
+    bookingActionPath(bookingId, 'check-in'),
+    { idToken, method: 'POST', body: input },
+    'Could not check in this group.',
+  )
+}
+
+export function assignNextGuide(idToken: string, bookingId: string) {
+  return requestJson<CoordinatorBooking>(
+    bookingActionPath(bookingId, 'assign-guide'),
+    { idToken, method: 'POST' },
+    'Could not assign a guide.',
+  )
+}
+
+export function completeTrek(idToken: string, bookingId: string) {
+  return requestJson<CoordinatorBooking>(
+    bookingActionPath(bookingId, 'complete'),
+    { idToken, method: 'POST' },
+    'Could not complete this trek.',
+  )
+}
+
+export type GuideDutyStatus = 'OFF_DUTY' | 'AVAILABLE' | 'ASSIGNED'
+
+export type Guide = {
+  id: string
+  fullName: string
+  email: string
+  dutyStatus: GuideDutyStatus
+  availableSince: string | null
+  // 1 is the front of the FIFO queue; null unless the guide is AVAILABLE.
+  queuePosition: number | null
+  currentBooking: {
+    id: string
+    trail: { id: string; name: string }
+    scheduledDate: string
+    scheduledTime: string
+  } | null
+}
+
+const guidesPath = '/api/v1/coordinator/guides'
+
+// The queue first (front first), then guides on a trek, then off-duty guides.
+export async function listGuides(idToken: string) {
+  const { items } = await requestJson<{ items: Guide[] }>(
+    guidesPath,
+    { idToken },
+    'Could not load guides.',
+  )
+  return items
+}
+
+export function setGuideAvailability(
+  idToken: string,
+  guideId: string,
+  status: 'AVAILABLE' | 'OFF_DUTY',
+) {
+  return requestJson<Guide>(
+    `${guidesPath}/${encodeURIComponent(guideId)}/availability`,
+    { idToken, method: 'POST', body: { status } },
+    'Could not update this guide.',
   )
 }

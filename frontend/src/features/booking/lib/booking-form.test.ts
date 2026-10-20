@@ -4,6 +4,7 @@ import {
   type BookingFormValues,
   fieldErrorsFromApi,
   formatMoney,
+  manilaTodayIso,
   todayLocalIso,
   toCreateBookingInput,
   validateBookingForm,
@@ -158,5 +159,12 @@ describe('formatting helpers', () => {
 
   it('formats today as a local YYYY-MM-DD date', () => {
     expect(todayLocalIso(new Date(2026, 0, 5, 23, 30))).toBe('2026-01-05')
+  })
+})
+
+describe('manilaTodayIso', () => {
+  it('uses the Asia/Manila date whatever the browser timezone', () => {
+    expect(manilaTodayIso(new Date('2026-10-20T15:59:00Z'))).toBe('2026-10-20')
+    expect(manilaTodayIso(new Date('2026-10-20T16:00:00Z'))).toBe('2026-10-21')
   })
 })

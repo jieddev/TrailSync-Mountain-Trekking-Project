@@ -266,9 +266,51 @@ guide_id = NULL
 
 until the group is physically checked in and a guide is assigned.
 
+### Check-in rules (agreed 2026-10-18, implemented)
+
+These apply to every supported trail.
+
+**Who can be checked in**
+- Only `CONFIRMED` bookings.
+- Only on the booking's scheduled date, as an **Asia/Manila** calendar date. A group arriving on another day must reschedule first.
+
+**When the number of arrivals differs from the booking**
+
+| Case                                | Example             | Rule                                                                                                          |
+| ----------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Fewer arrive                        | Booked 5, arrived 3 | Coordinator marks each listed participant **present** or **absent**. At least 1 must be present. Price unchanged. |
+| More arrive, still within 1 package | Booked 3, arrived 5 | Coordinator adds the extra people as **walk-ins** (name, age, address). Present + walk-ins ≤ 5. Price unchanged. |
+| More than 1 package arrives         | Booked 3, arrived 7 | Check in **at most 5** on the booking. The extra people are handled outside TrailSync for now (**TBD**).        |
+
 ## 5.3 FIFO Guide Dispatch
 
-Guide assignment is automatic after physical check-in and depends on currently available guides. Among available guides, the agreed dispatch ordering should follow the existing **First-In, First-Out (FIFO)** rule unless the team explicitly revises it. The exact interaction between guide availability and FIFO is a future implementation decision.
+Guide assignment is automatic at physical check-in and follows the **First-In, First-Out (FIFO)** rule. These rules were agreed on 2026-10-18 and are implemented in `backend/src/lib/guide-queue.ts`.
+
+**Guide states**
+
+| State       | Meaning                                | Set by                 |
+| ----------- | -------------------------------------- | ---------------------- |
+| `OFF_DUTY`  | Not at the office; not in the queue    | Guide or coordinator   |
+| `AVAILABLE` | Reported in; waiting in the FIFO queue | Guide or coordinator   |
+| `ASSIGNED`  | Dispatched to a checked-in group       | System only (dispatch) |
+
+A guide on an assigned trek cannot go off duty until the trek is completed. The coordinator sets availability on the web. The backend also lets guides set their own availability, which the guide app will use.
+
+**Queue**
+- The queue is the `AVAILABLE` guides, ordered by **when they became available**.
+- Becoming available puts the guide at the **end** of the queue. Going off duty removes them from it.
+- Dispatch always takes the guide at the **front**. There is **no skipping**.
+- If the front guide isn't present, the coordinator marks them off duty. They rejoin at the end when they become available again.
+
+**Dispatch timing**
+- Check-in **automatically assigns** the guide at the front of the queue, in the same transaction.
+- If no guide is available, the booking stays `CHECKED_IN` (waiting). The coordinator clicks "Assign next guide" once a guide becomes available. There is no automatic assignment of waiting groups.
+- Assignment is transactional and serialised, so one guide can never be assigned to two groups, even when two check-ins happen at the same time.
+
+**Completion**
+- When the group returns, the coordinator marks the trek **completed**.
+- The guide becomes `AVAILABLE` again at the **end** of the queue.
+- The guide app's own complete-and-check-out step (Phase 6) will reuse the same rule.
 
 Example:
 
@@ -306,11 +348,7 @@ Carlo
 Juan
 ```
 
-The goal is to provide a fair and predictable rotation of guide assignments.
-
-A guide should return to the end of the queue only after completing the appropriate work cycle.
-
-The exact queue state transitions may evolve as implementation requirements become clearer.
+The goal is to provide a fair and predictable rotation of guide assignments. Do not change the FIFO behaviour without an explicit team decision.
 
 ---
 
@@ -355,6 +393,16 @@ IN_PROGRESS
 
 COMPLETED
 ```
+
+The implemented booking statuses currently cover:
+
+```text
+PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → COMPLETED
+```
+
+- Rescheduling moves `CONFIRMED` back to `PENDING_CONFIRMATION`.
+- Check-in goes straight to `GUIDE_ASSIGNED` when a guide is available. Otherwise the booking waits in `CHECKED_IN`.
+- `TREK_STARTED`/`IN_PROGRESS` come with the guide app's trek sessions (Phase 6).
 
 Other possible states include:
 
@@ -633,7 +681,7 @@ Facebook/Messenger describes today's manual real-world process. TrailSync's futu
 
 The booking owner provides their own information and may list other participants. The owner is represented as a booking participant and counts within the five-person maximum. A one-person booking is valid. Conceptually, preserve `Booking → Booking Participants`.
 
-Groups exceeding five require additional package/guide arrangements. Exact grouping for 6–10 or larger groups, whether each additional group is capped at five, whether each package requires a guide, independent payment, multiple-package pricing, and database representation are **TBD**. Do not infer calculations for differences between booked guests and actual arrivals: an excess arrival requires an additional package/guide arrangement, while cases such as booked 5/arrived 3, booked 3/arrived 5, and booked 3/arrived 7 need clarification.
+Groups exceeding five require additional package/guide arrangements. Exact grouping for 6–10 or larger groups, whether each additional group is capped at five, whether each package requires a guide, independent payment, multiple-package pricing, and database representation are **TBD**. Differences between booked guests and actual arrivals at check-in follow the rules in §5.2: booked 5/arrived 3 marks absentees, booked 3/arrived 5 adds walk-ins, and booked 3/arrived 7 checks in at most 5. The arrangement for the extra people remains **TBD**.
 
 Every supported trail requires a 50% downpayment calculated from that selected trail’s package price. Sulfatara’s ₱550 price therefore requires ₱275, and Mt. Malingatong’s ₱680 price requires ₱340. Payment provider, deadline, refund rules, and other payment details remain **TBD**. TrailSync records the booking/downpayment statuses in its simulated workflow; real payment processing remains a future feature.
 
@@ -1594,9 +1642,8 @@ The following should be treated as **TBD** rather than assumptions:
 - Whether participants may independently pay for another package and exact representation of related packages/groups
 - Official weather safety thresholds
 - Exact Booking API request/response format
-- Exact booking lifecycle/state machine
+- Booking states beyond `COMPLETED` (trek start/in progress, `NO_SHOW`, `SUSPENDED`, `EMERGENCY`)
 - Exact date/time scheduling model
-- Exact guide availability states
 - Payment provider and downpayment verification process
 - Payment deadline, refund rules, and payment status values
 - Downpayment handling during rescheduling
@@ -1609,10 +1656,8 @@ The following should be treated as **TBD** rather than assumptions:
 - Exact authentication API contract
 - Exact API response formats
 - Final database schema
-- Exact guide queue state machine
 - Final payment implementation
 - Final certificate signing process
-- Exact interaction between guide availability and the existing FIFO ordering
 - Advanced AI analytics requirements
 
 
@@ -1634,7 +1679,7 @@ The following are currently **confirmed**:
 - One booking represents one trekking group/package in the existing contract.
 - Every supported trail has one guide per package and a five-participant maximum including the owner. Participants one through five pay the selected trail’s full package price.
 - Sulfatara costs ₱550 (₱275 downpayment) and Mt. Malingatong costs ₱680 (₱340 downpayment). Other trail prices are set when those trails are approved. Larger-group rules remain TBD.
-- Guide assignment occurs after physical check-in based on guide availability; preserve FIFO ordering in the existing workflow unless explicitly revised. Hikers do not choose guides under the established flow.
+- Guide assignment occurs at physical check-in from the FIFO queue of `AVAILABLE` guides (§5.2–5.3). Hikers do not choose guides under the established flow.
 - Group tracking is based on the assigned guide's device rather than individual hiker devices.
 
 When encountering an unresolved area, do not invent a requirement.

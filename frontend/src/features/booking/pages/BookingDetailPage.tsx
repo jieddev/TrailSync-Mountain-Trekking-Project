@@ -128,9 +128,7 @@ export default function BookingDetailPage() {
               <StatusBadge label={downpayment.label} tone={downpayment.tone} />
             </div>
             <p className="mt-3 text-sm leading-6 text-[#52675e]">
-              {booking.status === 'CONFIRMED'
-                ? 'Your trek is confirmed. Check in at the tourism office on your trek day; your guide is assigned at check-in.'
-                : 'A tourism coordinator will review your booking and verify the downpayment.'}
+              {hikerStatusMessage(booking)}
             </p>
           </section>
 
@@ -207,4 +205,19 @@ export default function BookingDetailPage() {
       </div>
     </>
   )
+}
+
+function hikerStatusMessage(booking: Booking) {
+  switch (booking.status) {
+    case 'CONFIRMED':
+      return 'Your trek is confirmed. Check in at the tourism office on your trek day; your guide is assigned at check-in.'
+    case 'CHECKED_IN':
+      return 'You’re checked in. Your guide will be assigned as soon as one is available.'
+    case 'GUIDE_ASSIGNED':
+      return `You’re checked in and ${booking.guide?.fullName ?? 'your guide'} is leading your group. Enjoy the trek!`
+    case 'COMPLETED':
+      return 'Your trek is complete. Thank you for trekking with us!'
+    default:
+      return 'A tourism coordinator will review your booking and verify the downpayment.'
+  }
 }

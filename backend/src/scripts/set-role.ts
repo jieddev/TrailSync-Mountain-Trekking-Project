@@ -25,10 +25,23 @@ async function main() {
     return;
   }
 
-  const updated = await prisma.user.update({
-    where: { id: user.id },
-    data: { role: role as UserRole },
-    select: { fullName: true, email: true, role: true },
+  // Guides need a dispatch row (they start off duty). Someone who stops being a
+  // guide leaves the queue, but not in the middle of an assigned trek.
+  const guide = await prisma.guide.findUnique({ where: { userId: user.id }, select: { dutyStatus: true } });
+  if (role !== "GUIDE" && guide?.dutyStatus === "ASSIGNED") {
+    console.error("This guide is on an assigned trek. Complete the trek before changing their role.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    if (role === "GUIDE") await tx.guide.upsert({ where: { userId: user.id }, create: { userId: user.id }, update: {} });
+    else if (guide) await tx.guide.update({ where: { userId: user.id }, data: { dutyStatus: "OFF_DUTY", availableSince: null } });
+    return tx.user.update({
+      where: { id: user.id },
+      data: { role: role as UserRole },
+      select: { fullName: true, email: true, role: true },
+    });
   });
   console.log(`${updated.fullName} <${updated.email}>: ${user.role} -> ${updated.role}`);
 }

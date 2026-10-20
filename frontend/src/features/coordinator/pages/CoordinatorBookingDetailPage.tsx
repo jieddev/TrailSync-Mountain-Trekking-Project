@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 
 import { useAuth } from '../../../app/AuthContext'
 import { ApiError } from '../../../lib/api'
+import type { BookingParticipant } from '../../../lib/bookings-api'
 import {
+  assignNextGuide,
+  completeTrek,
   confirmBooking,
   getCoordinatorBooking,
   type CoordinatorBooking,
@@ -11,26 +14,34 @@ import {
 import PageHeader from '../../booking/components/PageHeader'
 import StatusBadge from '../../booking/components/StatusBadge'
 import StatusCard from '../../booking/components/StatusCard'
-import { formatMoney, formatSchedule } from '../../booking/lib/booking-form'
+import {
+  formatMoney,
+  formatSchedule,
+  manilaTodayIso,
+} from '../../booking/lib/booking-form'
 import {
   bookingStatusLabel,
   downpaymentStatusLabel,
 } from '../../booking/lib/booking-status'
+import ConfirmAction from '../components/ConfirmAction'
+import {
+  dispatchErrorMessage,
+  formatClockTime,
+  isStaleRefusal,
+  type Notice,
+} from '../lib/dispatch'
+import {
+  backLinkClass,
+  linkButtonClass,
+  primaryButtonClass,
+  secondaryButtonClass,
+} from '../lib/ui'
 
 type BookingState =
   | { status: 'loading' }
   | { status: 'loaded'; booking: CoordinatorBooking }
   | { status: 'not-found' }
   | { status: 'error' }
-
-type Notice = { tone: 'success' | 'error'; text: string }
-
-const backLinkClass =
-  'text-sm font-bold text-[#007e4f] underline-offset-4 hover:underline'
-const primaryButtonClass =
-  'rounded-lg bg-[#008755] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#006b43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
-const secondaryButtonClass =
-  'rounded-lg border border-[#d5e1da] bg-white px-4 py-2.5 text-sm font-bold text-[#173a2e] hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] disabled:opacity-60'
 
 export default function CoordinatorBookingDetailPage() {
   const { user } = useAuth()
@@ -39,7 +50,11 @@ export default function CoordinatorBookingDetailPage() {
   const [reloadKey, setReloadKey] = useState(0)
   const [isAskingToConfirm, setIsAskingToConfirm] = useState(false)
   const [isConfirming, setIsConfirming] = useState(false)
-  const [notice, setNotice] = useState<Notice | null>(null)
+  // The check-in page hands its result over as a notice.
+  const location = useLocation()
+  const [notice, setNotice] = useState<Notice | null>(
+    (location.state as { notice?: Notice } | null)?.notice ?? null,
+  )
 
   useEffect(() => {
     let isCurrent = true
@@ -100,6 +115,23 @@ export default function CoordinatorBookingDetailPage() {
     }
   }
 
+  async function runTrekAction(
+    action: (idToken: string) => Promise<CoordinatorBooking>,
+    success: (booking: CoordinatorBooking) => string,
+    fallback: string,
+  ) {
+    setNotice(null)
+    try {
+      const idToken = await user!.getIdToken()
+      const updated = await action(idToken)
+      setState({ status: 'loaded', booking: updated })
+      setNotice({ tone: 'success', text: success(updated) })
+    } catch (error) {
+      setNotice({ tone: 'error', text: dispatchErrorMessage(error, fallback) })
+      if (isStaleRefusal(error)) setReloadKey((key) => key + 1)
+    }
+  }
+
   if (state.status === 'loading') {
     return <StatusCard role="status">Loading booking…</StatusCard>
   }
@@ -138,7 +170,10 @@ export default function CoordinatorBookingDetailPage() {
         ← Booking queue
       </Link>
       <div className="mt-4">
-        <PageHeader eyebrow="Booking review" title={booking.trail.name}>
+        <PageHeader
+          eyebrow={isPending ? 'Booking review' : 'Booking'}
+          title={booking.trail.name}
+        >
           {formatSchedule(booking.scheduledDate, booking.scheduledTime)}
         </PageHeader>
       </div>
@@ -198,6 +233,12 @@ export default function CoordinatorBookingDetailPage() {
                         Booking owner
                       </span>
                     )}
+                    {person.kind === 'WALK_IN' && (
+                      <span className="ml-2 rounded-full bg-[#eef2fb] px-2 py-0.5 text-xs font-bold text-[#2b4a8b]">
+                        Walk-in
+                      </span>
+                    )}
+                    <AttendanceBadge attendance={person.attendance} />
                   </span>
                   <span className="text-[#52675e]">
                     Age {person.age} · {person.address}
@@ -248,6 +289,13 @@ export default function CoordinatorBookingDetailPage() {
               </div>
             </dl>
           </section>
+
+          {!isPending && (
+            <section className="rounded-2xl border border-[#d5e1da] bg-white p-6">
+              <h2 className="text-sm font-bold text-[#173a2e]">Trek</h2>
+              <TrekPanel booking={booking} onAction={runTrekAction} />
+            </section>
+          )}
 
           {isPending && (
             <section className="rounded-2xl border border-[#d5e1da] bg-white p-6">
@@ -303,4 +351,132 @@ export default function CoordinatorBookingDetailPage() {
       </div>
     </>
   )
+}
+
+function AttendanceBadge({
+  attendance,
+}: {
+  attendance: BookingParticipant['attendance']
+}) {
+  if (attendance === 'PRESENT') {
+    return (
+      <span className="ml-2 rounded-full bg-[#e8f1eb] px-2 py-0.5 text-xs font-bold text-[#006b43]">
+        Present
+      </span>
+    )
+  }
+  if (attendance === 'ABSENT') {
+    return (
+      <span className="ml-2 rounded-full bg-rose-50 px-2 py-0.5 text-xs font-bold text-rose-700">
+        Absent
+      </span>
+    )
+  }
+  return null
+}
+
+type TrekAction = (
+  action: (idToken: string) => Promise<CoordinatorBooking>,
+  success: (booking: CoordinatorBooking) => string,
+  fallback: string,
+) => Promise<void>
+
+// Check-in and dispatch actions for a confirmed booking, by lifecycle status.
+function TrekPanel({
+  booking,
+  onAction,
+}: {
+  booking: CoordinatorBooking
+  onAction: TrekAction
+}) {
+  const textClass = 'mt-3 text-sm leading-6 text-[#52675e]'
+  const guideName = booking.guide?.fullName ?? 'The guide'
+
+  switch (booking.status) {
+    case 'CONFIRMED':
+      return booking.scheduledDate === manilaTodayIso() ? (
+        <>
+          <p className={textClass}>
+            This group is scheduled for today. Check them in when they arrive at
+            the office.
+          </p>
+          <Link
+            className={`mt-4 ${linkButtonClass}`}
+            to={`/coordinator/bookings/${booking.id}/check-in`}
+          >
+            Check in group
+          </Link>
+        </>
+      ) : (
+        <p className={textClass}>
+          Check-in opens on the trek day. A group arriving on another day must
+          reschedule first.
+        </p>
+      )
+    case 'CHECKED_IN':
+      return (
+        <>
+          <p className={textClass}>
+            Checked in at {formatClockTime(booking.checkedInAt!)}. No guide was
+            free, so the group is waiting for the next available guide.
+          </p>
+          <div className="mt-4">
+            <ConfirmAction
+              busyLabel="Assigning…"
+              confirmLabel="Yes, assign"
+              fullWidth
+              label="Assign next guide"
+              onConfirm={() =>
+                onAction(
+                  (idToken) => assignNextGuide(idToken, booking.id),
+                  (updated) =>
+                    `${updated.guide?.fullName ?? 'A guide'} is assigned to this group.`,
+                  'We couldn’t assign a guide. Please try again.',
+                )
+              }
+              question="Assign the guide at the front of the queue to this group?"
+            />
+          </div>
+        </>
+      )
+    case 'GUIDE_ASSIGNED':
+      return (
+        <>
+          <p className={textClass}>
+            <span className="font-semibold text-[#173a2e]">{guideName}</span> is
+            leading this group
+            {booking.guideAssignedAt &&
+              ` (assigned ${formatClockTime(booking.guideAssignedAt)})`}
+            .
+          </p>
+          <div className="mt-4">
+            <ConfirmAction
+              busyLabel="Completing…"
+              confirmLabel="Yes, completed"
+              fullWidth
+              label="Mark trek completed"
+              onConfirm={() =>
+                onAction(
+                  (idToken) => completeTrek(idToken, booking.id),
+                  () =>
+                    `Trek completed. ${guideName} is back at the end of the guide queue.`,
+                  'We couldn’t complete this trek. Please try again.',
+                )
+              }
+              question={`Has the group returned? ${guideName} goes back to the end of the guide queue.`}
+            />
+          </div>
+        </>
+      )
+    case 'COMPLETED':
+      return (
+        <p className={textClass}>
+          Completed
+          {booking.completedAt && ` at ${formatClockTime(booking.completedAt)}`}
+          {booking.guide && ` with ${booking.guide.fullName}`}.
+        </p>
+      )
+    default:
+      return null
+  }
 }

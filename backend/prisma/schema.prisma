@@ -16,6 +16,9 @@ enum UserRole {
 enum BookingStatus {
   PENDING_CONFIRMATION
   CONFIRMED
+  CHECKED_IN
+  GUIDE_ASSIGNED
+  COMPLETED
 }
 
 enum DownpaymentStatus {
@@ -26,6 +29,18 @@ enum DownpaymentStatus {
 enum BookingParticipantType {
   BOOKING_OWNER
   ADDITIONAL_PARTICIPANT
+  WALK_IN
+}
+
+enum ParticipantAttendance {
+  PRESENT
+  ABSENT
+}
+
+enum GuideDutyStatus {
+  OFF_DUTY
+  AVAILABLE
+  ASSIGNED
 }
 
 enum GuideApplicationStatus {
@@ -35,14 +50,15 @@ enum GuideApplicationStatus {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  firebaseUid String   @unique
-  fullName    String
-  email       String   @unique
-  role        UserRole @default(HIKER)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  bookings    Booking[]
+  id                        String             @id @default(cuid())
+  firebaseUid               String             @unique
+  fullName                  String
+  email                     String             @unique
+  role                      UserRole           @default(HIKER)
+  createdAt                 DateTime           @default(now())
+  updatedAt                 DateTime           @updatedAt
+  bookings                  Booking[]
+  guide                     Guide?
   reviewedGuideApplications GuideApplication[] @relation("GuideApplicationReviewer")
 
   @@map("users")
@@ -67,6 +83,22 @@ model GuideApplication {
   @@map("guide_applications")
 }
 
+// Dispatch state for a GUIDE user. AVAILABLE guides form the FIFO queue ordered
+// by availableSince; only dispatch sets ASSIGNED (see src/lib/guide-queue.ts).
+model Guide {
+  id             String          @id @default(cuid())
+  userId         String          @unique
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dutyStatus     GuideDutyStatus @default(OFF_DUTY)
+  availableSince DateTime?
+  bookings       Booking[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([dutyStatus, availableSince])
+  @@map("guides")
+}
+
 model Trail {
   id           String    @id @default(cuid())
   slug         String    @unique
@@ -82,34 +114,42 @@ model Trail {
 }
 
 model Booking {
-  id                String             @id @default(cuid())
+  id                String               @id @default(cuid())
   ownerId           String
-  owner             User               @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  owner             User                 @relation(fields: [ownerId], references: [id], onDelete: Restrict)
   trailId           String
-  trail             Trail              @relation(fields: [trailId], references: [id], onDelete: Restrict)
+  trail             Trail                @relation(fields: [trailId], references: [id], onDelete: Restrict)
   scheduledDate     String
   scheduledTime     String
   packagePrice      Int
   downpaymentAmount Int
-  status            BookingStatus      @default(PENDING_CONFIRMATION)
-  downpaymentStatus DownpaymentStatus  @default(PENDING_VERIFICATION)
+  status            BookingStatus        @default(PENDING_CONFIRMATION)
+  downpaymentStatus DownpaymentStatus    @default(PENDING_VERIFICATION)
+  guideId           String?
+  guide             Guide?               @relation(fields: [guideId], references: [id], onDelete: Restrict)
+  checkedInAt       DateTime?
+  guideAssignedAt   DateTime?
+  completedAt       DateTime?
   participants      BookingParticipant[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
   @@index([ownerId, createdAt])
   @@index([trailId, scheduledDate])
+  @@index([status, checkedInAt])
+  @@index([guideId])
   @@map("bookings")
 }
 
 model BookingParticipant {
-  id          String                @id @default(cuid())
-  bookingId   String
-  booking     Booking               @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  kind        BookingParticipantType
-  name        String
-  age         Int
-  address     String
+  id         String                 @id @default(cuid())
+  bookingId  String
+  booking    Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  kind       BookingParticipantType
+  name       String
+  age        Int
+  address    String
+  attendance ParticipantAttendance?
 
   @@index([bookingId])
   @@map("booking_participants")

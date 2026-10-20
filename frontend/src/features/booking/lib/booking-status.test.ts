@@ -35,4 +35,26 @@ describe('booking status labels', () => {
       'Downpayment credit kept',
     )
   })
+
+  it('describes check-in, dispatch, and completion', () => {
+    const at = (status: 'CHECKED_IN' | 'GUIDE_ASSIGNED' | 'COMPLETED') =>
+      ({ status, downpaymentStatus: 'VERIFIED' }) as const
+    expect(bookingStatusLabel(at('CHECKED_IN'))).toEqual({
+      label: 'Checked in · waiting for guide',
+      tone: 'pending',
+    })
+    expect(bookingStatusLabel(at('GUIDE_ASSIGNED')).label).toBe(
+      'Guide assigned',
+    )
+    expect(bookingStatusLabel(at('COMPLETED')).label).toBe('Completed')
+    for (const status of [
+      'CHECKED_IN',
+      'GUIDE_ASSIGNED',
+      'COMPLETED',
+    ] as const) {
+      expect(downpaymentStatusLabel(at(status)).label).toBe(
+        'Downpayment verified',
+      )
+    }
+  })
 })

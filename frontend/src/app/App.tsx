@@ -11,8 +11,11 @@ import MyBookingsPage from '../features/booking/pages/MyBookingsPage'
 import TrailsPage from '../features/booking/pages/TrailsPage'
 import CoordinatorLayout from '../features/coordinator/components/CoordinatorLayout'
 import BookingQueuePage from '../features/coordinator/pages/BookingQueuePage'
+import CheckInPage from '../features/coordinator/pages/CheckInPage'
 import CoordinatorBookingDetailPage from '../features/coordinator/pages/CoordinatorBookingDetailPage'
+import DispatchPage from '../features/coordinator/pages/DispatchPage'
 import GuideApplicationsPage from '../features/coordinator/pages/GuideApplicationsPage'
+import GuideQueuePage from '../features/coordinator/pages/GuideQueuePage'
 import HikerLayout from '../features/home/components/HikerLayout'
 import HikerHomePage from '../features/home/pages/HikerHomePage'
 import { AuthContext, type AuthState, useAuth } from './AuthContext'
@@ -166,6 +169,12 @@ export default function App() {
               path="bookings/:bookingId"
               element={<CoordinatorBookingDetailPage />}
             />
+            <Route
+              path="bookings/:bookingId/check-in"
+              element={<CheckInPage />}
+            />
+            <Route path="dispatch" element={<DispatchPage />} />
+            <Route path="guides" element={<GuideQueuePage />} />
             <Route
               path="guide-applications"
               element={<GuideApplicationsPage />}

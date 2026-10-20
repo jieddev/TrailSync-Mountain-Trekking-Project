@@ -66,7 +66,7 @@ describe("Coordinator guide applications", () => {
     expect(findMany).toHaveBeenCalledTimes(1);
   });
 
-  it("approves a pending request and creates the GUIDE account", async () => {
+  it("approves a pending request and creates the GUIDE account with an off-duty dispatch row", async () => {
     updateMany.mockResolvedValue({ count: 1 } as never);
     findUniqueOrThrow.mockResolvedValue({ ...application({ status: "APPROVED" }), firebaseUid: "guide-uid" } as never);
     const response = await post(`${base}/application-1/approve`);
@@ -77,7 +77,7 @@ describe("Coordinator guide applications", () => {
       where: { id: "application-1", status: "PENDING" },
       data: { status: "APPROVED", reviewedById: "coordinator-1", reviewedAt: expect.any(Date) },
     });
-    expect(userCreate).toHaveBeenCalledWith({ data: { firebaseUid: "guide-uid", fullName: "Trek Guide", email: "guide@example.com", role: "GUIDE" } });
+    expect(userCreate).toHaveBeenCalledWith({ data: { firebaseUid: "guide-uid", fullName: "Trek Guide", email: "guide@example.com", role: "GUIDE", guide: { create: {} } } });
     expect(transaction).toHaveBeenCalledTimes(1);
   });
 
