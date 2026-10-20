@@ -12,20 +12,20 @@ The roadmap, in build order. Each phase depends on the ones before it.
 
 ## Status
 
-| Phase                                   | Status          |
-| --------------------------------------- | --------------- |
-| 1. Project foundation                   | ✅ Done         |
-| 2. Authentication and user profiles     | ✅ Mostly done  |
-| 3. Hiker home                           | ✅ Done         |
-| 4. Trails and booking                   | ✅ Done — backend and hiker web UI; capacity and larger groups blocked |
-| 5. Coordinator review, check-in, dispatch | 🟡 Review done — check-in and dispatch blocked |
-| 6. Guide mobile app and trek sessions   | ⬜ Not started  |
-| 7. Group monitoring and offline sync    | ⬜ Not started  |
-| 8. Weather, safety, and SOS             | ⬜ Not started  |
-| 9. Certificates and analytics           | ⬜ Not started  |
-| 10. Production readiness                | ⬜ Ongoing      |
+| Phase                                     | Status                                                                 |
+| ----------------------------------------- | ---------------------------------------------------------------------- |
+| 1. Project foundation                     | ✅ Done                                                                |
+| 2. Authentication and user profiles       | ✅ Mostly done                                                         |
+| 3. Hiker home                             | ✅ Done                                                                |
+| 4. Trails and booking                     | ✅ Done — backend and hiker web UI; capacity and larger groups blocked |
+| 5. Coordinator review, check-in, dispatch | ✅ Done — review, check-in, FIFO dispatch, completion                  |
+| 6. Guide mobile app and trek sessions     | ⬜ Not started                                                         |
+| 7. Group monitoring and offline sync      | ⬜ Not started                                                         |
+| 8. Weather, safety, and SOS               | ⬜ Not started                                                         |
+| 9. Certificates and analytics             | ⬜ Not started                                                         |
+| 10. Production readiness                  | ⬜ Ongoing                                                             |
 
-**Next up:** Phase 5 check-in, once the arrival-mismatch rules are decided.
+**Next up:** Phase 6, the guide app: availability toggle, assignment view, and trek start/complete.
 
 ---
 
@@ -82,21 +82,34 @@ The roadmap, in build order. Each phase depends on the ones before it.
 - [ ] **Blocked:** groups larger than 5.
 - [ ] **Blocked:** reschedule limits and notice period; no-show policy.
 
-## 5. Coordinator review, check-in, and dispatch 🟡
+## 5. Coordinator review, check-in, and dispatch ✅
+
+Rules: [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) §5.2–5.3, agreed in [`CHECK_IN_AND_DISPATCH_RULES.md`](CHECK_IN_AND_DISPATCH_RULES.md).
 
 - [x] Coordinator web area in the same web app: one shared `/login`, then role-based redirects to the coordinator layout under `/coordinator/*`.
 - [x] Booking queue API (`GET /api/v1/coordinator/bookings`, `GET /api/v1/coordinator/bookings/:bookingId`) and review screens (`/coordinator/bookings`, `/coordinator/bookings/:bookingId`) that use the existing confirm endpoint.
-- [ ] Physical check-in: compare who arrived with who was booked.
-- [ ] Guide model and availability.
-- [ ] FIFO guide dispatch that cannot assign one guide twice (transactional).
-- [ ] Return a finished guide to the end of the queue.
-- [ ] **Blocked:** guide availability states and exact queue rules.
-- [ ] **Blocked:** what happens when more or fewer people arrive than booked.
+- [x] Guide account requests: guides apply from the guide app; coordinators approve or decline at `/coordinator/guide-applications`.
+- [x] Physical check-in on the scheduled Manila date (`POST …/check-in`, page `/coordinator/bookings/:bookingId/check-in`):
+  - mark booked participants present or absent
+  - add walk-ins up to 5 people in total
+  - the price never changes
+- [x] Guide dispatch state (`guides` table: `OFF_DUTY` / `AVAILABLE` / `ASSIGNED`), created when a guide is approved or promoted with `set-role`.
+- [x] FIFO dispatch at check-in, in the same transaction. Two safeguards ensure one guide is never assigned twice:
+  - a queue lock (`pg_advisory_xact_lock`)
+  - a partial unique index (one active trek per guide)
+- [x] Groups wait in `CHECKED_IN` when no guide is free. The coordinator clicks "Assign next guide".
+- [x] "Mark trek completed" returns the guide to the end of the queue.
+- [x] Coordinator screens: Check-in & dispatch (`/coordinator/dispatch`) and Guide queue (`/coordinator/guides`). The booking queue has tabs for the new statuses.
+- [x] Guide endpoints for the app: `GET /api/v1/guides/me`, `POST /api/v1/guides/me/availability`, `GET /api/v1/guides/me/hike-requests`.
+- [ ] **Blocked:** packages and guides for the people beyond 5 in the "booked 3, arrived 7" case.
+- [ ] **Blocked:** no-show handling.
 
 ## 6. Guide mobile app and trek sessions
 
-- [ ] Flutter guide app with Firebase sign-in.
-- [ ] Guide sees their assignment, starts the trek, and completes it.
+- [~] Flutter guide app (separate repo) with Firebase sign-in and the account request flow. Its dashboard reads `GET /api/v1/guides/me/hike-requests`.
+- [ ] Guide app: an availability toggle using `POST /api/v1/guides/me/availability`, and a queue-position view from `GET /api/v1/guides/me`.
+- [ ] Guide app: parse the new booking statuses. It currently treats anything other than `CONFIRMED` as "pending".
+- [ ] Guide sees their assignment, starts the trek, and completes it. Completion reuses `completeTrek` in `backend/src/lib/guide-queue.ts`.
 - [ ] Trek session model linked to booking, guide, and trail, with server-enforced state changes.
 
 ## 7. Group monitoring and offline sync

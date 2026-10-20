@@ -48,8 +48,9 @@ coordinatorGuideApplicationsRouter.get("/", async (request, response) => {
   }
 });
 
-// Approving creates the guide's TrailSync account in the same transaction, so
-// a request is never APPROVED without its GUIDE user (or the reverse).
+// Approving creates the guide's TrailSync account and their (off-duty) dispatch
+// row in the same transaction, so a request is never APPROVED without its GUIDE
+// user (or the reverse).
 coordinatorGuideApplicationsRouter.post("/:applicationId/approve", async (request, response) => {
   const { applicationId } = request.params;
   try {
@@ -60,7 +61,9 @@ coordinatorGuideApplicationsRouter.post("/:applicationId/approve", async (reques
       });
       if (!updated.count) return null;
       const approved = await tx.guideApplication.findUniqueOrThrow({ where: { id: applicationId }, select: { ...applicationSelect, firebaseUid: true } });
-      await tx.user.create({ data: { firebaseUid: approved.firebaseUid, fullName: approved.fullName, email: approved.email, role: "GUIDE" } });
+      await tx.user.create({
+        data: { firebaseUid: approved.firebaseUid, fullName: approved.fullName, email: approved.email, role: "GUIDE", guide: { create: {} } },
+      });
       const { firebaseUid: _firebaseUid, ...result } = approved;
       return result;
     });

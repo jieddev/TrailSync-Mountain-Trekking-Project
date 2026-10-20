@@ -8,7 +8,9 @@ import { isPrismaUniqueConstraintError } from "./lib/prisma-errors.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { coordinatorBookingsRouter } from "./routes/coordinator-bookings.js";
 import { coordinatorGuideApplicationsRouter } from "./routes/coordinator-guide-applications.js";
+import { coordinatorGuidesRouter } from "./routes/coordinator-guides.js";
 import { guideApplicationsRouter } from "./routes/guide-applications.js";
+import { guidesRouter } from "./routes/guides.js";
 import { trailsRouter } from "./routes/trails.js";
 import {
   type AuthenticatedRequest,
@@ -32,6 +34,8 @@ app.use("/api/v1/bookings", bookingsRouter);
 app.use("/api/v1/coordinator/bookings", coordinatorBookingsRouter);
 app.use("/api/v1/guide-applications", guideApplicationsRouter);
 app.use("/api/v1/coordinator/guide-applications", coordinatorGuideApplicationsRouter);
+app.use("/api/v1/coordinator/guides", coordinatorGuidesRouter);
+app.use("/api/v1/guides", guidesRouter);
 
 type RequestWithLogger = Request & {
   id?: string;

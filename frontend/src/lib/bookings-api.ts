@@ -1,15 +1,22 @@
 import { requestJson } from './api'
 import type { PaymentRequirement, TrailPackage } from './trails-api'
 
-export type BookingStatus = 'PENDING_CONFIRMATION' | 'CONFIRMED'
+export type BookingStatus =
+  | 'PENDING_CONFIRMATION'
+  | 'CONFIRMED'
+  | 'CHECKED_IN'
+  | 'GUIDE_ASSIGNED'
+  | 'COMPLETED'
 export type DownpaymentStatus = 'PENDING_VERIFICATION' | 'VERIFIED'
 
 export type BookingParticipant = {
   id: string
-  kind: 'BOOKING_OWNER' | 'ADDITIONAL_PARTICIPANT'
+  kind: 'BOOKING_OWNER' | 'ADDITIONAL_PARTICIPANT' | 'WALK_IN'
   name: string
   age: number
   address: string
+  // Recorded at check-in; null before the group checks in.
+  attendance: 'PRESENT' | 'ABSENT' | null
 }
 
 export type Booking = {
@@ -21,6 +28,10 @@ export type Booking = {
   downpaymentStatus: DownpaymentStatus
   participants: BookingParticipant[]
   participantCount: number
+  guide: { id: string; fullName: string } | null
+  checkedInAt: string | null
+  guideAssignedAt: string | null
+  completedAt: string | null
   package: TrailPackage
   paymentRequirement: PaymentRequirement
   createdAt: string

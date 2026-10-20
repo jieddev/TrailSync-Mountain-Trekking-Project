@@ -8,8 +8,15 @@ type StatusLabel = { label: string; tone: StatusTone }
 export function bookingStatusLabel(
   booking: Pick<Booking, 'status' | 'downpaymentStatus'>,
 ): StatusLabel {
-  if (booking.status === 'CONFIRMED') {
-    return { label: 'Confirmed', tone: 'success' }
+  switch (booking.status) {
+    case 'CONFIRMED':
+      return { label: 'Confirmed', tone: 'success' }
+    case 'CHECKED_IN':
+      return { label: 'Checked in · waiting for guide', tone: 'pending' }
+    case 'GUIDE_ASSIGNED':
+      return { label: 'Guide assigned', tone: 'success' }
+    case 'COMPLETED':
+      return { label: 'Completed', tone: 'success' }
   }
   return booking.downpaymentStatus === 'VERIFIED'
     ? { label: 'Reschedule awaiting confirmation', tone: 'pending' }
@@ -22,7 +29,7 @@ export function downpaymentStatusLabel(
   if (booking.downpaymentStatus === 'PENDING_VERIFICATION') {
     return { label: 'Downpayment pending verification', tone: 'pending' }
   }
-  return booking.status === 'CONFIRMED'
-    ? { label: 'Downpayment verified', tone: 'success' }
-    : { label: 'Downpayment credit kept', tone: 'success' }
+  return booking.status === 'PENDING_CONFIRMATION'
+    ? { label: 'Downpayment credit kept', tone: 'success' }
+    : { label: 'Downpayment verified', tone: 'success' }
 }

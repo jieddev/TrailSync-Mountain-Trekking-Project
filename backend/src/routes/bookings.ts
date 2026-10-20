@@ -3,6 +3,7 @@ import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
 import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
 import { MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
+import { nonblank, validAge } from "../lib/validation.js";
 import { requireFirebaseAuth, type AuthenticatedRequest } from "../middleware/require-firebase-auth.js";
 
 function validation(response: Response, details: Details[]) {
@@ -18,14 +19,6 @@ function validDate(value: unknown): value is string {
 function validTime(value: unknown): value is string {
   if (typeof value !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) return false;
   return true;
-}
-
-function validAge(value: unknown): value is number {
-  return Number.isInteger(value) && typeof value === "number" && value > 0;
-}
-
-function nonblank(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
 }
 
 function validateSchedule(body: Record<string, unknown>) {

@@ -160,16 +160,24 @@ Returned by every booking endpoint:
   "status": "PENDING_CONFIRMATION",
   "downpaymentStatus": "PENDING_VERIFICATION",
   "participants": [
-    { "id": "p1", "kind": "BOOKING_OWNER", "name": "Juan Dela Cruz", "age": 28, "address": "Ormoc City, Leyte" },
-    { "id": "p2", "kind": "ADDITIONAL_PARTICIPANT", "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte" }
+    { "id": "p1", "kind": "BOOKING_OWNER", "name": "Juan Dela Cruz", "age": 28, "address": "Ormoc City, Leyte", "attendance": null },
+    { "id": "p2", "kind": "ADDITIONAL_PARTICIPANT", "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "attendance": null }
   ],
   "participantCount": 2,
+  "guide": null,
+  "checkedInAt": null,
+  "guideAssignedAt": null,
+  "completedAt": null,
   "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
   "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" },
   "createdAt": "2026-10-07T01:00:00.000Z",
   "updatedAt": "2026-10-07T01:00:00.000Z"
 }
 ```
+
+- `participants` are ordered owner first, then additional participants, then walk-ins. `kind` is `BOOKING_OWNER`, `ADDITIONAL_PARTICIPANT`, or `WALK_IN` (added at check-in). `attendance` is `PRESENT`, `ABSENT`, or `null` before check-in.
+- `guide` is `{ "id", "fullName" }` once a guide is assigned at check-in, otherwise `null`. It stays set after completion.
+- `checkedInAt`, `guideAssignedAt`, and `completedAt` are ISO timestamps, or `null` until that step happens.
 
 `package.price.amount` and `paymentRequirement.amount` are **snapshots** taken from the trail when the booking was created; later catalog price changes do not affect existing bookings.
 
@@ -180,8 +188,17 @@ Returned by every booking endpoint:
 | `PENDING_CONFIRMATION` | `PENDING_VERIFICATION` | New request awaiting coordinator review                  |
 | `CONFIRMED`            | `VERIFIED`             | Coordinator confirmed and (simulated) downpayment verified |
 | `PENDING_CONFIRMATION` | `VERIFIED`             | Rescheduled; new date awaits review, downpayment credit kept |
+| `CHECKED_IN`           | `VERIFIED`             | Group checked in at the office; waiting for a free guide |
+| `GUIDE_ASSIGNED`       | `VERIFIED`             | Guide dispatched from the FIFO queue; group on the trek  |
+| `COMPLETED`            | `VERIFIED`             | Group returned; the guide rejoined the end of the queue  |
 
-Hikers cannot cancel or confirm bookings and never choose a guide. Coordinators list and review bookings through §5 and confirm them with `POST /api/v1/bookings/:bookingId/confirm`. Check-in and guide assignment are future coordinator operations.
+```text
+PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → COMPLETED
+                           ↑   └──────────────────↗ (check-in assigns a guide immediately when one is available)
+               reschedule ─┘ (CONFIRMED → PENDING_CONFIRMATION)
+```
+
+Hikers cannot cancel or confirm bookings and never choose a guide. Coordinators list and review bookings through §5 and confirm them with `POST /api/v1/bookings/:bookingId/confirm`. Check-in, guide assignment, and completion are coordinator operations in §5.
 
 ### `POST /api/v1/bookings`
 
@@ -256,11 +273,17 @@ The booking representation from §4 plus the owner's contact details:
 
 Lists bookings as `{ "items": [...] }`, soonest trek first (`scheduledDate`, then `scheduledTime`, then `createdAt`, ascending).
 
-| Query    | Values                               | Default      |
-| -------- | ------------------------------------ | ------------ |
-| `status` | `PENDING_CONFIRMATION`, `CONFIRMED`  | all statuses |
+With `status=CHECKED_IN` the order is by `checkedInAt` instead, so the group waiting longest comes first.
 
-Errors: `422 VALIDATION_ERROR` (detail `INVALID_STATUS` on `status`), `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+| Query           | Values                                                                          | Default      |
+| --------------- | ------------------------------------------------------------------------------- | ------------ |
+| `status`        | `PENDING_CONFIRMATION`, `CONFIRMED`, `CHECKED_IN`, `GUIDE_ASSIGNED`, `COMPLETED` | all statuses |
+| `scheduledDate` | `YYYY-MM-DD`                                                                    | all dates    |
+| `today`         | `true`: only bookings scheduled for today's Asia/Manila date                    | off          |
+
+`today` and `scheduledDate` cannot be combined.
+
+Errors: `422 VALIDATION_ERROR` (detail codes `INVALID_STATUS`, `INVALID_DATE`, `INVALID_VALUE`, `CONFLICTING_FILTERS`), `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
 
 ### `GET /api/v1/coordinator/bookings/:bookingId`
 
@@ -268,17 +291,173 @@ Returns any booking in the coordinator representation. Errors: `404 BOOKING_NOT_
 
 To confirm, use `POST /api/v1/bookings/:bookingId/confirm` (§4); its response is the §4 representation without `owner`.
 
+### `POST /api/v1/coordinator/bookings/:bookingId/check-in`
+
+Physical check-in at the office (rules in `PROJECT_CONTEXT.md` §5.2). In the **same transaction**, the guide at the front of the FIFO queue is assigned. With no guide available the booking stays `CHECKED_IN`.
+
+```json
+{
+  "attendance": [
+    { "participantId": "p1", "present": true },
+    { "participantId": "p2", "present": false }
+  ],
+  "walkIns": [{ "name": "Pedro Santos", "age": 30, "address": "Ormoc City, Leyte" }]
+}
+```
+
+- The booking must be `CONFIRMED` and scheduled for **today's Asia/Manila date**.
+- `attendance` must list every booked participant exactly once.
+- At least one booked participant must be present.
+- `walkIns` is optional. Present participants plus walk-ins must not exceed 5. Walk-ins are stored as `WALK_IN` participants marked `PRESENT`.
+- The package price never changes. Extra people beyond one package are handled outside TrailSync for now.
+
+`200` returns the coordinator booking as `GUIDE_ASSIGNED` (with `guide`) or `CHECKED_IN` (`guide: null`).
+
+Errors:
+- `422 VALIDATION_ERROR`, with detail codes `REQUIRED`, `INVALID_TYPE`, `INVALID_AGE`, `UNKNOWN_PARTICIPANT`, `DUPLICATE_PARTICIPANT`, `MISSING_PARTICIPANT`, `AT_LEAST_ONE_PRESENT`, `PARTICIPANT_LIMIT_EXCEEDED`.
+- `409 CHECK_IN_NOT_ALLOWED`: the booking is not `CONFIRMED`, which also covers a repeated check-in.
+- `409 NOT_SCHEDULED_TODAY`: the group must reschedule first.
+- `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
+
+### `POST /api/v1/coordinator/bookings/:bookingId/assign-guide`
+
+Assigns the guide at the front of the queue to a group waiting in `CHECKED_IN`. No request body. `200` returns the booking as `GUIDE_ASSIGNED`.
+
+Errors:
+- `409 BOOKING_NOT_WAITING`: the booking is not `CHECKED_IN`.
+- `409 NO_GUIDE_AVAILABLE`: the queue is empty.
+- `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
+
+### `POST /api/v1/coordinator/bookings/:bookingId/complete`
+
+Marks the trek completed and puts the guide back at the **end** of the queue (`AVAILABLE`). No request body. `200` returns the booking as `COMPLETED`.
+
+Errors:
+- `409 BOOKING_NOT_ON_TREK`: the booking is not `GUIDE_ASSIGNED`, so a retried completion is harmless.
+- `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
+
 ---
 
-## 6. Planned APIs
+## 6. Guides and dispatch
+
+Guides are `GUIDE` users. Each has a dispatch state, created `OFF_DUTY` when a coordinator approves their account request:
+
+| `dutyStatus` | Meaning                                        | Set by                               |
+| ------------ | ---------------------------------------------- | ------------------------------------ |
+| `OFF_DUTY`   | Not at the office; not in the queue            | Guide or coordinator                 |
+| `AVAILABLE`  | Reported in; waiting in the FIFO queue         | Guide or coordinator                 |
+| `ASSIGNED`   | Dispatched to a checked-in group               | System only (check-in / assign-guide) |
+
+How the queue works:
+- The queue is the `AVAILABLE` guides ordered by when they became available.
+- Dispatch always takes the front guide; there is no skipping.
+- A guide on an assigned trek cannot change their availability until the trek is completed.
+- Every queue change is serialised by a database lock, so one guide can never be assigned to two groups. A partial unique index enforces the same rule.
+
+### Guide representation
+
+```json
+{
+  "id": "guide-id",
+  "fullName": "Juan Dela Cruz",
+  "email": "juan@example.com",
+  "dutyStatus": "AVAILABLE",
+  "availableSince": "2026-10-20T00:15:00.000Z",
+  "queuePosition": 1,
+  "currentBooking": null
+}
+```
+
+- `queuePosition` starts at 1 at the front of the queue, and is `null` unless the guide is `AVAILABLE`.
+- `currentBooking` is `{ "id", "trail": { "id", "name" }, "scheduledDate", "scheduledTime" }` while the guide is `ASSIGNED`, otherwise `null`.
+
+### `GET /api/v1/coordinator/guides`
+
+**Role:** `COORDINATOR`. Returns `{ "items": [...] }` in this order:
+1. The queue, front first.
+2. Guides on a trek, by name.
+3. Off-duty guides, by name.
+
+Errors: `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+
+### `POST /api/v1/coordinator/guides/:guideId/availability`
+
+**Role:** `COORDINATOR`. Body: `{ "status": "AVAILABLE" | "OFF_DUTY" }`. `200` returns the guide.
+- `AVAILABLE` puts an off-duty guide at the **end** of the queue. A guide who is already `AVAILABLE` keeps their place.
+- `OFF_DUTY` removes the guide from the queue. Use it when the front guide is not at the office.
+
+Errors: `422 VALIDATION_ERROR` (`INVALID_STATUS`), `409 GUIDE_ON_TREK`, `404 GUIDE_NOT_FOUND`, `401`, `403`, `500`.
+
+### `GET /api/v1/guides/me`
+
+**Role:** `GUIDE`. Returns the caller's guide representation. Errors: `404 GUIDE_NOT_FOUND`, `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+
+### `POST /api/v1/guides/me/availability`
+
+**Role:** `GUIDE`. Same body, rules, and errors as the coordinator endpoint, applied to the caller only.
+
+### `GET /api/v1/guides/me/hike-requests`
+
+**Role:** `GUIDE`. Lists the bookings dispatched to the caller as `{ "items": [...] }` in the §4 representation. The active (`GUIDE_ASSIGNED`) trek comes first, then completed treks, newest first. Errors: `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+
+---
+
+## 7. Guide account requests
+
+A trek guide signs in with Firebase and requests an account. The `GUIDE` user, and their `OFF_DUTY` dispatch state, are created only when a coordinator approves the request.
+
+Request representation:
+
+```json
+{
+  "id": "application-id",
+  "fullName": "Juan Dela Cruz",
+  "email": "juan@example.com",
+  "status": "PENDING",
+  "declineReason": null,
+  "createdAt": "2026-10-19T00:00:00.000Z"
+}
+```
+
+`status` is `PENDING`, `APPROVED`, or `DECLINED`. Coordinator responses also include `reviewedAt` and `reviewedBy: { "id", "fullName" }`.
+
+### `POST /api/v1/guide-applications`
+
+Bearer token, no TrailSync profile needed. Body: `{ "fullName": "…" }`. Email and identity come from the verified token.
+- `201` returns the request.
+- A previously `DECLINED` request is re-sent as `PENDING`.
+
+Errors: `422 VALIDATION_ERROR` (`REQUIRED` on `fullName`), `400 EMAIL_REQUIRED`, `409 APPLICATION_EXISTS` (pending or approved), `409 ACCOUNT_EXISTS` (already has a TrailSync account), `401`, `500`.
+
+### `GET /api/v1/guide-applications/me`
+
+Returns the caller's request. Errors: `404 APPLICATION_NOT_FOUND`, `401`, `500`.
+
+### `GET /api/v1/coordinator/guide-applications`
+
+**Role:** `COORDINATOR`. Returns `{ "items": [...] }`, oldest first. Optional `?status=PENDING|APPROVED|DECLINED`.
+
+### `POST /api/v1/coordinator/guide-applications/:applicationId/approve`
+
+**Role:** `COORDINATOR`. Creates the `GUIDE` user and their dispatch state in the same transaction.
+
+Errors: `409 APPLICATION_NOT_PENDING`, `404 APPLICATION_NOT_FOUND`, `409 ACCOUNT_EXISTS`.
+
+### `POST /api/v1/coordinator/guide-applications/:applicationId/decline`
+
+**Role:** `COORDINATOR`. Optional body `{ "reason": "…" }`, at most 500 characters.
+
+Errors: `422 VALIDATION_ERROR` (`INVALID_REASON`, `TOO_LONG`), `409 APPLICATION_NOT_PENDING`, `404 APPLICATION_NOT_FOUND`.
+
+---
+
+## 8. Planned APIs
 
 Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
 
 | Resource                     | Purpose                                                              |
 | ---------------------------- | -------------------------------------------------------------------- |
-| `/api/v1/check-ins`          | Physical office check-in, comparing arrivals with booked participants |
-| `/api/v1/guides`             | Guide availability and FIFO dispatch                                 |
-| `/api/v1/treks`              | Trek sessions started/ended from the guide's app                     |
+| `/api/v1/treks`              | Trek sessions started/ended from the guide's app, including the guide's own complete-and-check-out step (reusing the §5 completion rules) |
 | `/api/v1/treks/:id/locations`, `/api/v1/checkpoints` | Group location updates and offline-synced checkpoint events |
 | `/api/v1/incidents`, `/api/v1/trails/:id/restrictions` | SOS, incidents, weather-based trail restrictions |
 | `/api/v1/certificates`       | Digital completion certificates                                      |

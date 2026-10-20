@@ -27,6 +27,21 @@ const tabs: { status: BookingStatus; label: string; empty: string }[] = [
     label: 'Confirmed',
     empty: 'No confirmed bookings yet.',
   },
+  {
+    status: 'CHECKED_IN',
+    label: 'Waiting for guide',
+    empty: 'No checked-in groups are waiting for a guide.',
+  },
+  {
+    status: 'GUIDE_ASSIGNED',
+    label: 'On trail',
+    empty: 'No groups are on the trail.',
+  },
+  {
+    status: 'COMPLETED',
+    label: 'Completed',
+    empty: 'No completed treks yet.',
+  },
 ]
 
 type QueueState =
@@ -71,18 +86,19 @@ export default function BookingQueuePage() {
     <>
       <PageHeader eyebrow="Coordinator" title="Booking queue">
         Review new and rescheduled bookings, verify the downpayment, and confirm
-        the trek. Soonest treks are listed first.
+        the trek. Soonest treks are listed first; groups waiting for a guide are
+        listed by check-in time.
       </PageHeader>
 
       <div
         aria-label="Booking status"
-        className="mb-5 inline-flex rounded-xl border border-[#d5e1da] bg-white p-1"
+        className="mb-5 flex max-w-full overflow-x-auto rounded-xl border border-[#d5e1da] bg-white p-1 sm:inline-flex"
         role="tablist"
       >
         {tabs.map((tab) => (
           <button
             aria-selected={tab.status === activeTab.status}
-            className={`rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${tab.status === activeTab.status ? 'bg-[#002d20] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
+            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${tab.status === activeTab.status ? 'bg-[#002d20] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
             key={tab.status}
             onClick={() => setSearchParams({ status: tab.status })}
             role="tab"
@@ -180,7 +196,7 @@ function QueueRow({ booking }: { booking: CoordinatorBooking }) {
           className={reviewLinkClass}
           to={`/coordinator/bookings/${booking.id}`}
         >
-          {booking.status === 'CONFIRMED' ? 'View' : 'Review'}
+          {booking.status === 'PENDING_CONFIRMATION' ? 'Review' : 'View'}
         </Link>
       </td>
     </tr>

@@ -44,6 +44,17 @@ export function todayLocalIso(now = new Date()) {
   return `${now.getFullYear()}-${month}-${day}`
 }
 
+// Today's Asia/Manila date, used only to decide which actions to show; the API
+// enforces the check-in date itself.
+export function manilaTodayIso(now = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
+}
+
 export function validateSchedule(
   values: ScheduleFormValues,
   today = todayLocalIso(),

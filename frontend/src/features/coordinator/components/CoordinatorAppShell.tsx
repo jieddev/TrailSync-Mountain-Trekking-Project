@@ -5,9 +5,10 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import type { CurrentUserProfile } from '../../../lib/users-api'
 import { auth } from '../../../lib/firebase'
 
-// Check-in and guide dispatch links are added when those features exist.
 const navItems = [
   { to: '/coordinator/bookings', label: 'Booking queue' },
+  { to: '/coordinator/dispatch', label: 'Check-in & dispatch' },
+  { to: '/coordinator/guides', label: 'Guide queue' },
   { to: '/coordinator/guide-applications', label: 'Guide requests' },
 ]
 
