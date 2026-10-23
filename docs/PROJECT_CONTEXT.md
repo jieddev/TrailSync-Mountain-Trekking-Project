@@ -294,7 +294,7 @@ Guide assignment is automatic at physical check-in and follows the **First-In, F
 | `AVAILABLE` | Reported in; waiting in the FIFO queue | Guide or coordinator   |
 | `ASSIGNED`  | Dispatched to a checked-in group       | System only (dispatch) |
 
-A guide on an assigned trek cannot go off duty until the trek is completed. The coordinator sets availability on the web. The backend also lets guides set their own availability, which the guide app will use.
+A guide on an assigned trek cannot go off duty until the trek is completed. The coordinator sets availability on the web. Guides also set their own availability from the guide app.
 
 **Queue**
 - The queue is the `AVAILABLE` guides, ordered by **when they became available**.
@@ -307,10 +307,11 @@ A guide on an assigned trek cannot go off duty until the trek is completed. The 
 - If no guide is available, the booking stays `CHECKED_IN` (waiting). The coordinator clicks "Assign next guide" once a guide becomes available. There is no automatic assignment of waiting groups.
 - Assignment is transactional and serialised, so one guide can never be assigned to two groups, even when two check-ins happen at the same time.
 
-**Completion**
-- When the group returns, the coordinator marks the trek **completed**.
-- The guide becomes `AVAILABLE` again at the **end** of the queue.
-- The guide app's own complete-and-check-out step (Phase 6) will reuse the same rule.
+**Trek session and completion** (Phase 6)
+- The assigned guide **starts** the trek from the guide app (`GUIDE_ASSIGNED` → `IN_PROGRESS`).
+- When the group returns, the guide **completes** the trek from the app (complete-and-check-out). Only a started trek can be completed by the guide.
+- The coordinator can also mark the trek completed on the web, as a fallback (for example, the guide's phone is dead). This works whether or not the guide started it.
+- Either way, the guide becomes `AVAILABLE` again at the **end** of the queue.
 
 Example:
 
@@ -397,12 +398,13 @@ COMPLETED
 The implemented booking statuses currently cover:
 
 ```text
-PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → COMPLETED
+PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → IN_PROGRESS → COMPLETED
 ```
 
 - Rescheduling moves `CONFIRMED` back to `PENDING_CONFIRMATION`.
 - Check-in goes straight to `GUIDE_ASSIGNED` when a guide is available. Otherwise the booking waits in `CHECKED_IN`.
-- `TREK_STARTED`/`IN_PROGRESS` come with the guide app's trek sessions (Phase 6).
+- The conceptual `TREK_STARTED` and `IN_PROGRESS` are one state, `IN_PROGRESS`, set when the guide starts the trek from the app (`trekStartedAt`). The trek session is the booking itself; there is no separate table.
+- The coordinator's fallback completion can go straight from `GUIDE_ASSIGNED` to `COMPLETED`.
 
 Other possible states include:
 

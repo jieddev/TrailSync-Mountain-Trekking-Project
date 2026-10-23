@@ -92,4 +92,4 @@ PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → COMPLET
 
 - Packages and guides for groups larger than 5 (the "booked 3, arrived 7" case).
 - No-show handling.
-- Who sets guide availability and trek completion: the guide app, the coordinator web, or both (see §2 and §5).
+- ~~Who sets guide availability and trek completion~~ — decided 2026-10-23 (Phase 6): both. The guide sets availability and starts/completes the trek in the guide app; the coordinator can set availability and complete a trek on the web as a fallback.

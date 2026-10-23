@@ -15,6 +15,8 @@ export function bookingStatusLabel(
       return { label: 'Checked in · waiting for guide', tone: 'pending' }
     case 'GUIDE_ASSIGNED':
       return { label: 'Guide assigned', tone: 'success' }
+    case 'IN_PROGRESS':
+      return { label: 'On the trail', tone: 'success' }
     case 'COMPLETED':
       return { label: 'Completed', tone: 'success' }
   }

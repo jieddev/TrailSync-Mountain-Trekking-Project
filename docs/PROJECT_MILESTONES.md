@@ -19,13 +19,13 @@ The roadmap, in build order. Each phase depends on the ones before it.
 | 3. Hiker home                             | ✅ Done                                                                |
 | 4. Trails and booking                     | ✅ Done — backend and hiker web UI; capacity and larger groups blocked |
 | 5. Coordinator review, check-in, dispatch | ✅ Done — review, check-in, FIFO dispatch, completion                  |
-| 6. Guide mobile app and trek sessions     | ⬜ Not started                                                         |
+| 6. Guide mobile app and trek sessions     | ✅ Done — availability, queue position, trek start/complete            |
 | 7. Group monitoring and offline sync      | ⬜ Not started                                                         |
 | 8. Weather, safety, and SOS               | ⬜ Not started                                                         |
 | 9. Certificates and analytics             | ⬜ Not started                                                         |
 | 10. Production readiness                  | ⬜ Ongoing                                                             |
 
-**Next up:** Phase 6, the guide app: availability toggle, assignment view, and trek start/complete.
+**Next up:** Phase 7, group monitoring: GPS from the guide's phone during an `IN_PROGRESS` trek, with offline sync.
 
 ---
 
@@ -104,13 +104,15 @@ Rules: [`PROJECT_CONTEXT.md`](PROJECT_CONTEXT.md) §5.2–5.3, agreed in [`CHECK
 - [ ] **Blocked:** packages and guides for the people beyond 5 in the "booked 3, arrived 7" case.
 - [ ] **Blocked:** no-show handling.
 
-## 6. Guide mobile app and trek sessions
+## 6. Guide mobile app and trek sessions ✅
 
-- [~] Flutter guide app (separate repo) with Firebase sign-in and the account request flow. Its dashboard reads `GET /api/v1/guides/me/hike-requests`.
-- [ ] Guide app: an availability toggle using `POST /api/v1/guides/me/availability`, and a queue-position view from `GET /api/v1/guides/me`.
-- [ ] Guide app: parse the new booking statuses. It currently treats anything other than `CONFIRMED` as "pending".
-- [ ] Guide sees their assignment, starts the trek, and completes it. Completion reuses `completeTrek` in `backend/src/lib/guide-queue.ts`.
-- [ ] Trek session model linked to booking, guide, and trail, with server-enforced state changes.
+- [x] Flutter guide app (separate repo) with Firebase sign-in and the account request flow. Its dashboard reads `GET /api/v1/guides/me/hike-requests`.
+- [x] Guide app: an "On duty" toggle using `POST /api/v1/guides/me/availability`, and the queue position from `GET /api/v1/guides/me`.
+- [x] Guide app: parses `GUIDE_ASSIGNED`, `IN_PROGRESS`, and `COMPLETED`.
+- [x] Guide sees their assignment, starts the trek, and completes it (`POST /api/v1/guides/me/hike-requests/:bookingId/start` and `…/complete`). Completion reuses `completeTrek` in `backend/src/lib/guide-queue.ts`.
+- [x] Trek session = the booking: new `IN_PROGRESS` status and `trekStartedAt`, with server-enforced transitions (`backend/src/lib/guide-treks.ts`). The one-active-trek index covers `IN_PROGRESS`.
+- [x] Coordinator web shows "not started yet" vs "trek started", and keeps "Mark trek completed" as a fallback.
+- [ ] The guide app's map still uses a sample route; verified routes per trail are blocked with Phase 7.
 
 ## 7. Group monitoring and offline sync
 
