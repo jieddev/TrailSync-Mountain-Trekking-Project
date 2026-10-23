@@ -11,7 +11,7 @@ import { asObject, nonblank, validAge } from "../lib/validation.js";
 import { requireFirebaseAuth } from "../middleware/require-firebase-auth.js";
 import { requireRole } from "../middleware/require-role.js";
 
-const BOOKING_STATUSES: BookingStatus[] = ["PENDING_CONFIRMATION", "CONFIRMED", "CHECKED_IN", "GUIDE_ASSIGNED", "COMPLETED"];
+const BOOKING_STATUSES: BookingStatus[] = ["PENDING_CONFIRMATION", "CONFIRMED", "CHECKED_IN", "GUIDE_ASSIGNED", "IN_PROGRESS", "COMPLETED"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const coordinatorBookingInclude = { ...bookingInclude, owner: { select: { id: true, fullName: true, email: true } } } satisfies Prisma.BookingInclude;

@@ -18,6 +18,7 @@ enum BookingStatus {
   CONFIRMED
   CHECKED_IN
   GUIDE_ASSIGNED
+  IN_PROGRESS
   COMPLETED
 }
 
@@ -129,6 +130,7 @@ model Booking {
   guide             Guide?               @relation(fields: [guideId], references: [id], onDelete: Restrict)
   checkedInAt       DateTime?
   guideAssignedAt   DateTime?
+  trekStartedAt     DateTime?
   completedAt       DateTime?
   participants      BookingParticipant[]
   createdAt         DateTime             @default(now())

@@ -440,34 +440,52 @@ function TrekPanel({
         </>
       )
     case 'GUIDE_ASSIGNED':
-      return (
+    case 'IN_PROGRESS': {
+      // The guide completes a started trek from the guide app; this button is
+      // the office fallback (e.g. the guide's phone is dead or offline).
+      const completeAction = (
+        <div className="mt-4">
+          <ConfirmAction
+            busyLabel="Completing…"
+            confirmLabel="Yes, completed"
+            fullWidth
+            label="Mark trek completed"
+            onConfirm={() =>
+              onAction(
+                (idToken) => completeTrek(idToken, booking.id),
+                () =>
+                  `Trek completed. ${guideName} is back at the end of the guide queue.`,
+                'We couldn’t complete this trek. Please try again.',
+              )
+            }
+            question={`Has the group returned? ${guideName} goes back to the end of the guide queue.`}
+          />
+        </div>
+      )
+      return booking.status === 'IN_PROGRESS' ? (
+        <>
+          <p className={textClass}>
+            <span className="font-semibold text-[#173a2e]">{guideName}</span>{' '}
+            started the trek
+            {booking.trekStartedAt &&
+              ` at ${formatClockTime(booking.trekStartedAt)}`}
+            . The guide completes it from the guide app when the group returns.
+          </p>
+          {completeAction}
+        </>
+      ) : (
         <>
           <p className={textClass}>
             <span className="font-semibold text-[#173a2e]">{guideName}</span> is
             leading this group
             {booking.guideAssignedAt &&
               ` (assigned ${formatClockTime(booking.guideAssignedAt)})`}
-            .
+            . The guide hasn’t started the trek in the guide app yet.
           </p>
-          <div className="mt-4">
-            <ConfirmAction
-              busyLabel="Completing…"
-              confirmLabel="Yes, completed"
-              fullWidth
-              label="Mark trek completed"
-              onConfirm={() =>
-                onAction(
-                  (idToken) => completeTrek(idToken, booking.id),
-                  () =>
-                    `Trek completed. ${guideName} is back at the end of the guide queue.`,
-                  'We couldn’t complete this trek. Please try again.',
-                )
-              }
-              question={`Has the group returned? ${guideName} goes back to the end of the guide queue.`}
-            />
-          </div>
+          {completeAction}
         </>
       )
+    }
     case 'COMPLETED':
       return (
         <p className={textClass}>

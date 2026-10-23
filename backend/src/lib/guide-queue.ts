@@ -1,4 +1,4 @@
-import type { Prisma } from "@prisma/client";
+import type { BookingStatus, Prisma } from "@prisma/client";
 
 // FIFO guide dispatch rules (PROJECT_CONTEXT.md §5.3). The queue is the AVAILABLE
 // guides ordered by when they became available; dispatch always takes the front
@@ -9,6 +9,10 @@ import type { Prisma } from "@prisma/client";
 
 type Tx = Prisma.TransactionClient;
 export type AvailabilityStatus = "AVAILABLE" | "OFF_DUTY";
+
+// A guide's trek is active from dispatch until completion, whether or not the
+// guide has started it from the app yet.
+export const ACTIVE_TREK_STATUSES = ["GUIDE_ASSIGNED", "IN_PROGRESS"] satisfies BookingStatus[];
 
 // Arbitrary application-wide key for pg_advisory_xact_lock. The lock is released
 // when the transaction ends, and the same transaction can take it more than once.
@@ -40,12 +44,14 @@ export async function dispatchFrontGuide(tx: Tx, bookingId: string, now = new Da
   return front;
 }
 
-// Completes the trek and sends the guide to the end of the queue.
+// Completes the trek and sends the guide to the end of the queue. The coordinator
+// can complete a trek the guide never started (e.g. a dead phone), so both active
+// statuses are accepted here; the guide's own rule is in guide-treks.ts.
 export async function completeTrek(tx: Tx, bookingId: string, now = new Date()) {
   await lockGuideQueue(tx);
   const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { status: true, guideId: true } });
   if (!booking) return "BOOKING_NOT_FOUND" as const;
-  if (booking.status !== "GUIDE_ASSIGNED" || !booking.guideId) return "BOOKING_NOT_ON_TREK" as const;
+  if (!isActiveTrek(booking.status) || !booking.guideId) return "BOOKING_NOT_ON_TREK" as const;
   await tx.booking.update({ where: { id: bookingId }, data: { status: "COMPLETED", completedAt: now } });
   const released = await tx.guide.updateMany({
     where: { id: booking.guideId, dutyStatus: "ASSIGNED" },
@@ -79,4 +85,8 @@ export async function queuePosition(tx: Tx, guide: { id: string; dutyStatus: str
     },
   });
   return ahead + 1;
+}
+
+export function isActiveTrek(status: BookingStatus) {
+  return (ACTIVE_TREK_STATUSES as BookingStatus[]).includes(status);
 }
