@@ -6,7 +6,7 @@ Rules agreed on 2026-10-18 to unblock Phase 5 (check-in and dispatch) in [`PROJE
 >
 > Decisions made while implementing:
 > - Availability is set by the coordinator on the web, and by the guide through `/api/v1/guides/me/availability`. The guide app will use that endpoint.
-> - The coordinator marks treks completed for now. The guide app's complete step will reuse the same rule.
+> - The coordinator can mark a trek completed on the web, and the guide can complete their own trek from the app (`POST /api/v1/guides/me/hike-requests/:bookingId/complete`). Both use the same rule.
 > - Waiting groups get a guide only when the coordinator clicks "Assign next guide".
 
 ---

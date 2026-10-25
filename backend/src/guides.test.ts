@@ -5,8 +5,8 @@ vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
     user: { findUnique: vi.fn() },
-    booking: { findMany: vi.fn() },
-    guide: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), count: vi.fn() },
+    booking: { findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn() },
+    guide: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), updateMany: vi.fn(), count: vi.fn() },
     $executeRaw: vi.fn(),
     $transaction: vi.fn(),
   },
@@ -19,6 +19,11 @@ import { prisma } from "./lib/prisma.js";
 const verify = vi.mocked(firebaseAuth.verifyIdToken);
 const userLookup = vi.mocked(prisma.user.findUnique);
 const findBookings = vi.mocked(prisma.booking.findMany);
+const findOwnBooking = vi.mocked(prisma.booking.findFirst);
+const findBooking = vi.mocked(prisma.booking.findUnique);
+const findBookingOrThrow = vi.mocked(prisma.booking.findUniqueOrThrow);
+const updateBooking = vi.mocked(prisma.booking.update);
+const updateGuides = vi.mocked(prisma.guide.updateMany);
 const findGuides = vi.mocked(prisma.guide.findMany);
 const findGuide = vi.mocked(prisma.guide.findUnique);
 const findGuideOrThrow = vi.mocked(prisma.guide.findUniqueOrThrow);
@@ -164,6 +169,57 @@ describe("Guide self-service", () => {
     expect(response.body.items[0]).toMatchObject({
       id: "booking-1", status: "GUIDE_ASSIGNED", trail: { name: "Sulfatara" }, guide: { id: "g-juan", fullName: "Juan" },
       participants: [{ kind: "BOOKING_OWNER", age: 28, attendance: "PRESENT" }],
+    });
+  });
+
+  describe("completing their own trek", () => {
+    const completed = {
+      id: "booking-1", trail: { id: "trl_sulfatara", name: "Sulfatara" }, scheduledDate: "2026-10-20", scheduledTime: "08:00",
+      packagePrice: 550, downpaymentAmount: 275, status: "COMPLETED", downpaymentStatus: "VERIFIED",
+      guide: { id: "g-juan", user: { fullName: "Juan" } }, checkedInAt: since(0), guideAssignedAt: since(0), completedAt: since(5),
+      createdAt: since(0), updatedAt: since(5), participants: [],
+    };
+
+    beforeEach(() => {
+      findGuide.mockResolvedValue(guide("g-juan", "Juan", "ASSIGNED", null, [trek]) as never);
+    });
+
+    it("completes the trek and puts the guide back in the queue", async () => {
+      findOwnBooking.mockResolvedValue({ id: "booking-1" } as never);
+      findBooking.mockResolvedValue({ status: "GUIDE_ASSIGNED", guideId: "g-juan" } as never);
+      updateGuides.mockResolvedValue({ count: 1 } as never);
+      findBookingOrThrow.mockResolvedValue(completed as never);
+      const response = await post("/api/v1/guides/me/hike-requests/booking-1/complete");
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({ id: "booking-1", status: "COMPLETED" });
+      expect(findOwnBooking).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "booking-1", guideId: "g-juan" } }));
+      expect(updateBooking).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED" }) }));
+      expect(updateGuides).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: "g-juan", dutyStatus: "ASSIGNED" }, data: expect.objectContaining({ dutyStatus: "AVAILABLE" }),
+      }));
+    });
+
+    it("treats another guide's booking as not found", async () => {
+      findOwnBooking.mockResolvedValue(null);
+      const response = await post("/api/v1/guides/me/hike-requests/booking-9/complete");
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("BOOKING_NOT_FOUND");
+      expect(updateBooking).not.toHaveBeenCalled();
+    });
+
+    it("refuses a trek that is not in progress", async () => {
+      findOwnBooking.mockResolvedValue({ id: "booking-1" } as never);
+      findBooking.mockResolvedValue({ status: "COMPLETED", guideId: "g-juan" } as never);
+      const response = await post("/api/v1/guides/me/hike-requests/booking-1/complete");
+      expect(response.status).toBe(409);
+      expect(response.body.error.code).toBe("BOOKING_NOT_ON_TREK");
+      expect(updateBooking).not.toHaveBeenCalled();
+    });
+
+    it("is only for guides", async () => {
+      userLookup.mockResolvedValueOnce(coordinator as never);
+      expect((await post("/api/v1/guides/me/hike-requests/booking-1/complete")).status).toBe(403);
+      expect(findOwnBooking).not.toHaveBeenCalled();
     });
   });
 });

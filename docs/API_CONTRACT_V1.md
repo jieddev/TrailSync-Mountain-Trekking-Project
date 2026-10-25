@@ -400,6 +400,10 @@ Errors: `422 VALIDATION_ERROR` (`INVALID_STATUS`), `409 GUIDE_ON_TREK`, `404 GUI
 
 **Role:** `GUIDE`. Lists the bookings dispatched to the caller as `{ "items": [...] }` in the §4 representation. The active (`GUIDE_ASSIGNED`) trek comes first, then completed treks, newest first. Errors: `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
 
+### `POST /api/v1/guides/me/hike-requests/:bookingId/complete`
+
+**Role:** `GUIDE`. The guide ends their own trek: the booking becomes `COMPLETED` (sets `completedAt`) and the guide rejoins the end of the queue as `AVAILABLE`, the same rule as the coordinator's complete. No body. Returns the §4 booking. Errors: `404 BOOKING_NOT_FOUND` (including another guide's booking), `409 BOOKING_NOT_ON_TREK` (not `GUIDE_ASSIGNED`), `404 GUIDE_NOT_FOUND`, `401`, `403`, `500`.
+
 ---
 
 ## 7. Guide account requests
