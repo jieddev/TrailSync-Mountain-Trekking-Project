@@ -230,6 +230,14 @@ describe("Completing a trek", () => {
     });
   });
 
+  it("completes a trek the guide started from the app", async () => {
+    findBooking.mockResolvedValue({ status: "IN_PROGRESS", guideId: "guide-juan" } as never);
+    findBookingOrThrow.mockResolvedValue(booking({ status: "COMPLETED", completedAt: new Date() }) as never);
+    expect((await post(`${base}/booking-1/complete`)).status).toBe(200);
+    expect(updateBooking).toHaveBeenCalledWith({ where: { id: "booking-1" }, data: { status: "COMPLETED", completedAt: expect.any(Date) } });
+    expect(updateGuides).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "guide-juan", dutyStatus: "ASSIGNED" } }));
+  });
+
   it("refuses groups that are not on a trek, so a retried completion is harmless", async () => {
     findBooking.mockResolvedValueOnce({ status: "COMPLETED", guideId: "guide-juan" } as never);
     const retried = await post(`${base}/booking-1/complete`);
@@ -246,6 +254,8 @@ describe("Coordinator booking list filters", () => {
     findMany.mockResolvedValue([] as never);
     expect((await get(`${base}?status=CHECKED_IN`)).status).toBe(200);
     expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { status: "CHECKED_IN" }, orderBy: [{ checkedInAt: "asc" }] }));
+    await get(`${base}?status=IN_PROGRESS`);
+    expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { status: "IN_PROGRESS" } }));
     await get(`${base}?status=CONFIRMED&today=true`);
     expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({ where: { status: "CONFIRMED", scheduledDate: "2026-10-20" } }));
     await get(`${base}?scheduledDate=2026-11-01`);

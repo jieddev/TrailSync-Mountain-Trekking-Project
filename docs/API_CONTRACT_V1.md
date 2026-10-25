@@ -167,6 +167,7 @@ Returned by every booking endpoint:
   "guide": null,
   "checkedInAt": null,
   "guideAssignedAt": null,
+  "trekStartedAt": null,
   "completedAt": null,
   "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
   "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" },
@@ -177,7 +178,7 @@ Returned by every booking endpoint:
 
 - `participants` are ordered owner first, then additional participants, then walk-ins. `kind` is `BOOKING_OWNER`, `ADDITIONAL_PARTICIPANT`, or `WALK_IN` (added at check-in). `attendance` is `PRESENT`, `ABSENT`, or `null` before check-in.
 - `guide` is `{ "id", "fullName" }` once a guide is assigned at check-in, otherwise `null`. It stays set after completion.
-- `checkedInAt`, `guideAssignedAt`, and `completedAt` are ISO timestamps, or `null` until that step happens.
+- `checkedInAt`, `guideAssignedAt`, `trekStartedAt`, and `completedAt` are ISO timestamps, or `null` until that step happens. `trekStartedAt` stays `null` when the coordinator completes a trek the guide never started.
 
 `package.price.amount` and `paymentRequirement.amount` are **snapshots** taken from the trail when the booking was created; later catalog price changes do not affect existing bookings.
 
@@ -189,16 +190,19 @@ Returned by every booking endpoint:
 | `CONFIRMED`            | `VERIFIED`             | Coordinator confirmed and (simulated) downpayment verified |
 | `PENDING_CONFIRMATION` | `VERIFIED`             | Rescheduled; new date awaits review, downpayment credit kept |
 | `CHECKED_IN`           | `VERIFIED`             | Group checked in at the office; waiting for a free guide |
-| `GUIDE_ASSIGNED`       | `VERIFIED`             | Guide dispatched from the FIFO queue; group on the trek  |
+| `GUIDE_ASSIGNED`       | `VERIFIED`             | Guide dispatched from the FIFO queue; trek not started yet |
+| `IN_PROGRESS`          | `VERIFIED`             | The guide started the trek from the guide app            |
 | `COMPLETED`            | `VERIFIED`             | Group returned; the guide rejoined the end of the queue  |
 
 ```text
-PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → COMPLETED
-                           ↑   └──────────────────↗ (check-in assigns a guide immediately when one is available)
-               reschedule ─┘ (CONFIRMED → PENDING_CONFIRMATION)
+PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → IN_PROGRESS → COMPLETED
+                           ↑   └──────────────────↗           └──────────────────↗
+               reschedule ─┘   (check-in assigns a guide       (coordinator fallback: complete
+     (CONFIRMED → PENDING_      immediately when one is          a trek the guide never started)
+      CONFIRMATION)             available)
 ```
 
-Hikers cannot cancel or confirm bookings and never choose a guide. Coordinators list and review bookings through §5 and confirm them with `POST /api/v1/bookings/:bookingId/confirm`. Check-in, guide assignment, and completion are coordinator operations in §5.
+Hikers cannot cancel or confirm bookings and never choose a guide. Coordinators list and review bookings through §5 and confirm them with `POST /api/v1/bookings/:bookingId/confirm`. Check-in and guide assignment are coordinator operations in §5. The assigned guide starts and completes the trek from the guide app (§6); the coordinator can also complete it as a fallback (§5).
 
 ### `POST /api/v1/bookings`
 
@@ -277,7 +281,7 @@ With `status=CHECKED_IN` the order is by `checkedInAt` instead, so the group wai
 
 | Query           | Values                                                                          | Default      |
 | --------------- | ------------------------------------------------------------------------------- | ------------ |
-| `status`        | `PENDING_CONFIRMATION`, `CONFIRMED`, `CHECKED_IN`, `GUIDE_ASSIGNED`, `COMPLETED` | all statuses |
+| `status`        | `PENDING_CONFIRMATION`, `CONFIRMED`, `CHECKED_IN`, `GUIDE_ASSIGNED`, `IN_PROGRESS`, `COMPLETED` | all statuses |
 | `scheduledDate` | `YYYY-MM-DD`                                                                    | all dates    |
 | `today`         | `true`: only bookings scheduled for today's Asia/Manila date                    | off          |
 
@@ -332,8 +336,10 @@ Errors:
 
 Marks the trek completed and puts the guide back at the **end** of the queue (`AVAILABLE`). No request body. `200` returns the booking as `COMPLETED`.
 
+This is the office fallback for when the guide cannot complete the trek from the app (for example, a dead phone). It accepts a trek that is `GUIDE_ASSIGNED` (never started) or `IN_PROGRESS`.
+
 Errors:
-- `409 BOOKING_NOT_ON_TREK`: the booking is not `GUIDE_ASSIGNED`, so a retried completion is harmless.
+- `409 BOOKING_NOT_ON_TREK`: the booking is not `GUIDE_ASSIGNED` or `IN_PROGRESS`, so a retried completion is harmless.
 - `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
 
 ---
@@ -346,7 +352,7 @@ Guides are `GUIDE` users. Each has a dispatch state, created `OFF_DUTY` when a c
 | ------------ | ---------------------------------------------- | ------------------------------------ |
 | `OFF_DUTY`   | Not at the office; not in the queue            | Guide or coordinator                 |
 | `AVAILABLE`  | Reported in; waiting in the FIFO queue         | Guide or coordinator                 |
-| `ASSIGNED`   | Dispatched to a checked-in group               | System only (check-in / assign-guide) |
+| `ASSIGNED`   | Dispatched to a checked-in group, until the trek is completed | System only (check-in / assign-guide) |
 
 How the queue works:
 - The queue is the `AVAILABLE` guides ordered by when they became available.
@@ -369,7 +375,7 @@ How the queue works:
 ```
 
 - `queuePosition` starts at 1 at the front of the queue, and is `null` unless the guide is `AVAILABLE`.
-- `currentBooking` is `{ "id", "trail": { "id", "name" }, "scheduledDate", "scheduledTime" }` while the guide is `ASSIGNED`, otherwise `null`.
+- `currentBooking` is `{ "id", "status", "trail": { "id", "name" }, "scheduledDate", "scheduledTime" }` while the guide is `ASSIGNED`, otherwise `null`. `status` is `GUIDE_ASSIGNED` (not started yet) or `IN_PROGRESS`.
 
 ### `GET /api/v1/coordinator/guides`
 
@@ -398,7 +404,25 @@ Errors: `422 VALIDATION_ERROR` (`INVALID_STATUS`), `409 GUIDE_ON_TREK`, `404 GUI
 
 ### `GET /api/v1/guides/me/hike-requests`
 
-**Role:** `GUIDE`. Lists the bookings dispatched to the caller as `{ "items": [...] }` in the §4 representation. The active (`GUIDE_ASSIGNED`) trek comes first, then completed treks, newest first. Errors: `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+**Role:** `GUIDE`. Lists the bookings dispatched to the caller as `{ "items": [...] }` in the §4 representation. The active (`GUIDE_ASSIGNED` or `IN_PROGRESS`) trek comes first, then completed treks, newest first. Errors: `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+
+### `POST /api/v1/guides/me/hike-requests/:bookingId/start`
+
+**Role:** `GUIDE`. Starts the trek session for a group dispatched to the caller: `GUIDE_ASSIGNED` → `IN_PROGRESS`, and sets `trekStartedAt`. No request body. `200` returns the booking (§4). The guide stays `ASSIGNED`.
+
+Errors:
+- `409 TREK_NOT_STARTABLE`: the booking is not `GUIDE_ASSIGNED` (already started or completed), so a retried start is harmless.
+- `404 BOOKING_NOT_FOUND`: unknown, or dispatched to another guide.
+- `404 GUIDE_NOT_FOUND`, `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
+
+### `POST /api/v1/guides/me/hike-requests/:bookingId/complete`
+
+**Role:** `GUIDE`. The guide's complete-and-check-out step: `IN_PROGRESS` → `COMPLETED`, and the guide goes back to the **end** of the queue (`AVAILABLE`), the same rule as the coordinator's completion. No request body. `200` returns the booking (§4).
+
+Errors:
+- `409 TREK_NOT_IN_PROGRESS`: the trek was not started (start it first) or is already completed, so a retried completion is harmless.
+- `404 BOOKING_NOT_FOUND`: unknown, or dispatched to another guide.
+- `404 GUIDE_NOT_FOUND`, `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
 
 ### `POST /api/v1/guides/me/hike-requests/:bookingId/complete`
 
@@ -461,8 +485,7 @@ Not implemented. Each will be specified here once its business rules are confirm
 
 | Resource                     | Purpose                                                              |
 | ---------------------------- | -------------------------------------------------------------------- |
-| `/api/v1/treks`              | Trek sessions started/ended from the guide's app, including the guide's own complete-and-check-out step (reusing the §5 completion rules) |
-| `/api/v1/treks/:id/locations`, `/api/v1/checkpoints` | Group location updates and offline-synced checkpoint events |
+| `/api/v1/guides/me/hike-requests/:bookingId/locations`, checkpoints | Group location updates and offline-synced checkpoint events for an `IN_PROGRESS` trek (Phase 7). Trek start/complete is in §6. |
 | `/api/v1/incidents`, `/api/v1/trails/:id/restrictions` | SOS, incidents, weather-based trail restrictions |
 | `/api/v1/certificates`       | Digital completion certificates                                      |
 | `/api/v1/analytics`          | Coordinator tourism and operations analytics                         |

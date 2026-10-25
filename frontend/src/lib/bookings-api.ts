@@ -6,6 +6,7 @@ export type BookingStatus =
   | 'CONFIRMED'
   | 'CHECKED_IN'
   | 'GUIDE_ASSIGNED'
+  | 'IN_PROGRESS'
   | 'COMPLETED'
 export type DownpaymentStatus = 'PENDING_VERIFICATION' | 'VERIFIED'
 
@@ -31,6 +32,8 @@ export type Booking = {
   guide: { id: string; fullName: string } | null
   checkedInAt: string | null
   guideAssignedAt: string | null
+  // Set when the guide starts the trek from the guide app.
+  trekStartedAt: string | null
   completedAt: string | null
   package: TrailPackage
   paymentRequirement: PaymentRequirement

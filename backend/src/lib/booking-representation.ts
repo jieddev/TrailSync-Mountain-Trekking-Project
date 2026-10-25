@@ -31,6 +31,7 @@ export function bookingResponse(booking: any) {
     guide: booking.guide ? { id: booking.guide.id, fullName: booking.guide.user.fullName } : null,
     checkedInAt: booking.checkedInAt ?? null,
     guideAssignedAt: booking.guideAssignedAt ?? null,
+    trekStartedAt: booking.trekStartedAt ?? null,
     completedAt: booking.completedAt ?? null,
     package: { price: { amount: booking.packagePrice, currency: CURRENCY }, maximumParticipants: MAX_PARTICIPANTS, guideCount: GUIDE_COUNT },
     paymentRequirement: { downpaymentPercent: DOWNPAYMENT_PERCENT, amount: booking.downpaymentAmount, currency: CURRENCY },

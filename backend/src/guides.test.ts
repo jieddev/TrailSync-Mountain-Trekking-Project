@@ -145,6 +145,16 @@ describe("Guide self-service", () => {
     expect(updateGuide).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "g-juan" } }));
   });
 
+  it("shows whether the guide's current trek has started", async () => {
+    findGuide.mockResolvedValue(guide("g-juan", "Juan", "ASSIGNED", null, [{ ...trek, status: "IN_PROGRESS" }]) as never);
+    const response = await get("/api/v1/guides/me");
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ dutyStatus: "ASSIGNED", queuePosition: null, currentBooking: { id: "booking-1", status: "IN_PROGRESS" } });
+    expect(findGuide).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({ bookings: expect.objectContaining({ where: { status: { in: ["GUIDE_ASSIGNED", "IN_PROGRESS"] } } }) }),
+    }));
+  });
+
   it("returns 404 when the guide has no dispatch row", async () => {
     findGuide.mockResolvedValue(null);
     const response = await get("/api/v1/guides/me");

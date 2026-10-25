@@ -215,6 +215,8 @@ function hikerStatusMessage(booking: Booking) {
       return 'You’re checked in. Your guide will be assigned as soon as one is available.'
     case 'GUIDE_ASSIGNED':
       return `You’re checked in and ${booking.guide?.fullName ?? 'your guide'} is leading your group. Enjoy the trek!`
+    case 'IN_PROGRESS':
+      return `Your group is on the trail with ${booking.guide?.fullName ?? 'your guide'}. Enjoy the trek!`
     case 'COMPLETED':
       return 'Your trek is complete. Thank you for trekking with us!'
     default:

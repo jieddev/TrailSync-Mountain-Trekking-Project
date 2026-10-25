@@ -45,12 +45,16 @@ export default function DispatchPage() {
     async function loadBoard() {
       try {
         const idToken = await user!.getIdToken()
-        const [arrivals, waiting, onTrail, guides] = await Promise.all([
-          listCoordinatorBookings(idToken, 'CONFIRMED', { today: true }),
-          listCoordinatorBookings(idToken, 'CHECKED_IN'),
-          listCoordinatorBookings(idToken, 'GUIDE_ASSIGNED'),
-          listGuides(idToken),
-        ])
+        const [arrivals, waiting, assigned, started, guides] =
+          await Promise.all([
+            listCoordinatorBookings(idToken, 'CONFIRMED', { today: true }),
+            listCoordinatorBookings(idToken, 'CHECKED_IN'),
+            listCoordinatorBookings(idToken, 'GUIDE_ASSIGNED'),
+            listCoordinatorBookings(idToken, 'IN_PROGRESS'),
+            listGuides(idToken),
+          ])
+        // Groups whose guide hasn't started the trek in the app yet come first.
+        const onTrail = [...assigned, ...started]
         const queue = guides.filter((guide) => guide.dutyStatus === 'AVAILABLE')
         if (isCurrent) {
           setState({
@@ -192,7 +196,7 @@ export default function DispatchPage() {
             {state.board.onTrail.map((booking) => (
               <BookingRow
                 booking={booking}
-                detail={`Guide: ${booking.guide?.fullName ?? '—'}${booking.guideAssignedAt ? ` · since ${formatClockTime(booking.guideAssignedAt)}` : ''}`}
+                detail={`Guide: ${booking.guide?.fullName ?? '—'} · ${onTrailDetail(booking)}`}
                 key={booking.id}
               >
                 <ConfirmAction
@@ -216,6 +220,15 @@ export default function DispatchPage() {
       )}
     </>
   )
+}
+
+function onTrailDetail(booking: CoordinatorBooking) {
+  if (booking.trekStartedAt) {
+    return `trek started ${formatClockTime(booking.trekStartedAt)}`
+  }
+  return booking.guideAssignedAt
+    ? `assigned ${formatClockTime(booking.guideAssignedAt)}, not started yet`
+    : 'not started yet'
 }
 
 function BoardSection({

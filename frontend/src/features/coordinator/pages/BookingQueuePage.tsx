@@ -34,6 +34,11 @@ const tabs: { status: BookingStatus; label: string; empty: string }[] = [
   },
   {
     status: 'GUIDE_ASSIGNED',
+    label: 'Guide assigned',
+    empty: 'No groups are waiting for their guide to start.',
+  },
+  {
+    status: 'IN_PROGRESS',
     label: 'On trail',
     empty: 'No groups are on the trail.',
   },
