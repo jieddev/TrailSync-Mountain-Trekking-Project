@@ -27,10 +27,13 @@ npm run dev
 ### Google Maps 3D preview
 
 The authenticated home page includes a Google Maps 3D preview for the
-provisional Sulfatara trail. Its route (`public/trails/sulfatara.kml`) is the
-Cabintan jump-off to Sulfatara section of the Wikiloc track in
-`public/trails/alto-peak-via-lake-janagdan-and-malingatong.kml`, not verified
-trail data. To enable it:
+provisional Sulfatara and Mt. Malingatong trails. Their routes
+(`public/trails/sulfatara.kml`, `public/trails/mt-malingatong.kml`) are
+sections of the Wikiloc track in
+`public/trails/alto-peak-via-lake-janagdan-and-malingatong.kml` starting at the
+Cabintan jump-off, not verified trail data. The Malingatong route stops at the
+track's 1,069 m high point (likely the view deck); the summit is not recorded.
+To enable it:
 
 1. Create or select a Google Cloud project, enable billing, and enable the
    Maps JavaScript API with 3D Maps support.

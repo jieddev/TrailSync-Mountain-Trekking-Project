@@ -1,11 +1,15 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import TrailPreviewMap from '../components/TrailPreviewMap'
 import { useHikerProfile } from '../hiker-profile'
-import { SULFATARA_PREVIEW } from '../trail-previews'
+import { TRAIL_PREVIEWS } from '../trail-previews'
 
 export default function HikerHomePage() {
   const profile = useHikerProfile()
+  const [previewId, setPreviewId] = useState(TRAIL_PREVIEWS[0].id)
+  const preview =
+    TRAIL_PREVIEWS.find((trail) => trail.id === previewId) ?? TRAIL_PREVIEWS[0]
 
   return (
     <>
@@ -57,17 +61,34 @@ export default function HikerHomePage() {
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-[#173a2e]">
-                  {SULFATARA_PREVIEW.name}
+                  {preview.name}
                 </p>
                 <p className="mt-1 text-sm text-[#52675e]">
-                  {SULFATARA_PREVIEW.subtitle}
+                  {preview.subtitle}
                 </p>
               </div>
               <span className="rounded-full bg-[#e8f1eb] px-3 py-1 text-xs font-bold text-[#006b43]">
                 3D terrain preview
               </span>
             </div>
-            <TrailPreviewMap preview={SULFATARA_PREVIEW} />
+            <div
+              aria-label="Trail to preview"
+              className="mb-4 flex max-w-full overflow-x-auto rounded-xl border border-[#d5e1da] bg-white p-1 sm:inline-flex"
+              role="group"
+            >
+              {TRAIL_PREVIEWS.map((trail) => (
+                <button
+                  aria-pressed={trail.id === preview.id}
+                  className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${trail.id === preview.id ? 'bg-[#002d20] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
+                  key={trail.id}
+                  onClick={() => setPreviewId(trail.id)}
+                  type="button"
+                >
+                  {trail.name}
+                </button>
+              ))}
+            </div>
+            <TrailPreviewMap preview={preview} />
           </article>
           <article className="rounded-2xl border border-[#d5e1da] bg-white p-6">
             <p className="text-sm font-bold text-[#173a2e]">Booking</p>
