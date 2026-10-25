@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 
 import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
 import { changeAvailability } from "../lib/guide-availability.js";
-import { completeTrek, queuePosition } from "../lib/guide-queue.js";
+import { queuePosition } from "../lib/guide-queue.js";
 import { completeOwnTrek, startTrek } from "../lib/guide-treks.js";
 import { guideResponse, guideSelect } from "../lib/guide-representation.js";
 import { fail } from "../lib/http-errors.js";
