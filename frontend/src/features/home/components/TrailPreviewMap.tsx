@@ -1,19 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { parseKmlLineStrings, type KmlCoordinate } from '../lib/kml'
+import type { TrailPreview, TrailPreviewCamera } from '../trail-previews'
 
-// Source: Wikiloc track "Alto peak via lake janagdan and malingatong" by James Pialago.
-const ALTO_PEAK_TRAIL_KML_URL = '/trails/alto-peak-via-lake-janagdan-and-malingatong.kml'
-
-const JANAGDAN_CAMERA = {
-  center: { lat: 11.0991, lng: 124.71734, altitude: 0 },
-  range: 3000,
-  tilt: 60,
-  heading: 0,
-  mode: 'SATELLITE' as const,
-}
-
-type Map3DElementOptions = typeof JANAGDAN_CAMERA
+type Map3DElementOptions = TrailPreviewCamera
 
 type Polyline3DElementOptions = {
   coordinates: KmlCoordinate[]
@@ -89,7 +79,11 @@ type MapState =
   | { status: 'ready' }
   | { status: 'error'; reason: 'missing-key' | 'load-failed' }
 
-export default function LakeJanagdanMap() {
+export default function TrailPreviewMap({
+  preview,
+}: {
+  preview: TrailPreview
+}) {
   const mapHostRef = useRef<HTMLDivElement>(null)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
   const [mapState, setMapState] = useState<MapState>(
@@ -108,7 +102,7 @@ export default function LakeJanagdanMap() {
       mapEl: HTMLElement,
       maps3d: Maps3DLibrary,
     ) {
-      const response = await fetch(ALTO_PEAK_TRAIL_KML_URL)
+      const response = await fetch(preview.kmlUrl)
       if (!response.ok) {
         throw new Error(`Failed to fetch trail KML: ${response.status}`)
       }
@@ -133,7 +127,7 @@ export default function LakeJanagdanMap() {
         const maps3d = await googleMaps.maps.importLibrary('maps3d')
         if (!isCurrent || !mapHostRef.current) return
 
-        mapElement = new maps3d.Map3DElement(JANAGDAN_CAMERA)
+        mapElement = new maps3d.Map3DElement(preview.camera)
         // Custom elements don't always fill their parent, so size explicitly.
         mapElement.style.display = 'block'
         mapElement.style.width = '100%'
@@ -146,10 +140,10 @@ export default function LakeJanagdanMap() {
         } catch (error) {
           // The base map still loaded fine, so don't fail the whole view
           // over a missing or malformed trail overlay.
-          console.error('Alto Peak trail polyline failed to load:', error)
+          console.error(`${preview.name} trail polyline failed to load:`, error)
         }
       } catch (error) {
-        console.error('Lake Janagdan map failed to load:', error)
+        console.error(`${preview.name} map failed to load:`, error)
         if (isCurrent) setMapState({ status: 'error', reason: 'load-failed' })
       }
     }
@@ -160,7 +154,7 @@ export default function LakeJanagdanMap() {
       isCurrent = false
       mapElement?.remove()
     }
-  }, [apiKey])
+  }, [apiKey, preview])
 
   return (
     <div className="relative min-h-80 overflow-hidden rounded-xl border border-[#d5e1da] bg-[#e8f1eb] sm:min-h-96">
@@ -172,7 +166,7 @@ export default function LakeJanagdanMap() {
           role={mapState.status === 'loading' ? 'status' : undefined}
         >
           {mapState.status === 'loading' && (
-            <span>Loading Lake Janagdan in 3D...</span>
+            <span>Loading {preview.name} in 3D...</span>
           )}
           {mapState.status === 'error' && mapState.reason === 'missing-key' && (
             <span>

@@ -27,7 +27,10 @@ npm run dev
 ### Google Maps 3D preview
 
 The authenticated home page includes a Google Maps 3D preview for the
-provisional Lake Janagdan trail. To enable it:
+provisional Sulfatara trail. Its route (`public/trails/sulfatara.kml`) is the
+Cabintan jump-off to Sulfatara section of the Wikiloc track in
+`public/trails/alto-peak-via-lake-janagdan-and-malingatong.kml`, not verified
+trail data. To enable it:
 
 1. Create or select a Google Cloud project, enable billing, and enable the
    Maps JavaScript API with 3D Maps support.

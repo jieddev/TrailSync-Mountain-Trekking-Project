@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 
-import LakeJanagdanMap from '../components/LakeJanagdanMap'
+import TrailPreviewMap from '../components/TrailPreviewMap'
 import { useHikerProfile } from '../hiker-profile'
+import { SULFATARA_PREVIEW } from '../trail-previews'
 
 export default function HikerHomePage() {
   const profile = useHikerProfile()
@@ -56,17 +57,17 @@ export default function HikerHomePage() {
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p className="text-sm font-bold text-[#173a2e]">
-                  Lake Janagdan
+                  {SULFATARA_PREVIEW.name}
                 </p>
                 <p className="mt-1 text-sm text-[#52675e]">
-                  Provisional working trail
+                  {SULFATARA_PREVIEW.subtitle}
                 </p>
               </div>
               <span className="rounded-full bg-[#e8f1eb] px-3 py-1 text-xs font-bold text-[#006b43]">
                 3D terrain preview
               </span>
             </div>
-            <LakeJanagdanMap />
+            <TrailPreviewMap preview={SULFATARA_PREVIEW} />
           </article>
           <article className="rounded-2xl border border-[#d5e1da] bg-white p-6">
             <p className="text-sm font-bold text-[#173a2e]">Booking</p>
