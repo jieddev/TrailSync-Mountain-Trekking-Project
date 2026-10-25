@@ -1,19 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 
 import { parseKmlLineStrings, type KmlCoordinate } from '../lib/kml'
+import type { TrailPreview, TrailPreviewCamera } from '../trail-previews'
 
-// Source: Wikiloc track "Alto peak via lake janagdan and malingatong" by James Pialago.
-const ALTO_PEAK_TRAIL_KML_URL = '/trails/alto-peak-via-lake-janagdan-and-malingatong.kml'
+type Map3DElementOptions = TrailPreviewCamera
 
-const JANAGDAN_CAMERA = {
-  center: { lat: 11.0991, lng: 124.71734, altitude: 0 },
-  range: 3000,
-  tilt: 60,
-  heading: 0,
-  mode: 'SATELLITE' as const,
+type Map3DElement = HTMLElement & {
+  flyCameraTo?: (options: {
+    endCamera: Omit<TrailPreviewCamera, 'mode'>
+    durationMillis?: number
+  }) => void
 }
-
-type Map3DElementOptions = typeof JANAGDAN_CAMERA
 
 type Polyline3DElementOptions = {
   coordinates: KmlCoordinate[]
@@ -23,7 +20,7 @@ type Polyline3DElementOptions = {
 }
 
 type Maps3DLibrary = {
-  Map3DElement: new (options: Map3DElementOptions) => HTMLElement
+  Map3DElement: new (options: Map3DElementOptions) => Map3DElement
   Polyline3DElement: new (options: Polyline3DElementOptions) => HTMLElement
   AltitudeMode: { CLAMP_TO_GROUND: unknown }
 }
@@ -89,14 +86,24 @@ type MapState =
   | { status: 'ready' }
   | { status: 'error'; reason: 'missing-key' | 'load-failed' }
 
-export default function LakeJanagdanMap() {
+export default function TrailPreviewMap({
+  preview,
+}: {
+  preview: TrailPreview
+}) {
   const mapHostRef = useRef<HTMLDivElement>(null)
+  // The map is created once; later preview changes move the camera instead.
+  const initialCameraRef = useRef(preview.camera)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
   const [mapState, setMapState] = useState<MapState>(
     apiKey
       ? { status: 'loading' }
       : { status: 'error', reason: 'missing-key' },
   )
+  const [loadedMap, setLoadedMap] = useState<{
+    element: Map3DElement
+    maps3d: Maps3DLibrary
+  } | null>(null)
 
   useEffect(() => {
     if (!apiKey) return
@@ -104,11 +111,52 @@ export default function LakeJanagdanMap() {
     let isCurrent = true
     let mapElement: HTMLElement | undefined
 
-    async function addTrailPolylines(
-      mapEl: HTMLElement,
-      maps3d: Maps3DLibrary,
-    ) {
-      const response = await fetch(ALTO_PEAK_TRAIL_KML_URL)
+    async function initializeMap(key: string) {
+      try {
+        const googleMaps = await loadGoogleMapsApi(key)
+        const maps3d = await googleMaps.maps.importLibrary('maps3d')
+        if (!isCurrent || !mapHostRef.current) return
+
+        const element = new maps3d.Map3DElement(initialCameraRef.current)
+        mapElement = element
+        // Custom elements don't always fill their parent, so size explicitly.
+        element.style.display = 'block'
+        element.style.width = '100%'
+        element.style.height = '100%'
+        mapHostRef.current.replaceChildren(element)
+        setMapState({ status: 'ready' })
+        setLoadedMap({ element, maps3d })
+      } catch (error) {
+        console.error('Trail preview map failed to load:', error)
+        if (isCurrent) setMapState({ status: 'error', reason: 'load-failed' })
+      }
+    }
+
+    void initializeMap(apiKey)
+
+    return () => {
+      isCurrent = false
+      mapElement?.remove()
+    }
+  }, [apiKey])
+
+  useEffect(() => {
+    if (!loadedMap) return
+    const { element, maps3d } = loadedMap
+
+    let isCurrent = true
+    const polylines: HTMLElement[] = []
+
+    const { center, range, tilt, heading } = preview.camera
+    const endCamera = { center, range, tilt, heading }
+    if (element.flyCameraTo) {
+      element.flyCameraTo({ endCamera, durationMillis: 1500 })
+    } else {
+      Object.assign(element, endCamera)
+    }
+
+    async function addTrailPolylines() {
+      const response = await fetch(preview.kmlUrl)
       if (!response.ok) {
         throw new Error(`Failed to fetch trail KML: ${response.status}`)
       }
@@ -123,44 +171,22 @@ export default function LakeJanagdanMap() {
           strokeWidth: 6,
           altitudeMode: maps3d.AltitudeMode.CLAMP_TO_GROUND,
         })
-        mapEl.append(polyline)
+        polylines.push(polyline)
+        element.append(polyline)
       }
     }
 
-    async function initializeMap(key: string) {
-      try {
-        const googleMaps = await loadGoogleMapsApi(key)
-        const maps3d = await googleMaps.maps.importLibrary('maps3d')
-        if (!isCurrent || !mapHostRef.current) return
-
-        mapElement = new maps3d.Map3DElement(JANAGDAN_CAMERA)
-        // Custom elements don't always fill their parent, so size explicitly.
-        mapElement.style.display = 'block'
-        mapElement.style.width = '100%'
-        mapElement.style.height = '100%'
-        mapHostRef.current.replaceChildren(mapElement)
-        setMapState({ status: 'ready' })
-
-        try {
-          await addTrailPolylines(mapElement, maps3d)
-        } catch (error) {
-          // The base map still loaded fine, so don't fail the whole view
-          // over a missing or malformed trail overlay.
-          console.error('Alto Peak trail polyline failed to load:', error)
-        }
-      } catch (error) {
-        console.error('Lake Janagdan map failed to load:', error)
-        if (isCurrent) setMapState({ status: 'error', reason: 'load-failed' })
-      }
-    }
-
-    void initializeMap(apiKey)
+    // The base map still loaded fine, so don't fail the whole view over a
+    // missing or malformed trail overlay.
+    addTrailPolylines().catch((error: unknown) => {
+      console.error(`${preview.name} trail polyline failed to load:`, error)
+    })
 
     return () => {
       isCurrent = false
-      mapElement?.remove()
+      for (const polyline of polylines) polyline.remove()
     }
-  }, [apiKey])
+  }, [loadedMap, preview])
 
   return (
     <div className="relative min-h-80 overflow-hidden rounded-xl border border-[#d5e1da] bg-[#e8f1eb] sm:min-h-96">
@@ -172,7 +198,7 @@ export default function LakeJanagdanMap() {
           role={mapState.status === 'loading' ? 'status' : undefined}
         >
           {mapState.status === 'loading' && (
-            <span>Loading Lake Janagdan in 3D...</span>
+            <span>Loading {preview.name} in 3D...</span>
           )}
           {mapState.status === 'error' && mapState.reason === 'missing-key' && (
             <span>
