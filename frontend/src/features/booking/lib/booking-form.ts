@@ -11,6 +11,7 @@ export type ParticipantFormValues = {
   name: string
   age: string
   address: string
+  email: string
 }
 
 export type BookingFormValues = {
@@ -31,10 +32,16 @@ export const emptyParticipant: ParticipantFormValues = {
   name: '',
   age: '',
   address: '',
+  email: '',
 }
 
 function isPositiveInteger(value: string) {
   return /^\d+$/.test(value.trim()) && Number(value) > 0
+}
+
+// Optional email for a participant's certificate: blank, or address-shaped.
+export function isOptionalEmail(value: string) {
+  return !value.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())
 }
 
 // The date in the hiker's own timezone, as YYYY-MM-DD for <input type="date">.
@@ -96,6 +103,8 @@ export function validateBookingForm(
     }
     if (!person.address.trim())
       errors[`${prefix}.address`] = 'Enter an address.'
+    if (!isOptionalEmail(person.email))
+      errors[`${prefix}.email`] = 'Enter a valid email or leave it blank.'
   })
 
   return errors
@@ -116,6 +125,7 @@ export function toCreateBookingInput(
       name: person.name.trim(),
       age: Number(person.age),
       address: person.address.trim(),
+      ...(person.email.trim() && { email: person.email.trim() }),
     })),
   }
 }

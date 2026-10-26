@@ -2,12 +2,13 @@ import { Router, type Response } from "express";
 import type { BookingStatus, Prisma } from "@prisma/client";
 
 import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
+import { sendTrekCertificates } from "../lib/certificates.js";
 import { completeTrek, dispatchFrontGuide, lockGuideQueue } from "../lib/guide-queue.js";
 import { fail, type ErrorDetail } from "../lib/http-errors.js";
 import { manilaToday } from "../lib/manila-date.js";
 import { MAX_PARTICIPANTS } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
-import { asObject, nonblank, validAge } from "../lib/validation.js";
+import { asObject, nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
 import { requireFirebaseAuth } from "../middleware/require-firebase-auth.js";
 import { requireRole } from "../middleware/require-role.js";
 
@@ -28,6 +29,7 @@ const refusals = {
   BOOKING_NOT_WAITING: [409, "This group is not waiting for a guide."],
   NO_GUIDE_AVAILABLE: [409, "No guide is available yet. Assign one when a guide reports in."],
   BOOKING_NOT_ON_TREK: [409, "Only a group with an assigned guide can complete a trek."],
+  BOOKING_NOT_COMPLETED: [409, "Certificates are sent only for completed treks."],
 } as const;
 type Refusal = keyof typeof refusals;
 
@@ -41,7 +43,7 @@ function checkInValidation(response: Response, details: ErrorDetail[]) {
 }
 
 type AttendanceMark = { participantId: string; present: boolean };
-type WalkIn = { name: string; age: number; address: string };
+type WalkIn = { name: string; age: number; address: string; email: string | null };
 
 // Shape checks that need no database access.
 function parseCheckIn(body: Record<string, unknown>) {
@@ -65,6 +67,7 @@ function parseCheckIn(body: Record<string, unknown>) {
       if (!nonblank(person.name)) details.push({ field: `walkIns.${index}.name`, code: "REQUIRED", message: "Name is required." });
       if (!validAge(person.age)) details.push({ field: `walkIns.${index}.age`, code: "INVALID_AGE", message: "Age must be a positive integer." });
       if (!nonblank(person.address)) details.push({ field: `walkIns.${index}.address`, code: "REQUIRED", message: "Address is required." });
+      if (!validOptionalEmail(person.email)) details.push({ field: `walkIns.${index}.email`, code: "INVALID_EMAIL", message: "Enter a valid email address." });
     });
   }
   if (details.length) return { details };
@@ -72,6 +75,7 @@ function parseCheckIn(body: Record<string, unknown>) {
     marks: (attendance as Record<string, unknown>[]).map((mark) => ({ participantId: mark.participantId as string, present: mark.present as boolean })),
     walkIns: (walkIns as Record<string, unknown>[]).map((person) => ({
       name: (person.name as string).trim(), age: person.age as number, address: (person.address as string).trim(),
+      email: optionalEmail(person.email),
     })),
   };
 }
@@ -220,9 +224,28 @@ coordinatorBookingsRouter.post("/:bookingId/complete", async (request, response)
       return { booking: await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: coordinatorBookingInclude }) };
     });
     if ("refusal" in result) return refuse(response, result.refusal);
-    return response.status(200).json(coordinatorBookingResponse(result.booking));
+    response.status(200).json(coordinatorBookingResponse(result.booking));
+    // Emailed after the response, outside the transaction that holds the queue lock.
+    void sendTrekCertificates(bookingId, request.log);
+    return response;
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Trek completion failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not complete the trek.");
+  }
+});
+
+// Emails the certificates that have not been sent yet, e.g. after an SMTP failure.
+coordinatorBookingsRouter.post("/:bookingId/certificates/resend", async (request, response) => {
+  const { bookingId } = request.params;
+  try {
+    const booking = await prisma.booking.findUnique({ where: { id: bookingId }, select: { status: true } });
+    if (!booking) return refuse(response, "BOOKING_NOT_FOUND");
+    if (booking.status !== "COMPLETED") return refuse(response, "BOOKING_NOT_COMPLETED");
+    const sent = await sendTrekCertificates(bookingId, request.log);
+    const updated = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId }, include: coordinatorBookingInclude });
+    return response.status(200).json({ sent, booking: coordinatorBookingResponse(updated) });
+  } catch (error) {
+    request.log?.error({ requestId: request.id, err: error }, "Certificate resend failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not resend the certificates.");
   }
 });

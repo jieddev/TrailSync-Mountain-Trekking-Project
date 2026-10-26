@@ -2,6 +2,7 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn() } }));
+vi.mock("./lib/certificates.js", () => ({ sendTrekCertificates: vi.fn() }));
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
     user: { findUnique: vi.fn() },
@@ -14,10 +15,12 @@ vi.mock("./lib/prisma.js", () => ({
 }));
 
 import { app } from "./app.js";
+import { sendTrekCertificates } from "./lib/certificates.js";
 import { firebaseAuth } from "./lib/firebase-admin.js";
 import { prisma } from "./lib/prisma.js";
 
 const verify = vi.mocked(firebaseAuth.verifyIdToken);
+const sendCertificates = vi.mocked(sendTrekCertificates);
 const userLookup = vi.mocked(prisma.user.findUnique);
 const findMany = vi.mocked(prisma.booking.findMany);
 const findBooking = vi.mocked(prisma.booking.findUnique);
@@ -101,15 +104,15 @@ describe("Coordinator check-in", () => {
   it("records absentees and walk-ins without changing the price", async () => {
     const response = await post(`${base}/booking-1/check-in`, {
       attendance: [{ participantId: "p-owner", present: true }, { participantId: "p-2", present: false }, { participantId: "p-3", present: true }],
-      walkIns: [{ name: "  Walk In  ", age: 22, address: " Ormoc " }, walkIn("Second")],
+      walkIns: [{ name: "  Walk In  ", age: 22, address: " Ormoc ", email: " Walk@Example.com " }, walkIn("Second")],
       packagePrice: 1,
     });
     expect(response.status).toBe(200);
     expect(updateParticipants).toHaveBeenCalledWith({ where: { bookingId: "booking-1", id: { in: ["p-owner", "p-3"] } }, data: { attendance: "PRESENT" } });
     expect(updateParticipants).toHaveBeenCalledWith({ where: { bookingId: "booking-1", id: { in: ["p-2"] } }, data: { attendance: "ABSENT" } });
     expect(createParticipants).toHaveBeenCalledWith({ data: [
-      { bookingId: "booking-1", kind: "WALK_IN", attendance: "PRESENT", name: "Walk In", age: 22, address: "Ormoc" },
-      { bookingId: "booking-1", kind: "WALK_IN", attendance: "PRESENT", name: "Second", age: 30, address: "Ormoc" },
+      { bookingId: "booking-1", kind: "WALK_IN", attendance: "PRESENT", name: "Walk In", age: 22, address: "Ormoc", email: "walk@example.com" },
+      { bookingId: "booking-1", kind: "WALK_IN", attendance: "PRESENT", name: "Second", age: 30, address: "Ormoc", email: null },
     ] });
     expect(JSON.stringify(updateBookings.mock.calls)).not.toContain("packagePrice");
   });
@@ -157,12 +160,13 @@ describe("Coordinator check-in", () => {
     const empty = await post(`${base}/booking-1/check-in`, {});
     expect(empty.status).toBe(422);
     expect(empty.body.error.details).toContainEqual(expect.objectContaining({ field: "attendance", code: "REQUIRED" }));
-    const malformed = await post(`${base}/booking-1/check-in`, { attendance: [{ participantId: "p-owner", present: "yes" }], walkIns: [{ name: " ", age: 0 }] });
+    const malformed = await post(`${base}/booking-1/check-in`, { attendance: [{ participantId: "p-owner", present: "yes" }], walkIns: [{ name: " ", age: 0, email: "not-an-email" }] });
     expect(malformed.body.error.details).toEqual(expect.arrayContaining([
       expect.objectContaining({ field: "attendance.0.present", code: "INVALID_TYPE" }),
       expect.objectContaining({ field: "walkIns.0.name", code: "REQUIRED" }),
       expect.objectContaining({ field: "walkIns.0.age", code: "INVALID_AGE" }),
       expect.objectContaining({ field: "walkIns.0.address", code: "REQUIRED" }),
+      expect.objectContaining({ field: "walkIns.0.email", code: "INVALID_EMAIL" }),
     ]));
     expect(transaction).not.toHaveBeenCalled();
   });
@@ -228,6 +232,7 @@ describe("Completing a trek", () => {
       where: { id: "guide-juan", dutyStatus: "ASSIGNED" },
       data: { dutyStatus: "AVAILABLE", availableSince: new Date("2026-10-20T00:30:00Z") },
     });
+    expect(sendCertificates).toHaveBeenCalledWith("booking-1", expect.anything());
   });
 
   it("completes a trek the guide started from the app", async () => {
@@ -246,6 +251,28 @@ describe("Completing a trek", () => {
     findBooking.mockResolvedValueOnce(null);
     expect((await post(`${base}/missing/complete`)).status).toBe(404);
     expect(updateGuides).not.toHaveBeenCalled();
+    expect(sendCertificates).not.toHaveBeenCalled();
+  });
+});
+
+describe("Resending certificates", () => {
+  it("sends the unsent certificates of a completed trek", async () => {
+    findBooking.mockResolvedValue({ status: "COMPLETED" } as never);
+    sendCertificates.mockResolvedValue(2);
+    findBookingOrThrow.mockResolvedValue(booking({ status: "COMPLETED", completedAt: new Date() }) as never);
+    const response = await post(`${base}/booking-1/certificates/resend`);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ sent: 2, booking: { id: "booking-1", status: "COMPLETED" } });
+  });
+
+  it("refuses a trek that is not completed, and unknown bookings", async () => {
+    findBooking.mockResolvedValueOnce({ status: "IN_PROGRESS" } as never);
+    const response = await post(`${base}/booking-1/certificates/resend`);
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("BOOKING_NOT_COMPLETED");
+    findBooking.mockResolvedValueOnce(null);
+    expect((await post(`${base}/missing/certificates/resend`)).status).toBe(404);
+    expect(sendCertificates).not.toHaveBeenCalled();
   });
 });
 

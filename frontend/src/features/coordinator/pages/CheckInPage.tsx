@@ -10,7 +10,11 @@ import {
 } from '../../../lib/coordinator-api'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusCard from '../../booking/components/StatusCard'
-import { formatSchedule, manilaTodayIso } from '../../booking/lib/booking-form'
+import {
+  formatSchedule,
+  isOptionalEmail,
+  manilaTodayIso,
+} from '../../booking/lib/booking-form'
 import { dispatchErrorMessage, type Notice } from '../lib/dispatch'
 import {
   backLinkClass,
@@ -25,10 +29,21 @@ type PageState =
   | { status: 'not-found' }
   | { status: 'error' }
 
-type WalkInValues = { name: string; age: string; address: string }
+type WalkInValues = {
+  name: string
+  age: string
+  address: string
+  email: string
+}
 type Errors = Record<string, string>
 
-const emptyWalkIn: WalkInValues = { name: '', age: '', address: '' }
+const emptyWalkIn: WalkInValues = { name: '', age: '', address: '', email: '' }
+const walkInLabels: Record<keyof WalkInValues, string> = {
+  name: 'Full name',
+  age: 'Age',
+  address: 'Address',
+  email: 'Email (optional)',
+}
 const inputClass =
   'w-full rounded-lg border border-[#cfdcd4] bg-white px-3 py-2 text-sm text-[#173a2e] focus:border-[#008755] focus:outline-none focus:ring-2 focus:ring-[#008755]/25'
 
@@ -49,6 +64,10 @@ function validate(presentCount: number, walkIns: WalkInValues[], max: number) {
     }
     if (!person.address.trim()) {
       errors[`walkIns.${index}.address`] = 'Address is required.'
+    }
+    if (!isOptionalEmail(person.email)) {
+      errors[`walkIns.${index}.email`] =
+        'Enter a valid email or leave it blank.'
     }
   })
   return errors
@@ -178,6 +197,7 @@ export default function CheckInPage() {
           name: person.name.trim(),
           age: Number(person.age),
           address: person.address.trim(),
+          ...(person.email.trim() && { email: person.email.trim() }),
         })),
       })
       navigate(detailPath, {
@@ -307,10 +327,10 @@ export default function CheckInPage() {
           </p>
           {walkIns.map((person, index) => (
             <div
-              className="mt-4 grid gap-3 rounded-xl border border-[#e7ece8] p-4 sm:grid-cols-[2fr_1fr_2fr_auto] sm:items-start"
+              className="mt-4 grid gap-3 rounded-xl border border-[#e7ece8] p-4 sm:grid-cols-[2fr_1fr_2fr_2fr_auto] sm:items-start"
               key={index}
             >
-              {(['name', 'age', 'address'] as const).map((field) => {
+              {(['name', 'age', 'address', 'email'] as const).map((field) => {
                 const id = `walk-in-${index}-${field}`
                 const error = errors[`walkIns.${index}.${field}`]
                 return (
@@ -319,11 +339,7 @@ export default function CheckInPage() {
                       className="mb-1 block text-xs font-bold text-[#52675e]"
                       htmlFor={id}
                     >
-                      {field === 'name'
-                        ? 'Full name'
-                        : field === 'age'
-                          ? 'Age'
-                          : 'Address'}
+                      {walkInLabels[field]}
                     </label>
                     <input
                       aria-describedby={error ? `${id}-error` : undefined}
@@ -331,6 +347,7 @@ export default function CheckInPage() {
                       className={inputClass}
                       id={id}
                       inputMode={field === 'age' ? 'numeric' : undefined}
+                      type={field === 'email' ? 'email' : 'text'}
                       onChange={(event) =>
                         updateWalkIn(index, field, event.target.value)
                       }

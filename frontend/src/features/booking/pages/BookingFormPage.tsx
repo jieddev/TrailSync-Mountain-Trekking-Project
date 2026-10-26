@@ -374,6 +374,18 @@ export default function BookingFormPage() {
                     type="text"
                     value={person.address}
                   />
+                  <AuthFormField
+                    autoComplete="off"
+                    error={errors[`${prefix}.email`]}
+                    id={`participant-${index}-email`}
+                    label="Email for their certificate (optional)"
+                    name={`${prefix}.email`}
+                    onChange={(event) =>
+                      setParticipantField(index, 'email', event.target.value)
+                    }
+                    type="email"
+                    value={person.email}
+                  />
                 </div>
               )
             })}

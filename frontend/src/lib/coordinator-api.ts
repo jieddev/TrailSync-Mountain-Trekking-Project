@@ -132,6 +132,15 @@ export function completeTrek(idToken: string, bookingId: string) {
   )
 }
 
+// Emails the certificates of a completed trek that haven't been sent yet.
+export function resendCertificates(idToken: string, bookingId: string) {
+  return requestJson<{ sent: number; booking: CoordinatorBooking }>(
+    bookingActionPath(bookingId, 'certificates/resend'),
+    { idToken, method: 'POST' },
+    'Could not resend the certificates.',
+  )
+}
+
 export type GuideDutyStatus = 'OFF_DUTY' | 'AVAILABLE' | 'ASSIGNED'
 
 export type Guide = {
