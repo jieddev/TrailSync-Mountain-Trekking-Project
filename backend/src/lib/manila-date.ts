@@ -5,3 +5,10 @@ const manilaDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila", y
 export function manilaToday(now = new Date()) {
   return manilaDate.format(now);
 }
+
+const manilaLong = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "long", day: "numeric" });
+
+// "October 26, 2026" on the Asia/Manila calendar.
+export function manilaLongDate(date: Date) {
+  return manilaLong.format(date);
+}

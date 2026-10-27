@@ -2,6 +2,7 @@ import request from "supertest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn() } }));
+vi.mock("./lib/certificates.js", () => ({ sendTrekCertificates: vi.fn() }));
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
     user: { findUnique: vi.fn() },
@@ -13,10 +14,12 @@ vi.mock("./lib/prisma.js", () => ({
 }));
 
 import { app } from "./app.js";
+import { sendTrekCertificates } from "./lib/certificates.js";
 import { firebaseAuth } from "./lib/firebase-admin.js";
 import { prisma } from "./lib/prisma.js";
 
 const verify = vi.mocked(firebaseAuth.verifyIdToken);
+const sendCertificates = vi.mocked(sendTrekCertificates);
 const userLookup = vi.mocked(prisma.user.findUnique);
 const findGuide = vi.mocked(prisma.guide.findUnique);
 const findBooking = vi.mocked(prisma.booking.findUnique);
@@ -71,6 +74,7 @@ describe("Guide starts a trek", () => {
       where: { id: "booking-1", guideId: "g-juan", status: "GUIDE_ASSIGNED" },
       data: { status: "IN_PROGRESS", trekStartedAt: now },
     });
+    expect(sendCertificates).not.toHaveBeenCalled();
   });
 
   it("refuses a trek that is already started or completed", async () => {
@@ -108,6 +112,7 @@ describe("Guide completes a trek", () => {
     expect(queueLock).toHaveBeenCalled();
     expect(updateBooking).toHaveBeenCalledWith({ where: { id: "booking-1" }, data: { status: "COMPLETED", completedAt: now } });
     expect(updateGuides).toHaveBeenCalledWith({ where: { id: "g-juan", dutyStatus: "ASSIGNED" }, data: { dutyStatus: "AVAILABLE", availableSince: now } });
+    expect(sendCertificates).toHaveBeenCalledWith("booking-1", expect.anything());
   });
 
   it("refuses a trek that was not started, so a retried completion is harmless", async () => {
@@ -118,6 +123,7 @@ describe("Guide completes a trek", () => {
       expect(response.body.error.code).toBe("TREK_NOT_IN_PROGRESS");
     }
     expect(updateBooking).not.toHaveBeenCalled();
+    expect(sendCertificates).not.toHaveBeenCalled();
     expect(updateGuides).not.toHaveBeenCalled();
   });
 

@@ -7,6 +7,7 @@ import {
   checkInBooking,
   completeTrek,
   confirmBooking,
+  resendCertificates,
   declineGuideApplication,
   getCoordinatorBooking,
   listCoordinatorBookings,
@@ -182,7 +183,7 @@ describe('coordinator API', () => {
     )
   })
 
-  it('assigns the next guide and completes a trek without a request body', async () => {
+  it('assigns the next guide, completes a trek and resends certificates without a request body', async () => {
     const fetchMock = vi
       .fn()
       .mockImplementation(async () => jsonResponse({ id: 'booking-1' }, 200))
@@ -190,6 +191,7 @@ describe('coordinator API', () => {
 
     await assignNextGuide('private-token', 'booking-1')
     await completeTrek('private-token', 'booking-1')
+    await resendCertificates('private-token', 'booking-1')
     expect(fetchMock.mock.calls.map(([url, init]) => [url, init])).toEqual([
       [
         'http://localhost:3000/api/v1/coordinator/bookings/booking-1/assign-guide',
@@ -197,6 +199,10 @@ describe('coordinator API', () => {
       ],
       [
         'http://localhost:3000/api/v1/coordinator/bookings/booking-1/complete',
+        { method: 'POST', headers: { Authorization: 'Bearer private-token' } },
+      ],
+      [
+        'http://localhost:3000/api/v1/coordinator/bookings/booking-1/certificates/resend',
         { method: 'POST', headers: { Authorization: 'Bearer private-token' } },
       ],
     ])

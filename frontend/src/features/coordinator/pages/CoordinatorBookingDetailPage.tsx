@@ -9,6 +9,7 @@ import {
   completeTrek,
   confirmBooking,
   getCoordinatorBooking,
+  resendCertificates,
   type CoordinatorBooking,
 } from '../../../lib/coordinator-api'
 import PageHeader from '../../booking/components/PageHeader'
@@ -242,6 +243,8 @@ export default function CoordinatorBookingDetailPage() {
                   </span>
                   <span className="text-[#52675e]">
                     Age {person.age} · {person.address}
+                    {person.email && ` · ${person.email}`}
+                    {person.certificateSentAt && ' · Certificate sent'}
                   </span>
                 </li>
               ))}
@@ -375,6 +378,13 @@ function AttendanceBadge({
   return null
 }
 
+// Hikers who went on the trek but whose certificate hasn't been emailed.
+function unsentCertificates(booking: CoordinatorBooking) {
+  return booking.participants.filter(
+    (person) => person.attendance !== 'ABSENT' && !person.certificateSentAt,
+  ).length
+}
+
 type TrekAction = (
   action: (idToken: string) => Promise<CoordinatorBooking>,
   success: (booking: CoordinatorBooking) => string,
@@ -486,14 +496,46 @@ function TrekPanel({
         </>
       )
     }
-    case 'COMPLETED':
+    case 'COMPLETED': {
+      const unsent = unsentCertificates(booking)
       return (
-        <p className={textClass}>
-          Completed
-          {booking.completedAt && ` at ${formatClockTime(booking.completedAt)}`}
-          {booking.guide && ` with ${booking.guide.fullName}`}.
-        </p>
+        <>
+          <p className={textClass}>
+            Completed
+            {booking.completedAt &&
+              ` at ${formatClockTime(booking.completedAt)}`}
+            {booking.guide && ` with ${booking.guide.fullName}`}.
+          </p>
+          <p className={textClass}>
+            {unsent === 0
+              ? 'Every hiker’s certificate has been emailed.'
+              : `${unsent} certificate${unsent === 1 ? '' : 's'} not emailed yet. They are sent right after completion; resend if an email failed.`}
+          </p>
+          {unsent > 0 && (
+            <div className="mt-4">
+              <ConfirmAction
+                busyLabel="Sending…"
+                confirmLabel="Yes, resend"
+                fullWidth
+                label="Resend certificates"
+                onConfirm={() =>
+                  onAction(
+                    async (idToken) =>
+                      (await resendCertificates(idToken, booking.id)).booking,
+                    (updated) =>
+                      unsentCertificates(updated) === 0
+                        ? 'Certificates emailed.'
+                        : 'Some certificates still couldn’t be emailed. Please try again later.',
+                    'We couldn’t resend the certificates. Please try again.',
+                  )
+                }
+                question="Email the certificates that haven’t been sent yet?"
+              />
+            </div>
+          )}
+        </>
       )
+    }
     default:
       return null
   }

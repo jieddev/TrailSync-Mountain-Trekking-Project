@@ -25,6 +25,14 @@ The initial `User` model stores the application profile associated with a Fireba
 
 The health check is available at `GET /health`.
 
+## Certificate emails
+
+When a trek is completed, each hiker gets a PDF certificate by email
+(`src/lib/certificates.ts`). The template and fonts are in
+`assets/certificates/`, matching the guide app's certificate card. Set
+`SMTP_USER`, `SMTP_PASS` (a Gmail app password) and `MAIL_FROM` in `.env`.
+Without `SMTP_USER`, emails are only logged.
+
 ## Logging
 
 The API uses Pino for structured application logs and request logs. Local

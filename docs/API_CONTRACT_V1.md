@@ -160,8 +160,8 @@ Returned by every booking endpoint:
   "status": "PENDING_CONFIRMATION",
   "downpaymentStatus": "PENDING_VERIFICATION",
   "participants": [
-    { "id": "p1", "kind": "BOOKING_OWNER", "name": "Juan Dela Cruz", "age": 28, "address": "Ormoc City, Leyte", "attendance": null },
-    { "id": "p2", "kind": "ADDITIONAL_PARTICIPANT", "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "attendance": null }
+    { "id": "p1", "kind": "BOOKING_OWNER", "name": "Juan Dela Cruz", "age": 28, "address": "Ormoc City, Leyte", "email": "juan@example.com", "attendance": null, "certificateSentAt": null },
+    { "id": "p2", "kind": "ADDITIONAL_PARTICIPANT", "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "email": null, "attendance": null, "certificateSentAt": null }
   ],
   "participantCount": 2,
   "guide": null,
@@ -176,7 +176,7 @@ Returned by every booking endpoint:
 }
 ```
 
-- `participants` are ordered owner first, then additional participants, then walk-ins. `kind` is `BOOKING_OWNER`, `ADDITIONAL_PARTICIPANT`, or `WALK_IN` (added at check-in). `attendance` is `PRESENT`, `ABSENT`, or `null` before check-in.
+- `participants` are ordered owner first, then additional participants, then walk-ins. `kind` is `BOOKING_OWNER`, `ADDITIONAL_PARTICIPANT`, or `WALK_IN` (added at check-in). `attendance` is `PRESENT`, `ABSENT`, or `null` before check-in. `email` is where the participant's certificate goes (`null`: it goes to the booking owner); `certificateSentAt` is when it was emailed (§5).
 - `guide` is `{ "id", "fullName" }` once a guide is assigned at check-in, otherwise `null`. It stays set after completion.
 - `checkedInAt`, `guideAssignedAt`, `trekStartedAt`, and `completedAt` are ISO timestamps, or `null` until that step happens. `trekStartedAt` stays `null` when the coordinator completes a trek the guide never started.
 
@@ -214,7 +214,7 @@ Creates a booking. **Role:** `HIKER`.
   "scheduledDate": "2026-11-20",
   "scheduledTime": "08:00",
   "ownerDetails": { "age": 28, "address": "Ormoc City, Leyte" },
-  "additionalParticipants": [{ "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte" }]
+  "additionalParticipants": [{ "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "email": "maria@example.com" }]
 }
 ```
 
@@ -222,6 +222,7 @@ Creates a booking. **Role:** `HIKER`.
 - `scheduledDate` is `YYYY-MM-DD`; `scheduledTime` is 24-hour `HH:mm`.
 - The owner's name comes from their profile; `ownerDetails` supplies only age and address.
 - `additionalParticipants` is optional, at most 4 people. Ages are positive integers; names and addresses are non-blank.
+- `email` is optional for each additional participant and used only for their certificate; an invalid one is `INVALID_EMAIL`. The owner's participant email is taken from their profile.
 - Owner, price, downpayment, status, and participant count are server-derived; client values are ignored.
 
 `201` returns the booking with `PENDING_CONFIRMATION` / `PENDING_VERIFICATION`.
@@ -305,20 +306,20 @@ Physical check-in at the office (rules in `PROJECT_CONTEXT.md` §5.2). In the **
     { "participantId": "p1", "present": true },
     { "participantId": "p2", "present": false }
   ],
-  "walkIns": [{ "name": "Pedro Santos", "age": 30, "address": "Ormoc City, Leyte" }]
+  "walkIns": [{ "name": "Pedro Santos", "age": 30, "address": "Ormoc City, Leyte", "email": "pedro@example.com" }]
 }
 ```
 
 - The booking must be `CONFIRMED` and scheduled for **today's Asia/Manila date**.
 - `attendance` must list every booked participant exactly once.
 - At least one booked participant must be present.
-- `walkIns` is optional. Present participants plus walk-ins must not exceed 5. Walk-ins are stored as `WALK_IN` participants marked `PRESENT`.
+- `walkIns` is optional. Present participants plus walk-ins must not exceed 5. Walk-ins are stored as `WALK_IN` participants marked `PRESENT`. A walk-in's `email` is optional, as in booking creation.
 - The package price never changes. Extra people beyond one package are handled outside TrailSync for now.
 
 `200` returns the coordinator booking as `GUIDE_ASSIGNED` (with `guide`) or `CHECKED_IN` (`guide: null`).
 
 Errors:
-- `422 VALIDATION_ERROR`, with detail codes `REQUIRED`, `INVALID_TYPE`, `INVALID_AGE`, `UNKNOWN_PARTICIPANT`, `DUPLICATE_PARTICIPANT`, `MISSING_PARTICIPANT`, `AT_LEAST_ONE_PRESENT`, `PARTICIPANT_LIMIT_EXCEEDED`.
+- `422 VALIDATION_ERROR`, with detail codes `REQUIRED`, `INVALID_TYPE`, `INVALID_AGE`, `INVALID_EMAIL`, `UNKNOWN_PARTICIPANT`, `DUPLICATE_PARTICIPANT`, `MISSING_PARTICIPANT`, `AT_LEAST_ONE_PRESENT`, `PARTICIPANT_LIMIT_EXCEEDED`.
 - `409 CHECK_IN_NOT_ALLOWED`: the booking is not `CONFIRMED`, which also covers a repeated check-in.
 - `409 NOT_SCHEDULED_TODAY`: the group must reschedule first.
 - `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
@@ -338,8 +339,18 @@ Marks the trek completed and puts the guide back at the **end** of the queue (`A
 
 This is the office fallback for when the guide cannot complete the trek from the app (for example, a dead phone). It accepts a trek that is `GUIDE_ASSIGNED` (never started) or `IN_PROGRESS`.
 
+After responding, the backend emails the certificates, as in the guide's completion (§6).
+
 Errors:
 - `409 BOOKING_NOT_ON_TREK`: the booking is not `GUIDE_ASSIGNED` or `IN_PROGRESS`, so a retried completion is harmless.
+- `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
+
+### `POST /api/v1/coordinator/bookings/:bookingId/certificates/resend`
+
+Emails the certificates of a `COMPLETED` trek that have not been sent yet (`certificateSentAt: null`), for example after an email failure. Already-sent certificates are never sent again. No request body. `200` returns `{ "sent": 2, "booking": { ...coordinator booking } }`.
+
+Errors:
+- `409 BOOKING_NOT_COMPLETED`: the trek is not completed.
 - `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
 
 ---
@@ -419,6 +430,8 @@ Errors:
 
 **Role:** `GUIDE`. The guide's complete-and-check-out step: `IN_PROGRESS` → `COMPLETED`, and the guide goes back to the **end** of the queue (`AVAILABLE`), the same rule as the coordinator's completion. No request body. `200` returns the booking (§4).
 
+After responding, the backend emails each hiker who was not marked absent a PDF certificate of achievement with their name, the trail, the completion date (Asia/Manila) and the guide. It goes to the participant's `email`, or to the booking owner's email when they have none. Email failures never undo the completion; they are logged and can be retried with the coordinator's resend.
+
 Errors:
 - `409 TREK_NOT_IN_PROGRESS`: the trek was not started (start it first) or is already completed, so a retried completion is harmless.
 - `404 BOOKING_NOT_FOUND`: unknown, or dispatched to another guide.
@@ -483,6 +496,6 @@ Not implemented. Each will be specified here once its business rules are confirm
 | ---------------------------- | -------------------------------------------------------------------- |
 | `/api/v1/guides/me/hike-requests/:bookingId/locations`, checkpoints | Group location updates and offline-synced checkpoint events for an `IN_PROGRESS` trek (Phase 7). Trek start/complete is in §6. |
 | `/api/v1/incidents`, `/api/v1/trails/:id/restrictions` | SOS, incidents, weather-based trail restrictions |
-| `/api/v1/certificates`       | Digital completion certificates                                      |
+| `/api/v1/certificates`       | Downloading certificates. Emailing them on completion is in §5 and §6. |
 | `/api/v1/analytics`          | Coordinator tourism and operations analytics                         |
 | `PATCH /api/v1/users/me`     | Profile edits (never `role`), once editable fields are confirmed     |

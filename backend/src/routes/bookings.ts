@@ -3,7 +3,7 @@ import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
 import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
 import { MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
-import { nonblank, validAge } from "../lib/validation.js";
+import { nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
 import { requireFirebaseAuth, type AuthenticatedRequest } from "../middleware/require-firebase-auth.js";
 
 function validation(response: Response, details: Details[]) {
@@ -32,7 +32,7 @@ async function currentProfile(request: AuthenticatedRequest) {
   if (!request.authUser) return { error: "UNAUTHORIZED" as const };
   const user = await prisma.user.findUnique({
     where: { firebaseUid: request.authUser.firebaseUid },
-    select: { id: true, fullName: true, role: true },
+    select: { id: true, fullName: true, email: true, role: true },
   });
   return user ?? { error: "PROFILE_NOT_FOUND" as const };
 }
@@ -62,6 +62,7 @@ bookingsRouter.post("/", async (request, response) => {
         if (!nonblank(person.name)) details.push({ field: `additionalParticipants.${index}.name`, code: "REQUIRED", message: "Name is required." });
         if (!validAge(person.age)) details.push({ field: `additionalParticipants.${index}.age`, code: "INVALID_AGE", message: "Age must be a positive integer." });
         if (!nonblank(person.address)) details.push({ field: `additionalParticipants.${index}.address`, code: "REQUIRED", message: "Address is required." });
+        if (!validOptionalEmail(person.email)) details.push({ field: `additionalParticipants.${index}.email`, code: "INVALID_EMAIL", message: "Enter a valid email address." });
       });
     }
     if (details.length) return validation(response, details);
@@ -80,10 +81,11 @@ bookingsRouter.post("/", async (request, response) => {
         status: "PENDING_CONFIRMATION",
         downpaymentStatus: "PENDING_VERIFICATION",
         participants: { create: [
-          { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerDetails.age as number, address: (ownerDetails.address as string).trim() },
+          { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerDetails.age as number, address: (ownerDetails.address as string).trim(), email: profile.email },
           ...(additional as Record<string, unknown>[]).map((person) => ({
             kind: "ADDITIONAL_PARTICIPANT" as const,
             name: (person.name as string).trim(), age: person.age as number, address: (person.address as string).trim(),
+            email: optionalEmail(person.email),
           })),
         ] },
       }, include: bookingInclude,

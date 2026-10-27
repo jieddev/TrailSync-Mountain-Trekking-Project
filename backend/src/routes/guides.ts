@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import type { Prisma } from "@prisma/client";
 
 import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
+import { sendTrekCertificates } from "../lib/certificates.js";
 import { changeAvailability } from "../lib/guide-availability.js";
 import { queuePosition } from "../lib/guide-queue.js";
 import { completeOwnTrek, startTrek } from "../lib/guide-treks.js";
@@ -34,8 +35,9 @@ function refuse(response: Response, code: Refusal) {
 
 type TrekStep = (tx: Prisma.TransactionClient, guideId: string, bookingId: string) => Promise<Refusal | null>;
 
-// Runs a start/complete step for the signed-in guide and returns the updated booking.
-async function changeTrek(request: Request, response: Response, step: TrekStep) {
+// Runs a start/complete step for the signed-in guide and returns the updated
+// booking; [afterCommit] runs once the step is committed and answered.
+async function changeTrek(request: Request, response: Response, step: TrekStep, afterCommit?: (bookingId: string) => void) {
   const guide = await currentGuide(request, response);
   if (!guide) return;
   const bookingId = String(request.params.bookingId);
@@ -45,7 +47,9 @@ async function changeTrek(request: Request, response: Response, step: TrekStep) 
     return { booking: await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude }) };
   });
   if ("refusal" in result) return refuse(response, result.refusal);
-  return response.status(200).json(bookingResponse(result.booking));
+  response.status(200).json(bookingResponse(result.booking));
+  afterCommit?.(bookingId);
+  return response;
 }
 
 export const guidesRouter = Router();
@@ -100,7 +104,8 @@ guidesRouter.post("/me/hike-requests/:bookingId/start", async (request, response
 // Completing sends the guide to the end of the queue, the same rule as the coordinator's completion.
 guidesRouter.post("/me/hike-requests/:bookingId/complete", async (request, response) => {
   try {
-    return await changeTrek(request, response, completeOwnTrek);
+    // Certificates are emailed after the response, so the guide isn't kept waiting.
+    return await changeTrek(request, response, completeOwnTrek, (bookingId) => void sendTrekCertificates(bookingId, request.log));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Guide trek completion failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not complete the trek.");

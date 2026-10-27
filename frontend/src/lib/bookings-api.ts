@@ -16,8 +16,12 @@ export type BookingParticipant = {
   name: string
   age: number
   address: string
+  // Where the certificate goes; null sends it to the booking owner.
+  email: string | null
   // Recorded at check-in; null before the group checks in.
   attendance: 'PRESENT' | 'ABSENT' | null
+  // When the completion certificate was emailed.
+  certificateSentAt: string | null
 }
 
 export type Booking = {
@@ -41,7 +45,12 @@ export type Booking = {
   updatedAt: string
 }
 
-export type ParticipantInput = { name: string; age: number; address: string }
+export type ParticipantInput = {
+  name: string
+  age: number
+  address: string
+  email?: string
+}
 
 export type CreateBookingInput = {
   trailId: string

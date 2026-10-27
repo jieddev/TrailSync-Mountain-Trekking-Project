@@ -27,7 +27,7 @@ const tx = {
   },
 };
 const transaction = vi.mocked(prisma.$transaction);
-const owner = { id: "owner-1", fullName: "Hiker One", role: "HIKER" };
+const owner = { id: "owner-1", fullName: "Hiker One", email: "hiker@example.com", role: "HIKER" };
 const booking = (overrides: Record<string, unknown> = {}) => ({
   id: "booking-1", trailId: "trl_sulfatara", trail: { id: "trl_sulfatara", name: "Sulfatara" }, scheduledDate: "2026-11-20", scheduledTime: "08:00",
   packagePrice: 550, downpaymentAmount: 275, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION",
@@ -66,6 +66,26 @@ describe("Booking Foundation", () => {
     expect(response.status).toBe(422);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");
     expect(tx.booking.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores participant emails for certificates, with the owner's from their profile", async () => {
+    tx.booking.create.mockResolvedValue(booking() as never);
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token")
+      .send(createBody([{ name: "Two", age: 20, address: "Ormoc", email: " Two@Example.com " }, { name: "Three", age: 21, address: "Ormoc", email: "" }]));
+    expect(response.status).toBe(201);
+    expect((tx.booking.create.mock.calls[0]![0] as any).data.participants.create).toEqual([
+      expect.objectContaining({ kind: "BOOKING_OWNER", email: "hiker@example.com" }),
+      expect.objectContaining({ name: "Two", email: "two@example.com" }),
+      expect.objectContaining({ name: "Three", email: null }),
+    ]);
+  });
+
+  it("rejects an invalid participant email", async () => {
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token")
+      .send(createBody([{ name: "Two", age: 20, address: "Ormoc", email: "two@" }]));
+    expect(response.status).toBe(422);
+    expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "additionalParticipants.0.email", code: "INVALID_EMAIL" }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
   it("validates schedule and all owner/participant fields", async () => {

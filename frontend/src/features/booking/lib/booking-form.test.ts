@@ -20,7 +20,12 @@ const validValues: BookingFormValues = {
   ownerAge: '28',
   ownerAddress: ' Ormoc City, Leyte ',
   additionalParticipants: [
-    { name: ' Maria Dela Cruz ', age: '26', address: 'Ormoc City, Leyte' },
+    {
+      name: ' Maria Dela Cruz ',
+      age: '26',
+      address: 'Ormoc City, Leyte',
+      email: ' maria@example.com ',
+    },
   ],
 }
 
@@ -75,7 +80,7 @@ describe('validateBookingForm', () => {
         ...validValues,
         additionalParticipants: [
           validValues.additionalParticipants[0],
-          { name: '', age: '0', address: '' },
+          { name: '', age: '0', address: '', email: 'maria@' },
         ],
       },
       4,
@@ -85,6 +90,8 @@ describe('validateBookingForm', () => {
       'additionalParticipants.1.name': 'Enter a name.',
       'additionalParticipants.1.age': 'Enter the age as a whole number.',
       'additionalParticipants.1.address': 'Enter an address.',
+      'additionalParticipants.1.email':
+        'Enter a valid email or leave it blank.',
     })
   })
 
@@ -122,9 +129,22 @@ describe('toCreateBookingInput', () => {
       scheduledTime: '08:00',
       ownerDetails: { age: 28, address: 'Ormoc City, Leyte' },
       additionalParticipants: [
-        { name: 'Maria Dela Cruz', age: 26, address: 'Ormoc City, Leyte' },
+        {
+          name: 'Maria Dela Cruz',
+          age: 26,
+          address: 'Ormoc City, Leyte',
+          email: 'maria@example.com',
+        },
       ],
     })
+  })
+
+  it('leaves out a blank email', () => {
+    const person = { ...validValues.additionalParticipants[0], email: ' ' }
+    expect(
+      toCreateBookingInput({ ...validValues, additionalParticipants: [person] })
+        .additionalParticipants[0],
+    ).not.toHaveProperty('email')
   })
 })
 

@@ -17,7 +17,9 @@ export function bookingResponse(booking: any) {
     name: participant.name,
     age: participant.age,
     address: participant.address,
+    email: participant.email ?? null,
     attendance: participant.attendance ?? null,
+    certificateSentAt: participant.certificateSentAt ?? null,
   }));
   return {
     id: booking.id,

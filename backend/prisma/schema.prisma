@@ -144,14 +144,18 @@ model Booking {
 }
 
 model BookingParticipant {
-  id         String                 @id @default(cuid())
-  bookingId  String
-  booking    Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  kind       BookingParticipantType
-  name       String
-  age        Int
-  address    String
-  attendance ParticipantAttendance?
+  id                String                 @id @default(cuid())
+  bookingId         String
+  booking           Booking                @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  kind              BookingParticipantType
+  name              String
+  age               Int
+  address           String
+  // Where the certificate goes; without one it is sent to the booking owner.
+  email             String?
+  attendance        ParticipantAttendance?
+  // Set once the certificate email is sent, so it is never sent twice.
+  certificateSentAt DateTime?
 
   @@index([bookingId])
   @@map("booking_participants")
