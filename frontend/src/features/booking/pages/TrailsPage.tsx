@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import type { TrailClosure } from '../../../lib/trail-restrictions-api'
 import { listTrails, type Trail } from '../../../lib/trails-api'
 import PageHeader from '../components/PageHeader'
 import StatusCard from '../components/StatusCard'
+import TrailClosureNotice from '../components/TrailClosureNotice'
 import { formatMoney } from '../lib/booking-form'
+import { useTrailClosures } from '../lib/use-trail-closures'
 
 type TrailsState =
   | { status: 'loading' }
@@ -13,6 +16,9 @@ type TrailsState =
 
 export default function TrailsPage() {
   const [state, setState] = useState<TrailsState>({ status: 'loading' })
+  const closures = useTrailClosures(
+    state.status === 'loaded' ? state.trails.map((trail) => trail.id) : [],
+  )
 
   useEffect(() => {
     let isCurrent = true
@@ -53,7 +59,7 @@ export default function TrailsPage() {
         <ul className="grid gap-4 md:grid-cols-2">
           {state.trails.map((trail) => (
             <li key={trail.id}>
-              <TrailCard trail={trail} />
+              <TrailCard closures={closures[trail.id] ?? []} trail={trail} />
             </li>
           ))}
         </ul>
@@ -62,7 +68,13 @@ export default function TrailsPage() {
   )
 }
 
-function TrailCard({ trail }: { trail: Trail }) {
+function TrailCard({
+  trail,
+  closures,
+}: {
+  trail: Trail
+  closures: TrailClosure[]
+}) {
   return (
     <article className="flex h-full flex-col rounded-2xl border border-[#d5e1da] bg-white p-6">
       <h2 className="font-serif text-2xl font-bold tracking-[-0.03em] text-[#002d20]">
@@ -73,6 +85,7 @@ function TrailCard({ trail }: { trail: Trail }) {
           {trail.description}
         </p>
       )}
+      <TrailClosureNotice className="mt-4" closures={closures} />
       <dl className="mt-5 grid grid-cols-2 gap-3 border-t border-[#e7ece8] pt-4 text-sm">
         <div>
           <dt className="font-semibold text-[#70857b]">Package price</dt>

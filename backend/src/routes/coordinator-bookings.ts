@@ -1,13 +1,14 @@
 import { Router, type Response } from "express";
 import type { BookingStatus, Prisma } from "@prisma/client";
 
-import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
+import { bookingInclude, bookingResponse, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
 import { sendTrekCertificates } from "../lib/certificates.js";
 import { completeTrek, dispatchFrontGuide, lockGuideQueue } from "../lib/guide-queue.js";
 import { fail, type ErrorDetail } from "../lib/http-errors.js";
 import { manilaToday } from "../lib/manila-date.js";
 import { MAX_PARTICIPANTS } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
+import { activeRestriction } from "../lib/trail-restrictions.js";
 import { asObject, nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
 import { requireFirebaseAuth } from "../middleware/require-firebase-auth.js";
 import { requireRole } from "../middleware/require-role.js";
@@ -30,6 +31,7 @@ const refusals = {
   NO_GUIDE_AVAILABLE: [409, "No guide is available yet. Assign one when a guide reports in."],
   BOOKING_NOT_ON_TREK: [409, "Only a group with an assigned guide can complete a trek."],
   BOOKING_NOT_COMPLETED: [409, "Certificates are sent only for completed treks."],
+  TRAIL_RESTRICTED: [409, "This trail is closed today. Lift the restriction before checking in or dispatching a guide."],
 } as const;
 type Refusal = keyof typeof refusals;
 
@@ -132,7 +134,7 @@ coordinatorBookingsRouter.get("/", async (request, response) => {
         ? [{ checkedInAt: "asc" }]
         : [{ scheduledDate: "asc" }, { scheduledTime: "asc" }, { createdAt: "asc" }],
     });
-    return response.status(200).json({ items: bookings.map(coordinatorBookingResponse) });
+    return response.status(200).json({ items: await withTrailRestrictions(prisma, bookings, coordinatorBookingResponse) });
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Coordinator booking list failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve bookings.");
@@ -143,7 +145,7 @@ coordinatorBookingsRouter.get("/:bookingId", async (request, response) => {
   try {
     const booking = await prisma.booking.findUnique({ where: { id: request.params.bookingId }, include: coordinatorBookingInclude });
     if (!booking) return fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
-    return response.status(200).json(coordinatorBookingResponse(booking));
+    return response.status(200).json(await withTrailRestriction(prisma, booking, coordinatorBookingResponse));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Coordinator booking lookup failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve booking.");
@@ -160,10 +162,11 @@ coordinatorBookingsRouter.post("/:bookingId/check-in", async (request, response)
   const today = manilaToday();
   try {
     const result = await prisma.$transaction(async (tx): Promise<{ refusal: Refusal } | { details: ErrorDetail[] } | { booking: unknown }> => {
-      const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { status: true, scheduledDate: true, participants: { select: { id: true } } } });
+      const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { status: true, scheduledDate: true, trailId: true, participants: { select: { id: true } } } });
       if (!booking) return { refusal: "BOOKING_NOT_FOUND" };
       if (booking.status !== "CONFIRMED") return { refusal: "CHECK_IN_NOT_ALLOWED" };
       if (booking.scheduledDate !== today) return { refusal: "NOT_SCHEDULED_TODAY" };
+      if (await activeRestriction(tx, booking.trailId, today)) return { refusal: "TRAIL_RESTRICTED" };
       const details = rosterErrors(booking.participants.map((participant) => participant.id), parsed.marks, parsed.walkIns);
       if (details.length) return { details };
 
@@ -187,7 +190,7 @@ coordinatorBookingsRouter.post("/:bookingId/check-in", async (request, response)
     });
     if ("refusal" in result) return refuse(response, result.refusal);
     if ("details" in result) return checkInValidation(response, result.details);
-    return response.status(200).json(coordinatorBookingResponse(result.booking));
+    return response.status(200).json(await withTrailRestriction(prisma, result.booking as any, coordinatorBookingResponse));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking check-in failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not check in the booking.");
@@ -200,14 +203,15 @@ coordinatorBookingsRouter.post("/:bookingId/assign-guide", async (request, respo
   try {
     const result = await prisma.$transaction(async (tx): Promise<{ refusal: Refusal } | { booking: unknown }> => {
       await lockGuideQueue(tx);
-      const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { status: true } });
+      const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { status: true, trailId: true } });
       if (!booking) return { refusal: "BOOKING_NOT_FOUND" };
       if (booking.status !== "CHECKED_IN") return { refusal: "BOOKING_NOT_WAITING" };
+      if (await activeRestriction(tx, booking.trailId, manilaToday())) return { refusal: "TRAIL_RESTRICTED" };
       if (!(await dispatchFrontGuide(tx, bookingId))) return { refusal: "NO_GUIDE_AVAILABLE" };
       return { booking: await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: coordinatorBookingInclude }) };
     });
     if ("refusal" in result) return refuse(response, result.refusal);
-    return response.status(200).json(coordinatorBookingResponse(result.booking));
+    return response.status(200).json(await withTrailRestriction(prisma, result.booking as any, coordinatorBookingResponse));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Guide assignment failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not assign a guide.");
@@ -224,7 +228,7 @@ coordinatorBookingsRouter.post("/:bookingId/complete", async (request, response)
       return { booking: await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: coordinatorBookingInclude }) };
     });
     if ("refusal" in result) return refuse(response, result.refusal);
-    response.status(200).json(coordinatorBookingResponse(result.booking));
+    response.status(200).json(await withTrailRestriction(prisma, result.booking as any, coordinatorBookingResponse));
     // Emailed after the response, outside the transaction that holds the queue lock.
     void sendTrekCertificates(bookingId, request.log);
     return response;
@@ -243,7 +247,7 @@ coordinatorBookingsRouter.post("/:bookingId/certificates/resend", async (request
     if (booking.status !== "COMPLETED") return refuse(response, "BOOKING_NOT_COMPLETED");
     const sent = await sendTrekCertificates(bookingId, request.log);
     const updated = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId }, include: coordinatorBookingInclude });
-    return response.status(200).json({ sent, booking: coordinatorBookingResponse(updated) });
+    return response.status(200).json({ sent, booking: await withTrailRestriction(prisma, updated, coordinatorBookingResponse) });
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Certificate resend failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not resend the certificates.");

@@ -61,6 +61,8 @@ model User {
   bookings                  Booking[]
   guide                     Guide?
   reviewedGuideApplications GuideApplication[] @relation("GuideApplicationReviewer")
+  createdTrailRestrictions  TrailRestriction[] @relation("TrailRestrictionCreator")
+  liftedTrailRestrictions   TrailRestriction[] @relation("TrailRestrictionLifter")
 
   @@map("users")
 }
@@ -101,17 +103,41 @@ model Guide {
 }
 
 model Trail {
-  id           String    @id @default(cuid())
-  slug         String    @unique
+  id           String             @id @default(cuid())
+  slug         String             @unique
   name         String
   description  String?
   packagePrice Int
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  isActive     Boolean            @default(true)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
   bookings     Booking[]
+  restrictions TrailRestriction[]
 
   @@map("trails")
+}
+
+// A coordinator's closure of one trail for an inclusive range of Asia/Manila
+// dates (for example, bad weather). While it applies, the server refuses new
+// bookings, reschedules, check-in, guide assignment and trek starts on that
+// trail. Lifting keeps the row as a record instead of deleting it.
+model TrailRestriction {
+  id          String    @id @default(cuid())
+  trailId     String
+  trail       Trail     @relation(fields: [trailId], references: [id], onDelete: Restrict)
+  startDate   String
+  endDate     String
+  reason      String
+  createdById String
+  createdBy   User      @relation("TrailRestrictionCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  liftedAt    DateTime?
+  liftedById  String?
+  liftedBy    User?     @relation("TrailRestrictionLifter", fields: [liftedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([trailId, startDate, endDate])
+  @@map("trail_restrictions")
 }
 
 model Booking {

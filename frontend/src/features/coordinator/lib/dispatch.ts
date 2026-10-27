@@ -18,6 +18,8 @@ const refusalMessages: Record<string, string> = {
   GUIDE_ON_TREK:
     'This guide is on an assigned trek. Complete the trek before changing their availability.',
   GUIDE_NOT_FOUND: 'This guide no longer exists.',
+  TRAIL_RESTRICTED:
+    'This trail is closed today. Lift the restriction in Trail restrictions before checking in or dispatching a guide.',
 }
 
 export function dispatchErrorMessage(error: unknown, fallback: string) {

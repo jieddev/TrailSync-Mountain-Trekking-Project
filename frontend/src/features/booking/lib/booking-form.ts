@@ -172,3 +172,19 @@ export function formatSchedule(scheduledDate: string, scheduledTime: string) {
   }).format(date)
   return `${datePart} · ${timePart}`
 }
+
+// "Mon, Oct 26, 2026" or "Mon, Oct 26 – Tue, Oct 27, 2026" for a closure range.
+export function formatDateRange(startDate: string, endDate: string) {
+  const toDate = (iso: string) => {
+    const [year, month, day] = iso.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+  const format = new Intl.DateTimeFormat('en-PH', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+  if (startDate === endDate) return format.format(toDate(startDate))
+  return format.formatRange(toDate(startDate), toDate(endDate))
+}

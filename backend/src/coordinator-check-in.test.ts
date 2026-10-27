@@ -5,6 +5,7 @@ vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn
 vi.mock("./lib/certificates.js", () => ({ sendTrekCertificates: vi.fn() }));
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
+    trailRestriction: { findFirst: vi.fn(), findMany: vi.fn() },
     user: { findUnique: vi.fn() },
     booking: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
     bookingParticipant: { updateMany: vi.fn(), createMany: vi.fn() },
@@ -53,6 +54,7 @@ const get = (path: string) => request(app).get(path).set("Authorization", "Beare
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([] as never);
   // Only Date is faked: 08:30 on 2026-10-20 in Manila.
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-20T00:30:00Z"));
@@ -297,5 +299,40 @@ describe("Coordinator booking list filters", () => {
       expect.objectContaining({ field: "today", code: "INVALID_VALUE" }),
     ]));
     expect(findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("Trail restrictions at check-in and dispatch", () => {
+  const closure = { startDate: "2026-10-20", endDate: "2026-10-20", reason: "Typhoon signal no. 1" };
+  const findRestriction = vi.mocked(prisma.trailRestriction.findFirst);
+
+  it("refuses check-in while the trail is closed today, without dispatching", async () => {
+    findBooking.mockResolvedValue({ ...roster, trailId: "trl_sulfatara" } as never);
+    findRestriction.mockResolvedValue(closure as never);
+    const response = await post(`${base}/booking-1/check-in`, { attendance: allPresent });
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("TRAIL_RESTRICTED");
+    expect(findRestriction).toHaveBeenCalledWith(expect.objectContaining({
+      where: { trailId: "trl_sulfatara", liftedAt: null, startDate: { lte: "2026-10-20" }, endDate: { gte: "2026-10-20" } },
+    }));
+    expect(updateBookings).not.toHaveBeenCalled();
+    expect(updateGuides).not.toHaveBeenCalled();
+  });
+
+  it("refuses assigning a guide while the trail is closed today", async () => {
+    findBooking.mockResolvedValue({ status: "CHECKED_IN", trailId: "trl_sulfatara" } as never);
+    findRestriction.mockResolvedValue(closure as never);
+    const response = await post(`${base}/booking-1/assign-guide`);
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("TRAIL_RESTRICTED");
+    expect(updateBookings).not.toHaveBeenCalled();
+  });
+
+  it("shows the restriction on the coordinator's booking list", async () => {
+    findMany.mockResolvedValue([booking({ status: "CONFIRMED" })] as never);
+    vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([{ trailId: "trl_sulfatara", ...closure }] as never);
+    const response = await get(`${base}?today=true`);
+    expect(response.status).toBe(200);
+    expect(response.body.items[0].trailRestriction).toEqual(closure);
   });
 });

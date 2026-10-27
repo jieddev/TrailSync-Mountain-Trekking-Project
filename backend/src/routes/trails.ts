@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { fail } from "../lib/http-errors.js";
+import { manilaToday } from "../lib/manila-date.js";
 import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
+import { publicRestrictionResponse } from "../lib/trail-restrictions.js";
 
 type TrailRecord = { id: string; slug: string; name: string; description: string | null; packagePrice: number };
 
@@ -38,5 +40,22 @@ trailsRouter.get("/:trailId", async (request, response) => {
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Trail lookup failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve trail.");
+  }
+});
+
+// Closures that apply today or later, soonest first, so hikers can avoid them.
+trailsRouter.get("/:trailId/restrictions", async (request, response) => {
+  const today = manilaToday();
+  try {
+    const trail = await prisma.trail.findFirst({ where: { id: request.params.trailId, isActive: true }, select: { id: true } });
+    if (!trail) return fail(response, 404, "TRAIL_NOT_FOUND", "Trail was not found.");
+    const restrictions = await prisma.trailRestriction.findMany({
+      where: { trailId: trail.id, liftedAt: null, endDate: { gte: today } },
+      orderBy: [{ startDate: "asc" }, { createdAt: "asc" }],
+    });
+    return response.status(200).json({ items: restrictions.map((restriction) => publicRestrictionResponse(restriction, today)) });
+  } catch (error) {
+    request.log?.error({ requestId: request.id, err: error }, "Trail restriction list failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve trail restrictions.");
   }
 });

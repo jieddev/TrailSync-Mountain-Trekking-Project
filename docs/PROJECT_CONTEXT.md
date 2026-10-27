@@ -618,6 +618,14 @@ The exact official safety thresholds are **TBD** and should be confirmed with th
 
 Safety-critical decisions should not depend on an AI model.
 
+### Current implementation (Phase 8, agreed 2026-10-26)
+
+- Weather is **advisory only**. It is shown to people but never closes a trail by itself, because no official thresholds exist yet.
+- A coordinator closes a trail manually for an inclusive range of Asia/Manila dates, with a reason (`trail_restrictions`; `API_CONTRACT_V1.md` §8).
+- While a closure applies, the server refuses new bookings and reschedules onto those dates, check-in, guide assignment, and trek start (`TRAIL_RESTRICTED`).
+- Existing bookings are not changed or cancelled; they show the closure and the hiker can reschedule. A trek already in progress is not interrupted; ending it early is the guide's and coordinator's call.
+- Closures are lifted, never deleted, so they remain on record.
+
 ---
 
 # 12. SOS

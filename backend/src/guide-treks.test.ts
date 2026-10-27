@@ -5,6 +5,7 @@ vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn
 vi.mock("./lib/certificates.js", () => ({ sendTrekCertificates: vi.fn() }));
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
+    trailRestriction: { findFirst: vi.fn(), findMany: vi.fn() },
     user: { findUnique: vi.fn() },
     booking: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
     guide: { findUnique: vi.fn(), updateMany: vi.fn() },
@@ -44,6 +45,7 @@ const post = (path: string) => request(app).post(path).set("Authorization", "Bea
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([] as never);
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(now);
   verify.mockResolvedValue({ uid: "verified-uid" } as never);
@@ -67,6 +69,7 @@ describe("Guide starts a trek", () => {
   });
 
   it("starts the guide's own assigned trek", async () => {
+    findBooking.mockResolvedValue({ guideId: "g-juan", status: "GUIDE_ASSIGNED", trailId: "trl_sulfatara" } as never);
     const response = await post(`${base}/booking-1/start`);
     expect(response.status).toBe(200);
     expect(response.body).toMatchObject({ id: "booking-1", status: "IN_PROGRESS", trekStartedAt: now.toISOString() });
@@ -133,5 +136,19 @@ describe("Guide completes a trek", () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe("BOOKING_NOT_FOUND");
     expect(updateBooking).not.toHaveBeenCalled();
+  });
+});
+
+describe("Trail restrictions on trek start", () => {
+  it("refuses to start an assigned trek while the trail is closed today", async () => {
+    findBooking.mockResolvedValue({ guideId: "g-juan", status: "GUIDE_ASSIGNED", trailId: "trl_sulfatara" } as never);
+    vi.mocked(prisma.trailRestriction.findFirst).mockResolvedValue({ startDate: "2026-10-20", endDate: "2026-10-21", reason: "Landslide on the trail" } as never);
+    const response = await post(`${base}/booking-1/start`);
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("TRAIL_RESTRICTED");
+    expect(prisma.trailRestriction.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { trailId: "trl_sulfatara", liftedAt: null, startDate: { lte: "2026-10-20" }, endDate: { gte: "2026-10-20" } },
+    }));
+    expect(updateBookings).not.toHaveBeenCalled();
   });
 });

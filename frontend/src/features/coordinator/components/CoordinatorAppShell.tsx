@@ -10,6 +10,7 @@ const navItems = [
   { to: '/coordinator/dispatch', label: 'Check-in & dispatch' },
   { to: '/coordinator/guides', label: 'Guide queue' },
   { to: '/coordinator/guide-applications', label: 'Guide requests' },
+  { to: '/coordinator/trail-restrictions', label: 'Trail restrictions' },
 ]
 
 type CoordinatorAppShellProps = {

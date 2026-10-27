@@ -1,6 +1,8 @@
 import type { Prisma } from "@prisma/client";
 
 import { completeTrek, lockGuideQueue } from "./guide-queue.js";
+import { manilaToday } from "./manila-date.js";
+import { activeRestriction } from "./trail-restrictions.js";
 
 // Trek session rules for the guide app (PROJECT_CONTEXT.md §6). A dispatched
 // group's guide starts the trek (GUIDE_ASSIGNED → IN_PROGRESS) and completes it
@@ -10,16 +12,18 @@ import { completeTrek, lockGuideQueue } from "./guide-queue.js";
 type Tx = Prisma.TransactionClient;
 
 // The guide's duty state stays ASSIGNED, so starting needs no queue lock; the
-// guarded update is enough to make a repeated start harmless.
+// guarded update is enough to make a repeated start harmless. A trail closed
+// today (Phase 8 restrictions) cannot be started.
 export async function startTrek(tx: Tx, guideId: string, bookingId: string, now = new Date()) {
+  const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { guideId: true, status: true, trailId: true } });
+  if (!booking || booking.guideId !== guideId) return "BOOKING_NOT_FOUND" as const;
+  if (booking.status !== "GUIDE_ASSIGNED") return "TREK_NOT_STARTABLE" as const;
+  if (await activeRestriction(tx, booking.trailId, manilaToday(now))) return "TRAIL_RESTRICTED" as const;
   const started = await tx.booking.updateMany({
     where: { id: bookingId, guideId, status: "GUIDE_ASSIGNED" },
     data: { status: "IN_PROGRESS", trekStartedAt: now },
   });
-  if (started.count) return null;
-  const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { guideId: true } });
-  if (!booking || booking.guideId !== guideId) return "BOOKING_NOT_FOUND" as const;
-  return "TREK_NOT_STARTABLE" as const;
+  return started.count ? null : "TREK_NOT_STARTABLE" as const;
 }
 
 // The guide completes only a trek they started; the coordinator's fallback in

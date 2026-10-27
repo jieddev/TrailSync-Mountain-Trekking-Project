@@ -4,6 +4,7 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 import { useAuth } from '../../../app/AuthContext'
 import { ApiError } from '../../../lib/api'
 import { getBooking, type Booking } from '../../../lib/bookings-api'
+import BookingRestrictionNotice from '../components/BookingRestrictionNotice'
 import PageHeader from '../components/PageHeader'
 import RescheduleForm from '../components/RescheduleForm'
 import StatusBadge from '../components/StatusBadge'
@@ -113,6 +114,8 @@ export default function BookingDetailPage() {
           {successMessage}
         </p>
       )}
+
+      <BookingRestrictionNotice audience="hiker" booking={booking} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
         <div className="grid gap-6">

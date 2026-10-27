@@ -1,6 +1,7 @@
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS } from "./package-policy.js";
+import { restrictionsForBookings } from "./trail-restrictions.js";
 
 // Owner first, then additional participants, then walk-ins added at check-in.
 export const bookingInclude = {
@@ -40,4 +41,23 @@ export function bookingResponse(booking: any) {
     createdAt: booking.createdAt,
     updatedAt: booking.updatedAt,
   };
+}
+
+// Adds trailRestriction (the restriction closing the booking's trail on its
+// date, or null) to each booking representation, using one query for the list.
+export async function withTrailRestrictions<T extends { trail: { id: string }; scheduledDate: string }>(
+  db: Prisma.TransactionClient | PrismaClient,
+  bookings: T[],
+  respond: (booking: T) => object = bookingResponse,
+) {
+  const restrictionFor = await restrictionsForBookings(db, bookings);
+  return bookings.map((booking) => ({ ...respond(booking), trailRestriction: restrictionFor(booking) }));
+}
+
+export async function withTrailRestriction<T extends { trail: { id: string }; scheduledDate: string }>(
+  db: Prisma.TransactionClient | PrismaClient,
+  booking: T,
+  respond: (booking: T) => object = bookingResponse,
+) {
+  return (await withTrailRestrictions(db, [booking], respond))[0];
 }

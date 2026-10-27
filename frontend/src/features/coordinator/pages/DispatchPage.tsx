@@ -10,6 +10,7 @@ import {
   type CoordinatorBooking,
   type Guide,
 } from '../../../lib/coordinator-api'
+import { TrailClosedTag } from '../../booking/components/BookingRestrictionNotice'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusCard from '../../booking/components/StatusCard'
 import { formatSchedule } from '../../booking/lib/booking-form'
@@ -280,6 +281,7 @@ function BookingRow({
           {booking.participantCount === 1 ? 'person' : 'people'}
         </p>
         {detail && <p className="mt-1 text-[#70857b]">{detail}</p>}
+        <TrailClosedTag booking={booking} />
       </div>
       <div className="sm:max-w-xs sm:text-right">{children}</div>
     </li>

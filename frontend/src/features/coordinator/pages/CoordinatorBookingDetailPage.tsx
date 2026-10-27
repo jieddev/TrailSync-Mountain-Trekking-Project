@@ -12,6 +12,7 @@ import {
   resendCertificates,
   type CoordinatorBooking,
 } from '../../../lib/coordinator-api'
+import BookingRestrictionNotice from '../../booking/components/BookingRestrictionNotice'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusBadge from '../../booking/components/StatusBadge'
 import StatusCard from '../../booking/components/StatusCard'
@@ -187,6 +188,8 @@ export default function CoordinatorBookingDetailPage() {
           {notice.text}
         </p>
       )}
+
+      <BookingRestrictionNotice audience="coordinator" booking={booking} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
         <div className="grid gap-6">

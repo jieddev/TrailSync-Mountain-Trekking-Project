@@ -7,6 +7,7 @@ import {
   listCoordinatorBookings,
   type CoordinatorBooking,
 } from '../../../lib/coordinator-api'
+import { TrailClosedTag } from '../../booking/components/BookingRestrictionNotice'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusBadge from '../../booking/components/StatusBadge'
 import StatusCard from '../../booking/components/StatusCard'
@@ -179,6 +180,7 @@ function QueueRow({ booking }: { booking: CoordinatorBooking }) {
         <p className="mt-1 text-[#52675e]">
           {formatSchedule(booking.scheduledDate, booking.scheduledTime)}
         </p>
+        <TrailClosedTag booking={booking} />
       </td>
       <td className="px-4 py-4">
         <p className="font-semibold text-[#173a2e]">{booking.owner.fullName}</p>
@@ -223,6 +225,7 @@ function QueueCard({ booking }: { booking: CoordinatorBooking }) {
         <p className="mt-1 text-sm text-[#52675e]">
           {formatSchedule(booking.scheduledDate, booking.scheduledTime)}
         </p>
+        <TrailClosedTag booking={booking} />
         <p className="mt-3 text-sm text-[#173a2e]">
           {booking.owner.fullName} · {booking.participantCount}{' '}
           {booking.participantCount === 1 ? 'person' : 'people'} ·{' '}
