@@ -12,6 +12,8 @@ import { listTrails, type Trail } from '../../../lib/trails-api'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusCard from '../../booking/components/StatusCard'
 import { formatDateRange, manilaTodayIso } from '../../booking/lib/booking-form'
+import WeatherCard from '../../weather/components/WeatherCard'
+import { useWeather } from '../../weather/lib/use-weather'
 import ConfirmAction from '../components/ConfirmAction'
 import type { Notice } from '../lib/dispatch'
 import { cardClass, primaryButtonClass } from '../lib/ui'
@@ -61,6 +63,7 @@ export default function TrailRestrictionsPage() {
   const { user } = useAuth()
   const today = manilaTodayIso()
   const [state, setState] = useState<PageState>({ status: 'loading' })
+  const weather = useWeather()
   const [reloadKey, setReloadKey] = useState(0)
   const [notice, setNotice] = useState<Notice | null>(null)
   const [values, setValues] = useState<FormValues>({
@@ -196,6 +199,7 @@ export default function TrailRestrictionsPage() {
       )}
       {state.status === 'loaded' && (
         <div className="grid gap-6">
+          <WeatherCard state={weather} />
           <form className={cardClass} noValidate onSubmit={handleSubmit}>
             <h2 className="text-sm font-bold text-[#173a2e]">
               Restrict a trail
