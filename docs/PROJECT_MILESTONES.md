@@ -128,7 +128,9 @@ The guide's phone tracks the **group**; TrailSync does not track every individua
 
 Agreed approach: weather is advisory only; a coordinator closes a trail by hand. Nothing restricts a trail automatically until official thresholds are confirmed.
 
-- [ ] Weather provider integration (OpenWeather, one provisional point at the Cabintan jump-off).
+- [x] Weather provider integration (OpenWeather, one provisional point at the Cabintan jump-off; `backend/src/lib/weather.ts`, `GET /api/v1/weather`):
+  - current conditions and a daily Asia/Manila forecast, cached for 10 minutes, with the last good forecast served as stale if OpenWeather fails
+  - shown as advisory on the hiker home page, for the chosen booking date, and beside the coordinator's restriction form
 - [x] Trail restrictions stored per trail and enforced by the server (`trail_restrictions`, `backend/src/lib/trail-restrictions.ts`):
   - a coordinator closes a trail for a date range with a reason, and can lift it (`/coordinator/trail-restrictions`)
   - `409 TRAIL_RESTRICTED` on new bookings and reschedules onto those dates, check-in, guide assignment, and trek start

@@ -625,6 +625,7 @@ Safety-critical decisions should not depend on an AI model.
 - While a closure applies, the server refuses new bookings and reschedules onto those dates, check-in, guide assignment, and trek start (`TRAIL_RESTRICTED`).
 - Existing bookings are not changed or cancelled; they show the closure and the hiker can reschedule. A trek already in progress is not interrupted; ending it early is the guide's and coordinator's call.
 - Closures are lifted, never deleted, so they remain on record.
+- Weather comes from OpenWeather's free current-weather and 5-day forecast APIs (`GET /api/v1/weather`; `API_CONTRACT_V1.md` §9) for one point both trails share: the Cabintan jump-off from the provisional KML. Hikers see it on the home page and for their chosen booking date, and coordinators see it beside the restriction form. It is labelled advisory everywhere; thunderstorms are highlighted but do not block anything.
 
 ---
 
