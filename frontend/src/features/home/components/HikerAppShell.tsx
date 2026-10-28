@@ -2,6 +2,7 @@ import { signOut } from 'firebase/auth'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
+import logo from '../../../assets/trailsync-logo.png'
 import type { CurrentUserProfile } from '../../../lib/users-api'
 import { auth } from '../../../lib/firebase'
 
@@ -56,12 +57,12 @@ export default function HikerAppShell({
     <div className="min-h-screen bg-[#f7f7f1] text-[#062f22] lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
       <aside className="border-b border-[#d5e1da] bg-white px-5 py-5 lg:min-h-screen lg:border-b-0 lg:border-r lg:px-6 lg:py-8">
         <NavLink
-          className="inline-flex rounded-sm text-[11px] font-bold uppercase tracking-[0.16em] text-[#008755] outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
+          className="inline-flex rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
           to="/home"
         >
-          TrailSync
+          <img alt="TrailSync" className="h-14 w-auto" src={logo} />
         </NavLink>
-        <p className="mt-1 text-xs text-[#70857b]">
+        <p className="mt-2 text-xs text-[#70857b]">
           Trekking journeys, connected.
         </p>
         <nav
@@ -85,7 +86,7 @@ export default function HikerAppShell({
       <div className="flex min-h-screen min-w-0 flex-col">
         <header className="flex items-center justify-between gap-4 border-b border-[#d5e1da] px-5 py-4 sm:px-8 lg:px-10">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-[#173a2e]">
+            <p className="text-lg font-semibold text-[#173a2e]">
               {profile ? `Welcome, ${displayName}` : 'TrailSync account'}
             </p>
           </div>
