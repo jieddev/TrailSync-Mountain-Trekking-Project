@@ -639,6 +639,14 @@ The current scope does **not** claim that the application can bypass the operati
 
 SOS is an application-level emergency feature.
 
+### Current implementation (Phase 8, agreed 2026-10-26)
+
+- An SOS creates an **incident** (`incidents`; `API_CONTRACT_V1.md` §10) that goes `OPEN` → `ACKNOWLEDGED` → `RESOLVED`. The booking's status is not changed.
+- The guide's last GPS fix and a short note are attached when available; an SOS can also be sent with neither.
+- Sending again while an incident is unresolved returns the same incident (with a newer location), so retries on a weak connection never raise a second alarm.
+- Coordinators see SOS alerts on `/coordinator/incidents` and as a badge in the navigation, checked every 20 seconds. Acknowledging tells the guide's app the SOS was seen; resolving requires a note.
+- Still TBD: notifications outside the app (SMS, push), escalation when nobody acknowledges, and who else is alerted.
+
 ---
 
 # 13. Daily Capacity

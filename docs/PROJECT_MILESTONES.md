@@ -21,11 +21,11 @@ The roadmap, in build order. Each phase depends on the ones before it.
 | 5. Coordinator review, check-in, dispatch | ✅ Done — review, check-in, FIFO dispatch, completion                  |
 | 6. Guide mobile app and trek sessions     | ✅ Done — availability, queue position, trek start/complete            |
 | 7. Group monitoring and offline sync      | ⬜ Not started                                                         |
-| 8. Weather, safety, and SOS               | 🟡 In progress — trail restrictions done; weather and SOS next         |
+| 8. Weather, safety, and SOS               | 🟡 In progress — restrictions, weather, SOS done on web; guide app next |
 | 9. Certificates and analytics             | ⬜ Not started                                                         |
 | 10. Production readiness                  | ⬜ Ongoing                                                             |
 
-**Next up:** Phase 8, weather and SOS. Phase 7 (group monitoring and offline sync) is deferred for now.
+**Next up:** Phase 8 in the guide app: SOS button, weather, and trail closures. Phase 7 (group monitoring and offline sync) is deferred for now.
 
 ---
 
@@ -136,7 +136,10 @@ Agreed approach: weather is advisory only; a coordinator closes a trail by hand.
   - `409 TRAIL_RESTRICTED` on new bookings and reschedules onto those dates, check-in, guide assignment, and trek start
   - existing bookings are not changed; hikers, coordinators, and guides see the closure (`trailRestriction` on bookings)
   - a trek already in progress is not interrupted
-- [ ] In-app guide SOS and coordinator incident handling.
+- [x] In-app guide SOS and coordinator incident handling (`incidents`, `backend/src/lib/incidents.ts`):
+  - the guide sends an SOS with their last location and a note; retries return the same unresolved incident
+  - coordinators acknowledge and resolve incidents on `/coordinator/incidents`, with an open-SOS badge in the navigation (checked every 20 seconds)
+  - the booking's status is not changed; the guide app's SOS button is the next step
 - [ ] **Blocked:** official weather thresholds (automatic restrictions), notification channels, incident escalation.
 
 ## 9. Certificates and analytics
