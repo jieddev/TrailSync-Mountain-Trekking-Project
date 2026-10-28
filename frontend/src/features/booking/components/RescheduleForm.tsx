@@ -53,6 +53,14 @@ export default function RescheduleForm({
         setErrors(fieldErrorsFromApi(error.details))
       } else if (
         error instanceof ApiError &&
+        error.code === 'TRAIL_RESTRICTED'
+      ) {
+        setErrors({
+          scheduledDate:
+            'This trail is closed on this date. Choose another date.',
+        })
+      } else if (
+        error instanceof ApiError &&
         error.code === 'RESCHEDULE_NOT_ALLOWED'
       ) {
         setFormError(

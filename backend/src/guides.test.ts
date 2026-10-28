@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn() } }));
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
+    trailRestriction: { findFirst: vi.fn(), findMany: vi.fn() },
     user: { findUnique: vi.fn() },
     booking: { findMany: vi.fn() },
     guide: { findMany: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), update: vi.fn(), count: vi.fn() },
@@ -38,6 +39,7 @@ const post = (path: string, body: object = {}) => request(app).post(path).set("A
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([] as never);
   verify.mockResolvedValue({ uid: "verified-uid" } as never);
   userLookup.mockResolvedValue(coordinator as never);
   transaction.mockImplementation(async (callback: any) => callback(prisma) as never);

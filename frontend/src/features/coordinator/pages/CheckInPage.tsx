@@ -8,6 +8,7 @@ import {
   getCoordinatorBooking,
   type CoordinatorBooking,
 } from '../../../lib/coordinator-api'
+import BookingRestrictionNotice from '../../booking/components/BookingRestrictionNotice'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusCard from '../../booking/components/StatusCard'
 import {
@@ -242,6 +243,8 @@ export default function CheckInPage() {
           check the group in.
         </PageHeader>
       </div>
+
+      <BookingRestrictionNotice audience="coordinator" booking={booking} />
 
       {notice && (
         <p

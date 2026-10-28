@@ -5,10 +5,12 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../../app/AuthContext'
 import { ApiError } from '../../../lib/api'
 import { createBooking } from '../../../lib/bookings-api'
+import { closureOn } from '../../../lib/trail-restrictions-api'
 import { listTrails, type Trail } from '../../../lib/trails-api'
 import AuthFormField from '../../auth/components/AuthFormField'
 import AuthSubmitButton from '../../auth/components/AuthSubmitButton'
 import { useHikerProfile } from '../../home/hiker-profile'
+import Alert from '../components/Alert'
 import PageHeader from '../components/PageHeader'
 import StatusCard from '../components/StatusCard'
 import {
@@ -16,11 +18,13 @@ import {
   type BookingFormValues,
   emptyParticipant,
   fieldErrorsFromApi,
+  formatDateRange,
   formatMoney,
   todayLocalIso,
   toCreateBookingInput,
   validateBookingForm,
 } from '../lib/booking-form'
+import { useTrailClosures } from '../lib/use-trail-closures'
 
 type TrailsState =
   | { status: 'loading' }
@@ -55,6 +59,11 @@ export default function BookingFormPage() {
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const requestedTrailId = searchParams.get('trailId')
+  const closures = useTrailClosures(
+    trailsState.status === 'loaded'
+      ? trailsState.trails.map((trail) => trail.id)
+      : [],
+  )
 
   useEffect(() => {
     let isCurrent = true
@@ -105,6 +114,10 @@ export default function BookingFormPage() {
   const maxAdditional = maxParticipants - 1
   const groupSize = 1 + values.additionalParticipants.length
   const today = todayLocalIso()
+  const closureOnDate =
+    selectedTrail && values.scheduledDate
+      ? closureOn(closures[selectedTrail.id] ?? [], values.scheduledDate)
+      : null
 
   function updateValues(next: BookingFormValues) {
     setValues(next)
@@ -173,6 +186,15 @@ export default function BookingFormPage() {
       if (error instanceof ApiError && error.status === 422) {
         setErrors(fieldErrorsFromApi(error.details))
         setFormError('Review the highlighted fields and try again.')
+      } else if (
+        error instanceof ApiError &&
+        error.code === 'TRAIL_RESTRICTED'
+      ) {
+        setErrors({
+          scheduledDate:
+            'This trail is closed on this date. Choose another date.',
+        })
+        setFormError('This trail is closed on the date you picked.')
       } else if (error instanceof ApiError && error.status === 403) {
         setFormError('Only hiker accounts can book a trek.')
       } else {
@@ -222,6 +244,11 @@ export default function BookingFormPage() {
                     {formatMoney(trail.package.price)} package · up to{' '}
                     {trail.package.maximumParticipants} people
                   </span>
+                  {(closures[trail.id] ?? []).length > 0 && (
+                    <span className="mt-2 self-start rounded-full bg-[#fdf3dc] px-2 py-0.5 text-xs font-bold text-[#7a5300]">
+                      Closed on some dates
+                    </span>
+                  )}
                 </label>
               ))}
             </div>
@@ -265,6 +292,19 @@ export default function BookingFormPage() {
                 value={values.scheduledTime}
               />
             </div>
+            {closureOnDate && selectedTrail && (
+              <Alert
+                className="mt-2"
+                title={`${selectedTrail.name} is closed on this date`}
+                tone="danger"
+              >
+                {formatDateRange(
+                  closureOnDate.startDate,
+                  closureOnDate.endDate,
+                )}
+                : {closureOnDate.reason}. Choose another date.
+              </Alert>
+            )}
           </fieldset>
 
           <fieldset className="rounded-2xl border border-[#d5e1da] bg-white p-6">

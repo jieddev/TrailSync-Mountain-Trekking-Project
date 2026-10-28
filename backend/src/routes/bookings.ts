@@ -1,8 +1,9 @@
 import { Router, type Response } from "express";
 import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
-import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
+import { bookingInclude, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
 import { MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
+import { activeRestriction } from "../lib/trail-restrictions.js";
 import { nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
 import { requireFirebaseAuth, type AuthenticatedRequest } from "../middleware/require-firebase-auth.js";
 
@@ -26,6 +27,10 @@ function validateSchedule(body: Record<string, unknown>) {
   if (!validDate(body.scheduledDate)) details.push({ field: "scheduledDate", code: "INVALID_DATE", message: "Use a valid date in YYYY-MM-DD format." });
   if (!validTime(body.scheduledTime)) details.push({ field: "scheduledTime", code: "INVALID_TIME", message: "Use a valid time in HH:mm format." });
   return details;
+}
+
+function trailRestricted(response: Response) {
+  return fail(response, 409, "TRAIL_RESTRICTED", "This trail is closed on the selected date. Choose another date.");
 }
 
 async function currentProfile(request: AuthenticatedRequest) {
@@ -70,27 +75,31 @@ bookingsRouter.post("/", async (request, response) => {
     const trail = await prisma.trail.findFirst({ where: { id: body.trailId as string, isActive: true }, select: { id: true, packagePrice: true } });
     if (!trail) return validation(response, [{ field: "trailId", code: "UNSUPPORTED_TRAIL", message: "Select a supported trail." }]);
 
-    const booking = await prisma.$transaction(async (tx) => tx.booking.create({
-      data: {
-        ownerId: profile.id,
-        trailId: trail.id,
-        scheduledDate: body.scheduledDate as string,
-        scheduledTime: body.scheduledTime as string,
-        packagePrice: trail.packagePrice,
-        downpaymentAmount: downpaymentFor(trail.packagePrice),
-        status: "PENDING_CONFIRMATION",
-        downpaymentStatus: "PENDING_VERIFICATION",
-        participants: { create: [
-          { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerDetails.age as number, address: (ownerDetails.address as string).trim(), email: profile.email },
-          ...(additional as Record<string, unknown>[]).map((person) => ({
-            kind: "ADDITIONAL_PARTICIPANT" as const,
-            name: (person.name as string).trim(), age: person.age as number, address: (person.address as string).trim(),
-            email: optionalEmail(person.email),
-          })),
-        ] },
-      }, include: bookingInclude,
-    }));
-    return response.status(201).json(bookingResponse(booking));
+    const booking = await prisma.$transaction(async (tx) => {
+      if (await activeRestriction(tx, trail.id, body.scheduledDate as string)) return null;
+      return tx.booking.create({
+        data: {
+          ownerId: profile.id,
+          trailId: trail.id,
+          scheduledDate: body.scheduledDate as string,
+          scheduledTime: body.scheduledTime as string,
+          packagePrice: trail.packagePrice,
+          downpaymentAmount: downpaymentFor(trail.packagePrice),
+          status: "PENDING_CONFIRMATION",
+          downpaymentStatus: "PENDING_VERIFICATION",
+          participants: { create: [
+            { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerDetails.age as number, address: (ownerDetails.address as string).trim(), email: profile.email },
+            ...(additional as Record<string, unknown>[]).map((person) => ({
+              kind: "ADDITIONAL_PARTICIPANT" as const,
+              name: (person.name as string).trim(), age: person.age as number, address: (person.address as string).trim(),
+              email: optionalEmail(person.email),
+            })),
+          ] },
+        }, include: bookingInclude,
+      });
+    });
+    if (!booking) return trailRestricted(response);
+    return response.status(201).json(await withTrailRestriction(prisma, booking));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking creation failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not create booking.");
@@ -103,7 +112,7 @@ bookingsRouter.get("/", async (request, response) => {
     if ("error" in profile) return fail(response, profile.error === "UNAUTHORIZED" ? 401 : 404, profile.error, profile.error === "PROFILE_NOT_FOUND" ? "User profile was not found." : "Authentication is required.");
     if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can view these bookings.");
     const bookings = await prisma.booking.findMany({ where: { ownerId: profile.id }, include: bookingInclude, orderBy: { createdAt: "desc" } });
-    return response.status(200).json({ items: bookings.map(bookingResponse) });
+    return response.status(200).json({ items: await withTrailRestrictions(prisma, bookings) });
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking list failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve bookings.");
@@ -117,7 +126,7 @@ bookingsRouter.get("/:bookingId", async (request, response) => {
     if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can view bookings.");
     const booking = await prisma.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, include: bookingInclude });
     if (!booking) return fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
-    return response.status(200).json(bookingResponse(booking));
+    return response.status(200).json(await withTrailRestriction(prisma, booking));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking lookup failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve booking.");
@@ -133,6 +142,8 @@ bookingsRouter.post("/:bookingId/reschedule", async (request, response) => {
     const details = validateSchedule(body);
     if (details.length) return validation(response, details);
     const booking = await prisma.$transaction(async (tx) => {
+      const owned = await tx.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, select: { trailId: true } });
+      if (owned && await activeRestriction(tx, owned.trailId, body.scheduledDate as string)) return "TRAIL_RESTRICTED" as const;
       const updated = await tx.booking.updateMany({
         where: { id: request.params.bookingId, ownerId: profile.id, status: "CONFIRMED" },
         data: { scheduledDate: body.scheduledDate as string, scheduledTime: body.scheduledTime as string, status: "PENDING_CONFIRMATION" },
@@ -140,11 +151,12 @@ bookingsRouter.post("/:bookingId/reschedule", async (request, response) => {
       if (!updated.count) return null;
       return tx.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, include: bookingInclude });
     });
+    if (booking === "TRAIL_RESTRICTED") return trailRestricted(response);
     if (!booking) {
       const owned = await prisma.booking.findFirst({ where: { id: request.params.bookingId, ownerId: profile.id }, select: { id: true } });
       return owned ? fail(response, 409, "RESCHEDULE_NOT_ALLOWED", "Booking cannot be rescheduled in its current state.") : fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
     }
-    return response.status(200).json(bookingResponse(booking));
+    return response.status(200).json(await withTrailRestriction(prisma, booking));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking reschedule failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not reschedule booking.");
@@ -168,7 +180,7 @@ bookingsRouter.post("/:bookingId/confirm", async (request, response) => {
       const existing = await prisma.booking.findUnique({ where: { id: request.params.bookingId }, select: { id: true } });
       return existing ? fail(response, 409, "BOOKING_NOT_CONFIRMABLE", "Booking cannot be confirmed in its current state.") : fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
     }
-    return response.status(200).json(bookingResponse(booking));
+    return response.status(200).json(await withTrailRestriction(prisma, booking));
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking confirmation failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not confirm booking.");

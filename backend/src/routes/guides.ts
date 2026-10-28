@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import type { Prisma } from "@prisma/client";
 
-import { bookingInclude, bookingResponse } from "../lib/booking-representation.js";
+import { bookingInclude, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
 import { sendTrekCertificates } from "../lib/certificates.js";
 import { changeAvailability } from "../lib/guide-availability.js";
 import { queuePosition } from "../lib/guide-queue.js";
@@ -25,6 +25,7 @@ const refusals = {
   TREK_NOT_STARTABLE: [409, "Only a trek that has been assigned to you and not yet started can be started."],
   TREK_NOT_IN_PROGRESS: [409, "Only a trek you have started can be completed."],
   BOOKING_NOT_ON_TREK: [409, "Only a group with an assigned guide can complete a trek."],
+  TRAIL_RESTRICTED: [409, "This trail is closed today, so the trek cannot start. Contact the coordinator."],
 } as const;
 type Refusal = keyof typeof refusals;
 
@@ -47,7 +48,7 @@ async function changeTrek(request: Request, response: Response, step: TrekStep, 
     return { booking: await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude }) };
   });
   if ("refusal" in result) return refuse(response, result.refusal);
-  response.status(200).json(bookingResponse(result.booking));
+  response.status(200).json(await withTrailRestriction(prisma, result.booking as any));
   afterCommit?.(bookingId);
   return response;
 }
@@ -85,7 +86,7 @@ guidesRouter.get("/me/hike-requests", async (request, response) => {
       include: bookingInclude,
       orderBy: [{ status: "asc" }, { scheduledDate: "desc" }, { scheduledTime: "desc" }],
     });
-    return response.status(200).json({ items: bookings.map(bookingResponse) });
+    return response.status(200).json({ items: await withTrailRestrictions(prisma, bookings) });
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Guide hike request list failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve your hike requests.");

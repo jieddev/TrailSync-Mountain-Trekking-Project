@@ -21,11 +21,11 @@ The roadmap, in build order. Each phase depends on the ones before it.
 | 5. Coordinator review, check-in, dispatch | ✅ Done — review, check-in, FIFO dispatch, completion                  |
 | 6. Guide mobile app and trek sessions     | ✅ Done — availability, queue position, trek start/complete            |
 | 7. Group monitoring and offline sync      | ⬜ Not started                                                         |
-| 8. Weather, safety, and SOS               | ⬜ Not started                                                         |
+| 8. Weather, safety, and SOS               | 🟡 In progress — trail restrictions done; weather and SOS next         |
 | 9. Certificates and analytics             | ⬜ Not started                                                         |
 | 10. Production readiness                  | ⬜ Ongoing                                                             |
 
-**Next up:** Phase 7, group monitoring: GPS from the guide's phone during an `IN_PROGRESS` trek, with offline sync.
+**Next up:** Phase 8, weather and SOS. Phase 7 (group monitoring and offline sync) is deferred for now.
 
 ---
 
@@ -126,10 +126,16 @@ The guide's phone tracks the **group**; TrailSync does not track every individua
 
 ## 8. Weather, safety, and SOS
 
-- [ ] Weather provider integration.
-- [ ] Trail restrictions stored per trail and enforced by the server.
+Agreed approach: weather is advisory only; a coordinator closes a trail by hand. Nothing restricts a trail automatically until official thresholds are confirmed.
+
+- [ ] Weather provider integration (OpenWeather, one provisional point at the Cabintan jump-off).
+- [x] Trail restrictions stored per trail and enforced by the server (`trail_restrictions`, `backend/src/lib/trail-restrictions.ts`):
+  - a coordinator closes a trail for a date range with a reason, and can lift it (`/coordinator/trail-restrictions`)
+  - `409 TRAIL_RESTRICTED` on new bookings and reschedules onto those dates, check-in, guide assignment, and trek start
+  - existing bookings are not changed; hikers, coordinators, and guides see the closure (`trailRestriction` on bookings)
+  - a trek already in progress is not interrupted
 - [ ] In-app guide SOS and coordinator incident handling.
-- [ ] **Blocked:** official weather thresholds, notification channels, incident escalation.
+- [ ] **Blocked:** official weather thresholds (automatic restrictions), notification channels, incident escalation.
 
 ## 9. Certificates and analytics
 

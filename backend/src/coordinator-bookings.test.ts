@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn() } }));
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
+    trailRestriction: { findFirst: vi.fn(), findMany: vi.fn() },
     user: { findUnique: vi.fn() },
     booking: { findMany: vi.fn(), findUnique: vi.fn() },
   },
@@ -29,6 +30,7 @@ const get = (path: string) => request(app).get(path).set("Authorization", "Beare
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([] as never);
   verify.mockResolvedValue({ uid: "verified-uid" } as never);
   userLookup.mockResolvedValue(coordinator as never);
 });

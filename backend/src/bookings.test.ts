@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn() } }));
 vi.mock("./lib/prisma.js", () => ({
   prisma: {
+    trailRestriction: { findFirst: vi.fn(), findMany: vi.fn() },
     user: { findUnique: vi.fn() },
     trail: { findFirst: vi.fn() },
     booking: { create: vi.fn(), findMany: vi.fn(), findFirst: vi.fn(), findUnique: vi.fn(), updateMany: vi.fn() },
@@ -19,6 +20,7 @@ const verify = vi.mocked(firebaseAuth.verifyIdToken);
 const userLookup = vi.mocked(prisma.user.findUnique);
 const trailLookup = vi.mocked(prisma.trail.findFirst);
 const tx = {
+  trailRestriction: { findFirst: vi.mocked(prisma.trailRestriction.findFirst) },
   booking: {
     create: vi.mocked(prisma.booking.create),
     findFirst: vi.mocked(prisma.booking.findFirst),
@@ -38,6 +40,7 @@ const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([] as never);
   verify.mockResolvedValue({ uid: "verified-uid" } as never);
   userLookup.mockResolvedValue(owner as never);
   trailLookup.mockResolvedValue({ id: "trl_sulfatara", packagePrice: 550 } as never);
@@ -185,5 +188,38 @@ describe("Booking Foundation", () => {
     const response = await request(app).post("/api/v1/bookings/booking-1/confirm").set("Authorization", "Bearer token");
     expect(response.status).toBe(409);
     expect(response.body.error.code).toBe("BOOKING_NOT_CONFIRMABLE");
+  });
+});
+
+describe("Trail restrictions on hiker bookings", () => {
+  const closure = { startDate: "2026-11-20", endDate: "2026-11-21", reason: "Heavy rain advisory" };
+
+  it("refuses a booking on a trail closed that date", async () => {
+    tx.trailRestriction.findFirst.mockResolvedValue(closure as never);
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send(createBody());
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("TRAIL_RESTRICTED");
+    expect(tx.trailRestriction.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { trailId: "trl_sulfatara", liftedAt: null, startDate: { lte: "2026-11-20" }, endDate: { gte: "2026-11-20" } },
+    }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses rescheduling onto a closed date and leaves the booking unchanged", async () => {
+    tx.booking.findFirst.mockResolvedValue({ trailId: "trl_sulfatara" } as never);
+    tx.trailRestriction.findFirst.mockResolvedValue(closure as never);
+    const response = await request(app).post("/api/v1/bookings/booking-1/reschedule").set("Authorization", "Bearer token").send({ scheduledDate: "2026-11-21", scheduledTime: "09:00" });
+    expect(response.status).toBe(409);
+    expect(response.body.error.code).toBe("TRAIL_RESTRICTED");
+    expect(tx.booking.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("shows the restriction on an existing booking for that date, and null otherwise", async () => {
+    vi.mocked(prisma.booking.findMany).mockResolvedValue([booking(), booking({ id: "booking-2", scheduledDate: "2026-12-01" })] as never);
+    vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([{ trailId: "trl_sulfatara", ...closure }] as never);
+    const response = await request(app).get("/api/v1/bookings").set("Authorization", "Bearer token");
+    expect(response.status).toBe(200);
+    expect(response.body.items[0].trailRestriction).toEqual(closure);
+    expect(response.body.items[1].trailRestriction).toBeNull();
   });
 });

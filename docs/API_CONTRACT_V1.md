@@ -139,6 +139,20 @@ Returns one active trail in the same shape. Errors: `404 TRAIL_NOT_FOUND` (unkno
 
 Map, route, checkpoint, and geographic fields will be added only when verified trail data exists.
 
+### `GET /api/v1/trails/:trailId/restrictions`
+
+Lists the trail's closures that apply today or later (not lifted, `endDate` on or after today's Asia/Manila date), soonest first. **Auth:** none. Coordinator names are not included.
+
+```json
+{
+  "items": [
+    { "id": "restriction-id", "startDate": "2026-10-27", "endDate": "2026-10-28", "reason": "PAGASA heavy rainfall warning", "status": "UPCOMING" }
+  ]
+}
+```
+
+`status` is `ACTIVE` (applies today) or `UPCOMING`. Errors: `404 TRAIL_NOT_FOUND` (unknown or inactive), `500`. Restrictions are managed in §8.
+
 ---
 
 ## 4. Bookings
@@ -171,6 +185,7 @@ Returned by every booking endpoint:
   "completedAt": null,
   "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
   "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" },
+  "trailRestriction": null,
   "createdAt": "2026-10-07T01:00:00.000Z",
   "updatedAt": "2026-10-07T01:00:00.000Z"
 }
@@ -179,6 +194,7 @@ Returned by every booking endpoint:
 - `participants` are ordered owner first, then additional participants, then walk-ins. `kind` is `BOOKING_OWNER`, `ADDITIONAL_PARTICIPANT`, or `WALK_IN` (added at check-in). `attendance` is `PRESENT`, `ABSENT`, or `null` before check-in. `email` is where the participant's certificate goes (`null`: it goes to the booking owner); `certificateSentAt` is when it was emailed (§5).
 - `guide` is `{ "id", "fullName" }` once a guide is assigned at check-in, otherwise `null`. It stays set after completion.
 - `checkedInAt`, `guideAssignedAt`, `trekStartedAt`, and `completedAt` are ISO timestamps, or `null` until that step happens. `trekStartedAt` stays `null` when the coordinator completes a trek the guide never started.
+- `trailRestriction` is `{ "startDate", "endDate", "reason" }` when a coordinator has closed the booking's trail on its `scheduledDate` (§8), otherwise `null`. The booking itself is not changed by a closure; the hiker can reschedule.
 
 `package.price.amount` and `paymentRequirement.amount` are **snapshots** taken from the trail when the booking was created; later catalog price changes do not affect existing bookings.
 
@@ -227,7 +243,7 @@ Creates a booking. **Role:** `HIKER`.
 
 `201` returns the booking with `PENDING_CONFIRMATION` / `PENDING_VERIFICATION`.
 
-`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`. Other errors: `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`. Other errors: `409 TRAIL_RESTRICTED` (the trail is closed on `scheduledDate`, §8), `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
 
 ### `GET /api/v1/bookings`
 
@@ -245,7 +261,7 @@ Moves a `CONFIRMED` booking to a new date/time. **Role:** `HIKER` (owner).
 { "scheduledDate": "2026-11-21", "scheduledTime": "09:00" }
 ```
 
-`200` returns the same booking with the new schedule and `status: PENDING_CONFIRMATION`. Trail, participants, price, and verified downpayment credit are kept; no second downpayment is required. Errors: `422 VALIDATION_ERROR`, `404 BOOKING_NOT_FOUND`, `409 RESCHEDULE_NOT_ALLOWED` (not currently `CONFIRMED`), `401`, `403`, `500`.
+`200` returns the same booking with the new schedule and `status: PENDING_CONFIRMATION`. Trail, participants, price, and verified downpayment credit are kept; no second downpayment is required. Errors: `422 VALIDATION_ERROR`, `404 BOOKING_NOT_FOUND`, `409 RESCHEDULE_NOT_ALLOWED` (not currently `CONFIRMED`), `409 TRAIL_RESTRICTED` (the booking's trail is closed on the new date), `401`, `403`, `500`.
 
 ### `POST /api/v1/bookings/:bookingId/confirm`
 
@@ -322,6 +338,7 @@ Errors:
 - `422 VALIDATION_ERROR`, with detail codes `REQUIRED`, `INVALID_TYPE`, `INVALID_AGE`, `INVALID_EMAIL`, `UNKNOWN_PARTICIPANT`, `DUPLICATE_PARTICIPANT`, `MISSING_PARTICIPANT`, `AT_LEAST_ONE_PRESENT`, `PARTICIPANT_LIMIT_EXCEEDED`.
 - `409 CHECK_IN_NOT_ALLOWED`: the booking is not `CONFIRMED`, which also covers a repeated check-in.
 - `409 NOT_SCHEDULED_TODAY`: the group must reschedule first.
+- `409 TRAIL_RESTRICTED`: the trail is closed today (§8); nothing is changed.
 - `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
 
 ### `POST /api/v1/coordinator/bookings/:bookingId/assign-guide`
@@ -331,6 +348,7 @@ Assigns the guide at the front of the queue to a group waiting in `CHECKED_IN`. 
 Errors:
 - `409 BOOKING_NOT_WAITING`: the booking is not `CHECKED_IN`.
 - `409 NO_GUIDE_AVAILABLE`: the queue is empty.
+- `409 TRAIL_RESTRICTED`: the trail is closed today (§8).
 - `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
 
 ### `POST /api/v1/coordinator/bookings/:bookingId/complete`
@@ -423,6 +441,7 @@ Errors: `422 VALIDATION_ERROR` (`INVALID_STATUS`), `409 GUIDE_ON_TREK`, `404 GUI
 
 Errors:
 - `409 TREK_NOT_STARTABLE`: the booking is not `GUIDE_ASSIGNED` (already started or completed), so a retried start is harmless.
+- `409 TRAIL_RESTRICTED`: the trail is closed today (§8). A trek already `IN_PROGRESS` is not interrupted by a closure.
 - `404 BOOKING_NOT_FOUND`: unknown, or dispatched to another guide.
 - `404 GUIDE_NOT_FOUND`, `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
 
@@ -488,14 +507,71 @@ Errors: `422 VALIDATION_ERROR` (`INVALID_REASON`, `TOO_LONG`), `409 APPLICATION_
 
 ---
 
-## 8. Planned APIs
+## 8. Trail restrictions
+
+A coordinator closes one trail for an inclusive range of Asia/Manila dates, for example for bad weather or trail damage. Weather data never closes a trail automatically: official weather thresholds are not decided yet (`PROJECT_CONTEXT.md` §11).
+
+While a restriction applies to a trail and date, the server refuses with `409 TRAIL_RESTRICTED`:
+
+- new bookings and reschedules onto that date (§4)
+- check-in and guide assignment (§5)
+- the guide's trek start (§6)
+
+Existing bookings are not changed or cancelled; their `trailRestriction` field shows the closure. Restrictions are lifted, never deleted.
+
+### Restriction representation
+
+```json
+{
+  "id": "restriction-id",
+  "trail": { "id": "trl_sulfatara", "name": "Sulfatara" },
+  "startDate": "2026-10-27",
+  "endDate": "2026-10-28",
+  "reason": "PAGASA heavy rainfall warning",
+  "status": "UPCOMING",
+  "createdBy": { "id": "user-id", "fullName": "Office Coordinator" },
+  "createdAt": "2026-10-26T01:00:00.000Z",
+  "liftedAt": null,
+  "liftedBy": null
+}
+```
+
+`status` is derived from today's Asia/Manila date: `ACTIVE` (applies today), `UPCOMING`, `ENDED` (its last day has passed), or `LIFTED`.
+
+### `GET /api/v1/coordinator/trail-restrictions`
+
+**Role:** `COORDINATOR`. Returns `{ "items": [...] }`, newest `startDate` first, including ended and lifted restrictions.
+
+### `POST /api/v1/coordinator/trail-restrictions`
+
+**Role:** `COORDINATOR`.
+
+```json
+{ "trailId": "trl_sulfatara", "startDate": "2026-10-27", "endDate": "2026-10-28", "reason": "PAGASA heavy rainfall warning" }
+```
+
+- `trailId` must be an active catalog trail.
+- `startDate` and `endDate` are `YYYY-MM-DD`; `endDate` is on or after `startDate` and not before today. A range may start in the past if it still applies today.
+- `reason` is required, at most 500 characters, and is shown to hikers and guides.
+- The coordinator is taken from the verified token.
+
+`201` returns the restriction. Errors: `422 VALIDATION_ERROR` (`REQUIRED`, `INVALID_DATE`, `END_BEFORE_START`, `DATE_IN_PAST`, `TOO_LONG`, `UNSUPPORTED_TRAIL`), `401`, `403`, `500`.
+
+### `POST /api/v1/coordinator/trail-restrictions/:restrictionId/lift`
+
+**Role:** `COORDINATOR`. Reopens the trail for the restriction's dates. No request body. `200` returns the restriction as `LIFTED`. Errors: `409 RESTRICTION_ALREADY_LIFTED`, `404 RESTRICTION_NOT_FOUND`, `401`, `403`, `500`.
+
+---
+
+## 9. Planned APIs
 
 Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
 
 | Resource                     | Purpose                                                              |
 | ---------------------------- | -------------------------------------------------------------------- |
 | `/api/v1/guides/me/hike-requests/:bookingId/locations`, checkpoints | Group location updates and offline-synced checkpoint events for an `IN_PROGRESS` trek (Phase 7). Trek start/complete is in §6. |
-| `/api/v1/incidents`, `/api/v1/trails/:id/restrictions` | SOS, incidents, weather-based trail restrictions |
+| `/api/v1/incidents`          | Guide SOS and coordinator incident handling (Phase 8)                |
+| `/api/v1/weather`            | Advisory weather from OpenWeather (Phase 8)                          |
 | `/api/v1/certificates`       | Downloading certificates. Emailing them on completion is in §5 and §6. |
 | `/api/v1/analytics`          | Coordinator tourism and operations analytics                         |
 | `PATCH /api/v1/users/me`     | Profile edits (never `role`), once editable fields are confirmed     |

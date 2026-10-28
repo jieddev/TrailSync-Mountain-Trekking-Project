@@ -41,8 +41,16 @@ export type Booking = {
   completedAt: string | null
   package: TrailPackage
   paymentRequirement: PaymentRequirement
+  // The coordinator's closure of this trail on the booking's date, if any.
+  trailRestriction: BookingTrailRestriction | null
   createdAt: string
   updatedAt: string
+}
+
+export type BookingTrailRestriction = {
+  startDate: string
+  endDate: string
+  reason: string
 }
 
 export type ParticipantInput = {
