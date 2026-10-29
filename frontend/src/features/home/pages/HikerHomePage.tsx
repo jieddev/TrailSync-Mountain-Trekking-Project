@@ -100,7 +100,7 @@ export default function HikerHomePage() {
               your group.
             </p>
             <Link
-              className="mt-5 inline-flex rounded-lg bg-[#008755] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#006b43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2"
+              className="mt-5 inline-flex rounded-lg bg-[#008755] px-10 py-2.5 text-sm font-bold text-white hover:bg-[#006b43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2"
               to="/trails"
             >
               Book a trek
