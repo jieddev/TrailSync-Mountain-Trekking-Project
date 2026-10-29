@@ -33,6 +33,13 @@ When a trek is completed, each hiker gets a PDF certificate by email
 `SMTP_USER`, `SMTP_PASS` (a Gmail app password) and `MAIL_FROM` in `.env`.
 Without `SMTP_USER`, emails are only logged.
 
+## Weather
+
+`GET /api/v1/weather` serves advisory weather from OpenWeather
+(`src/lib/weather.ts`). Set `OPENWEATHER_API_KEY` in `.env`; a new key can take
+up to two hours to start working. Without a key the endpoint answers
+`503 WEATHER_UNAVAILABLE` and the web app says weather is unavailable.
+
 ## Logging
 
 The API uses Pino for structured application logs and request logs. Local

@@ -10,6 +10,8 @@ import { listTrails, type Trail } from '../../../lib/trails-api'
 import AuthFormField from '../../auth/components/AuthFormField'
 import AuthSubmitButton from '../../auth/components/AuthSubmitButton'
 import { useHikerProfile } from '../../home/hiker-profile'
+import DayForecastNote from '../../weather/components/DayForecastNote'
+import { useWeather } from '../../weather/lib/use-weather'
 import Alert from '../components/Alert'
 import PageHeader from '../components/PageHeader'
 import StatusCard from '../components/StatusCard'
@@ -59,6 +61,7 @@ export default function BookingFormPage() {
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const requestedTrailId = searchParams.get('trailId')
+  const weather = useWeather()
   const closures = useTrailClosures(
     trailsState.status === 'loaded'
       ? trailsState.trails.map((trail) => trail.id)
@@ -304,6 +307,13 @@ export default function BookingFormPage() {
                 )}
                 : {closureOnDate.reason}. Choose another date.
               </Alert>
+            )}
+            {!closureOnDate && (
+              <DayForecastNote
+                className="mt-2"
+                date={values.scheduledDate}
+                state={weather}
+              />
             )}
           </fieldset>
 

@@ -4,6 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 
 import type { CurrentUserProfile } from '../../../lib/users-api'
 import { auth } from '../../../lib/firebase'
+import { useOpenIncidentCount } from '../lib/use-open-incident-count'
 
 const navItems = [
   { to: '/coordinator/bookings', label: 'Booking queue' },
@@ -11,6 +12,7 @@ const navItems = [
   { to: '/coordinator/guides', label: 'Guide queue' },
   { to: '/coordinator/guide-applications', label: 'Guide requests' },
   { to: '/coordinator/trail-restrictions', label: 'Trail restrictions' },
+  { to: '/coordinator/incidents', label: 'Incidents' },
 ]
 
 type CoordinatorAppShellProps = {
@@ -23,6 +25,7 @@ export default function CoordinatorAppShell({
   profile,
 }: CoordinatorAppShellProps) {
   const navigate = useNavigate()
+  const openIncidents = useOpenIncidentCount(profile !== null)
 
   async function handleLogout() {
     await signOut(auth)
@@ -65,6 +68,12 @@ export default function CoordinatorAppShell({
               to={item.to}
             >
               {item.label}
+              {item.to === '/coordinator/incidents' && openIncidents > 0 && (
+                <span className="ml-2 rounded-full bg-rose-600 px-2 py-0.5 text-xs font-bold text-white">
+                  {openIncidents}
+                  <span className="sr-only"> open SOS</span>
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

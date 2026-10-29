@@ -563,15 +563,138 @@ Existing bookings are not changed or cancelled; their `trailRestriction` field s
 
 ---
 
-## 9. Planned APIs
+## 9. Weather
+
+Advisory weather from OpenWeather for one point both trails share: the Cabintan jump-off, taken from the provisional trail KML (`WEATHER_LAT`/`WEATHER_LNG` override it). Weather never closes a trail or refuses an action; a coordinator closes trails by hand (§8).
+
+### `GET /api/v1/weather`
+
+**Public.** The OpenWeather key stays on the server.
+
+```json
+{
+  "location": { "name": "Cabintan jump-off", "latitude": 11.080324, "longitude": 124.722855, "provisional": true },
+  "current": {
+    "observedAt": "2026-10-28T13:21:39.000Z",
+    "temperatureC": 19.4,
+    "feelsLikeC": 19.9,
+    "humidityPercent": 97,
+    "windSpeedMs": 1.1,
+    "windGustMs": 2.1,
+    "rainLastHourMm": 0,
+    "condition": { "code": 800, "main": "Clear", "description": "clear sky", "icon": "01n" }
+  },
+  "daily": [
+    {
+      "date": "2026-10-29",
+      "minTemperatureC": 18.5,
+      "maxTemperatureC": 26,
+      "rainMm": 5.2,
+      "rainChancePercent": 100,
+      "maxWindSpeedMs": 1.5,
+      "maxWindGustMs": 3,
+      "thunderstorm": false,
+      "condition": { "code": 500, "main": "Rain", "description": "light rain", "icon": "10d" }
+    }
+  ],
+  "fetchedAt": "2026-10-28T13:23:42.687Z",
+  "stale": false
+}
+```
+
+- `daily` has about five Asia/Manila days from today, built from the 3-hourly forecast. Today and the last day only cover the hours still in the forecast. `rainMm` is the day's total; the other values are the day's extremes. `condition` is the day's most significant condition (thunderstorm, then rain, drizzle, snow, fog/haze, clouds, clear); `thunderstorm` is true if any forecast hour has one. Condition codes and `icon` are OpenWeather's.
+- Responses are cached for 10 minutes. If OpenWeather fails or takes more than 5 seconds, the last good weather (up to 6 hours old) is returned with `stale: true`, and OpenWeather is not asked again for a minute.
+
+Errors: `503 WEATHER_UNAVAILABLE` (no API key is configured, or OpenWeather failed with nothing cached), `500`.
+
+---
+
+## 10. SOS and incidents
+
+A guide sends an SOS from the guide app for their group; it becomes an incident that a coordinator acknowledges and then resolves. The booking's status is never changed. Notifications outside the app (SMS, push) and escalation are not decided yet (`PROJECT_CONTEXT.md` §12).
+
+| `status`       | Meaning                                                                |
+| -------------- | ---------------------------------------------------------------------- |
+| `OPEN`         | Sent by the guide; no coordinator has acknowledged it yet              |
+| `ACKNOWLEDGED` | A coordinator has seen it; the guide's app shows this                  |
+| `RESOLVED`     | Closed with a note on how it ended. A new SOS can then be sent         |
+
+A booking has at most one unresolved incident (a partial unique index enforces it).
+
+### Incident representation
+
+```json
+{
+  "id": "incident-id",
+  "status": "OPEN",
+  "booking": {
+    "id": "booking-id",
+    "status": "IN_PROGRESS",
+    "scheduledDate": "2026-10-29",
+    "scheduledTime": "08:00",
+    "trail": { "id": "trl_sulfatara", "name": "Sulfatara" },
+    "owner": { "fullName": "Hiker One" },
+    "participantCount": 4
+  },
+  "guide": { "id": "guide-id", "fullName": "Juan Dela Cruz" },
+  "location": { "latitude": 11.0812, "longitude": 124.7301, "accuracyM": 12, "recordedAt": "2026-10-29T01:59:30.000Z" },
+  "note": "Hiker twisted an ankle",
+  "createdAt": "2026-10-29T02:00:00.000Z",
+  "acknowledgedAt": null,
+  "acknowledgedBy": null,
+  "resolvedAt": null,
+  "resolvedBy": null,
+  "resolutionNote": null
+}
+```
+
+`location` is `null` when the guide had no GPS fix.
+
+### `POST /api/v1/guides/me/hike-requests/:bookingId/sos`
+
+**Role:** `GUIDE`, for their own booking while it is `GUIDE_ASSIGNED` or `IN_PROGRESS`. Every field is optional, so an SOS can be sent with no fix and no typing:
+
+```json
+{ "latitude": 11.0812, "longitude": 124.7301, "accuracyM": 12, "recordedAt": "2026-10-29T01:59:30Z", "note": "Hiker twisted an ankle" }
+```
+
+- `latitude` and `longitude` come together (−90…90, −180…180); `accuracyM` is zero or more metres; `recordedAt` is when the fix was taken (a future time is replaced by the server's).
+- `note` is at most 500 characters.
+- **Safe to retry.** `201` returns a new incident. If the booking already has an unresolved incident, `200` returns that one instead, updated with the new location when it is newer.
+
+Errors: `422 VALIDATION_ERROR` (`INVALID_LOCATION`, `INVALID_DATE`, `INVALID_NOTE`, `TOO_LONG`), `409 SOS_NOT_ALLOWED` (the trek is not dispatched or in progress), `404 BOOKING_NOT_FOUND` (also for another guide's booking), `401`, `403`, `500`.
+
+### `GET /api/v1/guides/me/hike-requests/:bookingId/sos`
+
+**Role:** `GUIDE`, for their own booking. Returns `{ "incident": ... }` with the booking's newest incident, or `{ "incident": null }`, so the app can show whether a coordinator has acknowledged it. Errors: `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
+
+### `GET /api/v1/coordinator/incidents`
+
+**Role:** `COORDINATOR`. Optional `?status=OPEN|ACKNOWLEDGED|RESOLVED`. Returns `{ "items": [...] }`: `OPEN`, then `ACKNOWLEDGED`, then `RESOLVED`, newest first within each, at most 100. The web app checks for new SOS alerts every 20 seconds. Errors: `422 VALIDATION_ERROR` (`INVALID_STATUS`), `401`, `403`, `500`.
+
+### `POST /api/v1/coordinator/incidents/:incidentId/acknowledge`
+
+**Role:** `COORDINATOR`. `OPEN` → `ACKNOWLEDGED`, recording who and when. No request body. Errors: `409 INCIDENT_ALREADY_ACKNOWLEDGED`, `409 INCIDENT_ALREADY_RESOLVED`, `404 INCIDENT_NOT_FOUND`, `401`, `403`, `500`.
+
+### `POST /api/v1/coordinator/incidents/:incidentId/resolve`
+
+**Role:** `COORDINATOR`. `OPEN` or `ACKNOWLEDGED` → `RESOLVED`.
+
+```json
+{ "note": "Group walked down safely with the guide" }
+```
+
+`note` is required, at most 500 characters. Errors: `422 VALIDATION_ERROR` (`REQUIRED`, `TOO_LONG`), `409 INCIDENT_ALREADY_RESOLVED`, `404 INCIDENT_NOT_FOUND`, `401`, `403`, `500`.
+
+---
+
+## 11. Planned APIs
 
 Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
 
 | Resource                     | Purpose                                                              |
 | ---------------------------- | -------------------------------------------------------------------- |
 | `/api/v1/guides/me/hike-requests/:bookingId/locations`, checkpoints | Group location updates and offline-synced checkpoint events for an `IN_PROGRESS` trek (Phase 7). Trek start/complete is in §6. |
-| `/api/v1/incidents`          | Guide SOS and coordinator incident handling (Phase 8)                |
-| `/api/v1/weather`            | Advisory weather from OpenWeather (Phase 8)                          |
 | `/api/v1/certificates`       | Downloading certificates. Emailing them on completion is in §5 and §6. |
 | `/api/v1/analytics`          | Coordinator tourism and operations analytics                         |
 | `PATCH /api/v1/users/me`     | Profile edits (never `role`), once editable fields are confirmed     |

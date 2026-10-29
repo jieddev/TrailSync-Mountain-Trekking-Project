@@ -625,6 +625,7 @@ Safety-critical decisions should not depend on an AI model.
 - While a closure applies, the server refuses new bookings and reschedules onto those dates, check-in, guide assignment, and trek start (`TRAIL_RESTRICTED`).
 - Existing bookings are not changed or cancelled; they show the closure and the hiker can reschedule. A trek already in progress is not interrupted; ending it early is the guide's and coordinator's call.
 - Closures are lifted, never deleted, so they remain on record.
+- Weather comes from OpenWeather's free current-weather and 5-day forecast APIs (`GET /api/v1/weather`; `API_CONTRACT_V1.md` §9) for one point both trails share: the Cabintan jump-off from the provisional KML. Hikers see it on the home page and for their chosen booking date, and coordinators see it beside the restriction form. It is labelled advisory everywhere; thunderstorms are highlighted but do not block anything.
 
 ---
 
@@ -637,6 +638,14 @@ The SOS feature is intended to allow a guide to quickly report an emergency to t
 The current scope does **not** claim that the application can bypass the operating system or function as a native lock-screen emergency service.
 
 SOS is an application-level emergency feature.
+
+### Current implementation (Phase 8, agreed 2026-10-26)
+
+- An SOS creates an **incident** (`incidents`; `API_CONTRACT_V1.md` §10) that goes `OPEN` → `ACKNOWLEDGED` → `RESOLVED`. The booking's status is not changed.
+- The guide's last GPS fix and a short note are attached when available; an SOS can also be sent with neither.
+- Sending again while an incident is unresolved returns the same incident (with a newer location), so retries on a weak connection never raise a second alarm.
+- Coordinators see SOS alerts on `/coordinator/incidents` and as a badge in the navigation, checked every 20 seconds. Acknowledging tells the guide's app the SOS was seen; resolving requires a note.
+- Still TBD: notifications outside the app (SMS, push), escalation when nobody acknowledges, and who else is alerted.
 
 ---
 

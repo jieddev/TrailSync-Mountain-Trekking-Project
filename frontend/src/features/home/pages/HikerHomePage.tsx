@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import WeatherCard from '../../weather/components/WeatherCard'
+import { useWeather } from '../../weather/lib/use-weather'
 import TrailPreviewMap from '../components/TrailPreviewMap'
 import { useHikerProfile } from '../hiker-profile'
 import { TRAIL_PREVIEWS } from '../trail-previews'
 
 export default function HikerHomePage() {
   const profile = useHikerProfile()
+  const weather = useWeather()
   const [previewId, setPreviewId] = useState(TRAIL_PREVIEWS[0].id)
   const preview =
     TRAIL_PREVIEWS.find((trail) => trail.id === previewId) ?? TRAIL_PREVIEWS[0]
@@ -103,6 +106,7 @@ export default function HikerHomePage() {
               Book a trek
             </Link>
           </article>
+          <WeatherCard state={weather} />
         </div>
       </section>
     </>
