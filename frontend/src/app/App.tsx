@@ -16,6 +16,7 @@ import CoordinatorBookingDetailPage from '../features/coordinator/pages/Coordina
 import DispatchPage from '../features/coordinator/pages/DispatchPage'
 import GuideApplicationsPage from '../features/coordinator/pages/GuideApplicationsPage'
 import GuideQueuePage from '../features/coordinator/pages/GuideQueuePage'
+import IncidentsPage from '../features/coordinator/pages/IncidentsPage'
 import TrailRestrictionsPage from '../features/coordinator/pages/TrailRestrictionsPage'
 import HikerLayout from '../features/home/components/HikerLayout'
 import HikerHomePage from '../features/home/pages/HikerHomePage'
@@ -184,6 +185,7 @@ export default function App() {
               path="guide-applications"
               element={<GuideApplicationsPage />}
             />
+            <Route path="incidents" element={<IncidentsPage />} />
           </Route>
           <Route path="/" element={<RoleHome />} />
           <Route path="*" element={<Navigate to="/" replace />} />

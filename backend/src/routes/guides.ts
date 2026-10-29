@@ -8,7 +8,9 @@ import { queuePosition } from "../lib/guide-queue.js";
 import { completeOwnTrek, startTrek } from "../lib/guide-treks.js";
 import { guideResponse, guideSelect } from "../lib/guide-representation.js";
 import { fail } from "../lib/http-errors.js";
+import { incidentResponse, latestIncident, parseSos, raiseSos } from "../lib/incidents.js";
 import { prisma } from "../lib/prisma.js";
+import { asObject } from "../lib/validation.js";
 import { requireFirebaseAuth } from "../middleware/require-firebase-auth.js";
 import { requireRole, type RoleRequest } from "../middleware/require-role.js";
 
@@ -26,6 +28,7 @@ const refusals = {
   TREK_NOT_IN_PROGRESS: [409, "Only a trek you have started can be completed."],
   BOOKING_NOT_ON_TREK: [409, "Only a group with an assigned guide can complete a trek."],
   TRAIL_RESTRICTED: [409, "This trail is closed today, so the trek cannot start. Contact the coordinator."],
+  SOS_NOT_ALLOWED: [409, "An SOS can only be sent for a trek assigned to you that has not been completed."],
 } as const;
 type Refusal = keyof typeof refusals;
 
@@ -110,5 +113,42 @@ guidesRouter.post("/me/hike-requests/:bookingId/complete", async (request, respo
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Guide trek completion failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not complete the trek.");
+  }
+});
+
+// SOS (API_CONTRACT_V1.md §10). 201 for a new incident; 200 when the booking
+// already has an unresolved one, so retries never raise a second alarm.
+guidesRouter.post("/me/hike-requests/:bookingId/sos", async (request, response) => {
+  const parsed = parseSos(asObject(request.body), new Date());
+  if ("details" in parsed) return fail(response, 422, "VALIDATION_ERROR", "Review the SOS details and try again.", parsed.details);
+  try {
+    const guide = await currentGuide(request, response);
+    if (!guide) return;
+    const bookingId = String(request.params.bookingId);
+    const result = await raiseSos(guide.id, bookingId, parsed.input);
+    if ("refusal" in result) return refuse(response, result.refusal);
+    request.log?.warn(
+      { requestId: request.id, incidentId: result.incident.id, bookingId, guideId: guide.id, created: result.created, hasLocation: parsed.input.location !== null },
+      result.created ? "SOS raised" : "SOS repeated for an unresolved incident",
+    );
+    return response.status(result.created ? 201 : 200).json(incidentResponse(result.incident));
+  } catch (error) {
+    request.log?.error({ requestId: request.id, err: error }, "Guide SOS failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not send the SOS.");
+  }
+});
+
+// The newest incident on the guide's booking, so the app can show whether a
+// coordinator has acknowledged it.
+guidesRouter.get("/me/hike-requests/:bookingId/sos", async (request, response) => {
+  try {
+    const guide = await currentGuide(request, response);
+    if (!guide) return;
+    const result = await latestIncident(guide.id, String(request.params.bookingId));
+    if ("refusal" in result) return refuse(response, result.refusal);
+    return response.status(200).json({ incident: result.incident ? incidentResponse(result.incident) : null });
+  } catch (error) {
+    request.log?.error({ requestId: request.id, err: error }, "Guide SOS lookup failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve the SOS.");
   }
 });
