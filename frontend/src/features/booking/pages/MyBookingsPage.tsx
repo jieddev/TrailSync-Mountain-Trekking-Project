@@ -15,7 +15,7 @@ type BookingsState =
   | { status: 'error' }
 
 const primaryLinkClass =
-  'inline-flex rounded-lg bg-[#008755] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#006b43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2'
+  'inline-flex rounded-lg bg-[#477a69] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#3a6457] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2'
 
 export default function MyBookingsPage() {
   const { user } = useAuth()

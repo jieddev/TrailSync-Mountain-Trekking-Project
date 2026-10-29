@@ -96,9 +96,7 @@ export default function TrailPreviewMap({
   const initialCameraRef = useRef(preview.camera)
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
   const [mapState, setMapState] = useState<MapState>(
-    apiKey
-      ? { status: 'loading' }
-      : { status: 'error', reason: 'missing-key' },
+    apiKey ? { status: 'loading' } : { status: 'error', reason: 'missing-key' },
   )
   const [loadedMap, setLoadedMap] = useState<{
     element: Map3DElement

@@ -53,7 +53,7 @@ type ListState =
 type Notice = { tone: 'success' | 'error'; text: string }
 
 const primaryButtonClass =
-  'rounded-lg bg-[#008755] px-4 py-2 text-sm font-bold text-white hover:bg-[#006b43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
+  'rounded-lg bg-[#477a69] px-4 py-2 text-sm font-bold text-white hover:bg-[#3a6457] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60'
 const secondaryButtonClass =
   'rounded-lg border border-[#d5e1da] bg-white px-4 py-2 text-sm font-bold text-[#173a2e] hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] disabled:opacity-60'
 const dangerButtonClass =
@@ -162,7 +162,7 @@ export default function GuideApplicationsPage() {
         {tabs.map((tab) => (
           <button
             aria-selected={tab.status === activeTab.status}
-            className={`rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${tab.status === activeTab.status ? 'bg-[#002d20] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
+            className={`rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${tab.status === activeTab.status ? 'bg-[#477a69] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
             key={tab.status}
             onClick={() => {
               setNotice(null)

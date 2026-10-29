@@ -1,114 +1,151 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+import { listTrails, type Trail } from '../../../lib/trails-api'
+import { formatMoney } from '../../booking/lib/booking-form'
 import WeatherCard from '../../weather/components/WeatherCard'
 import { useWeather } from '../../weather/lib/use-weather'
+import NextTrekCard from '../components/NextTrekCard'
 import TrailPreviewMap from '../components/TrailPreviewMap'
 import { useHikerProfile } from '../hiker-profile'
 import { TRAIL_PREVIEWS } from '../trail-previews'
+
+const primaryLinkClass =
+  'inline-flex rounded-lg bg-[#477a69] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#3a6457] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2'
+const secondaryLinkClass =
+  'inline-flex rounded-lg border border-[#d5e1da] bg-white px-5 py-2.5 text-sm font-bold text-[#173a2e] hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2'
+
+function greeting(now = new Date()) {
+  const hour = Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Manila',
+      hour: 'numeric',
+      hourCycle: 'h23',
+    }).format(now),
+  )
+  if (hour < 12) return 'Good morning'
+  if (hour < 18) return 'Good afternoon'
+  return 'Good evening'
+}
 
 export default function HikerHomePage() {
   const profile = useHikerProfile()
   const weather = useWeather()
   const [previewId, setPreviewId] = useState(TRAIL_PREVIEWS[0].id)
+  const [trails, setTrails] = useState<Trail[]>([])
   const preview =
     TRAIL_PREVIEWS.find((trail) => trail.id === previewId) ?? TRAIL_PREVIEWS[0]
+  const trail = trails.find((item) => item.slug === preview.id)
+  const firstName = profile.fullName.trim().split(/\s+/)[0]
+
+  useEffect(() => {
+    let isCurrent = true
+    // Only adds the price and a direct booking link, so failures stay quiet.
+    listTrails()
+      .then((items) => {
+        if (isCurrent) setTrails(items)
+      })
+      .catch(() => {})
+    return () => {
+      isCurrent = false
+    }
+  }, [])
 
   return (
     <>
       <section
         aria-labelledby="welcome-title"
-        className="rounded-2xl border border-[#d5e1da] bg-white p-6 shadow-[0_12px_30px_rgba(0,45,32,0.035)] sm:p-9"
+        className="flex flex-wrap items-end justify-between gap-6"
       >
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#008755]">
-          Your TrailSync home
-        </p>
-        <h1
-          id="welcome-title"
-          className="mt-4 max-w-2xl font-serif text-4xl font-bold leading-tight tracking-[-0.045em] text-[#002d20] sm:text-5xl"
-        >
-          Ready for your next trekking experience?
-        </h1>
-        <p className="mt-4 max-w-xl text-base leading-7 text-[#52675e]">
-          Your account is ready. Explore the available features or check back as
-          more of TrailSync is added.
-        </p>
-        <dl className="mt-6 grid gap-3 border-t border-[#e7ece8] pt-5 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="font-semibold text-[#70857b]">Full name</dt>
-            <dd className="mt-1 text-[#173a2e]">{profile.fullName}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold text-[#70857b]">Email</dt>
-            <dd className="mt-1 text-[#173a2e]">{profile.email}</dd>
-          </div>
-          <div>
-            <dt className="font-semibold text-[#70857b]">Role</dt>
-            <dd className="mt-1 text-[#173a2e]">{profile.role}</dd>
-          </div>
-        </dl>
+        <div>
+          <h1
+            id="welcome-title"
+            className="font-serif text-4xl font-bold leading-tight tracking-[-0.045em] text-[#002d20] sm:text-5xl"
+          >
+            {greeting()}, {firstName}
+          </h1>
+          <p className="mt-2 max-w-xl text-base leading-7 text-[#52675e]">
+            Plan your next climb, check on your bookings, and see how the
+            mountain looks today.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Link className={primaryLinkClass} to="/trails">
+            Book a trek
+          </Link>
+          <Link className={secondaryLinkClass} to="/bookings">
+            My bookings
+          </Link>
+        </div>
       </section>
 
-      <section aria-labelledby="features-title" className="mt-10">
-        <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#008755]">
-          Explore
-        </p>
-        <h2
-          id="features-title"
-          className="mt-2 font-serif text-3xl tracking-[-0.035em] text-[#002d20]"
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <section
+          aria-labelledby="explore-title"
+          className="rounded-2xl border border-[#d5e1da] bg-white p-4 sm:p-6"
         >
-          Your trekking experience
-        </h2>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
-          <article className="rounded-2xl border border-[#d5e1da] bg-white p-4 md:col-span-2 sm:p-6">
-            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <p className="text-sm font-bold text-[#173a2e]">
-                  {preview.name}
-                </p>
-                <p className="mt-1 text-sm text-[#52675e]">
-                  {preview.subtitle}
-                </p>
-              </div>
-              <span className="rounded-full bg-[#e8f1eb] px-3 py-1 text-xs font-bold text-[#006b43]">
-                3D terrain preview
-              </span>
-            </div>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2
+              id="explore-title"
+              className="font-serif text-2xl font-bold tracking-[-0.03em] text-[#002d20]"
+            >
+              Explore the trails
+            </h2>
             <div
               aria-label="Trail to preview"
-              className="mb-4 flex max-w-full overflow-x-auto rounded-xl border border-[#d5e1da] bg-white p-1 sm:inline-flex"
+              className="flex max-w-full overflow-x-auto rounded-xl border border-[#d5e1da] bg-white p-1"
               role="group"
             >
-              {TRAIL_PREVIEWS.map((trail) => (
+              {TRAIL_PREVIEWS.map((item) => (
                 <button
-                  aria-pressed={trail.id === preview.id}
-                  className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${trail.id === preview.id ? 'bg-[#002d20] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
-                  key={trail.id}
-                  onClick={() => setPreviewId(trail.id)}
+                  aria-pressed={item.id === preview.id}
+                  className={`shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${item.id === preview.id ? 'bg-[#477a69] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
+                  key={item.id}
+                  onClick={() => setPreviewId(item.id)}
                   type="button"
                 >
-                  {trail.name}
+                  {item.name}
                 </button>
               ))}
             </div>
-            <TrailPreviewMap preview={preview} />
-          </article>
-          <article className="rounded-2xl border border-[#d5e1da] bg-white p-6">
-            <p className="text-sm font-bold text-[#173a2e]">Booking</p>
-            <p className="mt-2 text-sm leading-6 text-[#52675e]">
-              Choose a trail, pick your date and time, and list who is joining
-              your group.
-            </p>
+          </div>
+          <TrailPreviewMap preview={preview} />
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-base font-bold text-[#173a2e]">
+                {preview.name}
+              </p>
+              <p className="mt-0.5 text-sm text-[#52675e]">
+                {preview.subtitle} · 3D terrain preview
+                {trail && (
+                  <>
+                    {' · '}
+                    <span className="font-semibold text-[#173a2e]">
+                      {formatMoney(trail.package.price)}
+                    </span>{' '}
+                    per group
+                  </>
+                )}
+              </p>
+            </div>
             <Link
-              className="mt-5 inline-flex rounded-lg bg-[#008755] px-10 py-2.5 text-sm font-bold text-white hover:bg-[#006b43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2"
-              to="/trails"
+              className={primaryLinkClass}
+              to={
+                trail
+                  ? `/bookings/new?trailId=${encodeURIComponent(trail.id)}`
+                  : '/trails'
+              }
             >
-              Book a trek
+              Book this trail
             </Link>
-          </article>
-          <WeatherCard state={weather} />
+          </div>
+        </section>
+
+        <div className="grid gap-6">
+          <NextTrekCard />
+          <WeatherCard compact state={weather} />
         </div>
-      </section>
+      </div>
     </>
   )
 }

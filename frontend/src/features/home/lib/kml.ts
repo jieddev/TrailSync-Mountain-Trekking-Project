@@ -1,6 +1,7 @@
 export type KmlCoordinate = { lat: number; lng: number; altitude: number }
 
-const LINE_STRING_PATTERN = /<LineString>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>[\s\S]*?<\/LineString>/g
+const LINE_STRING_PATTERN =
+  /<LineString>[\s\S]*?<coordinates>([\s\S]*?)<\/coordinates>[\s\S]*?<\/LineString>/g
 
 // KML coordinates are whitespace-separated "lng,lat[,altitude]" tuples.
 function parseCoordinatesBlock(block: string): KmlCoordinate[] {
@@ -15,5 +16,7 @@ function parseCoordinatesBlock(block: string): KmlCoordinate[] {
 }
 
 export function parseKmlLineStrings(kmlText: string): KmlCoordinate[][] {
-  return [...kmlText.matchAll(LINE_STRING_PATTERN)].map((match) => parseCoordinatesBlock(match[1]))
+  return [...kmlText.matchAll(LINE_STRING_PATTERN)].map((match) =>
+    parseCoordinatesBlock(match[1]),
+  )
 }
