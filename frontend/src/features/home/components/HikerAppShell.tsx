@@ -24,6 +24,7 @@ export default function HikerAppShell({
   const navigate = useNavigate()
   const displayName = profile?.fullName
   const email = profile?.email
+  const initial = displayName?.charAt(0).toUpperCase() ?? '?'
   const [menuOpen, setMenuOpen] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -55,119 +56,49 @@ export default function HikerAppShell({
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f7f1] text-[#062f22] lg:grid lg:grid-cols-[248px_minmax(0,1fr)]">
-      <aside className="border-b border-[#d5e1da] bg-white px-5 py-5 lg:min-h-screen lg:border-b-0 lg:border-r lg:px-6 lg:py-8">
-        <div className="flex items-center justify-between gap-3 lg:block">
-          <div>
-            <NavLink
-              className="inline-flex rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
-              onClick={() => setNavOpen(false)}
-              to="/home"
-            >
-              <img alt="TrailSync" className="h-14 w-auto" src={logo} />
-            </NavLink>
-            <p className="mt-2 text-xs text-[#70857b]">
-              Trekking journeys, connected.
-            </p>
-          </div>
-          <button
-            aria-controls="hiker-main-nav"
-            aria-expanded={navOpen}
-            aria-label={navOpen ? 'Close navigation' : 'Open navigation'}
-            className="cursor-pointer rounded-lg border border-[#d5e1da] p-2 text-[#173a2e] hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] lg:hidden"
-            onClick={() => setNavOpen((open) => !open)}
-            type="button"
+    <div className="flex min-h-screen flex-col bg-[#f7f7f1] text-[#062f22]">
+      <header className="sticky top-0 z-30 border-b border-[#d5e1da] bg-white/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-8 px-5 sm:px-8">
+          <NavLink
+            className="inline-flex shrink-0 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
+            onClick={() => setNavOpen(false)}
+            to="/home"
           >
-            <svg
-              aria-hidden="true"
-              className="size-6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              viewBox="0 0 24 24"
-            >
-              {navOpen ? (
-                <path
-                  d="M6 6l12 12M18 6 6 18"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              ) : (
-                <path
-                  d="M4 7h16M4 12h16M4 17h16"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-            </svg>
-          </button>
-        </div>
-        <nav
-          aria-label="Main navigation"
-          className={`${navOpen ? 'flex' : 'hidden'} mt-4 flex-col gap-1 lg:mt-12 lg:flex lg:gap-2`}
-          id="hiker-main-nav"
-        >
-          {navItems.map((item) => (
-            <NavLink
-              className={({ isActive }) =>
-                `rounded-lg px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-[#e8f1eb] text-[#006b43]' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`
-              }
-              end={item.end}
-              key={item.to}
-              onClick={() => setNavOpen(false)}
-              to={item.to}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-          <div className="mt-3 border-t border-[#e7ece8] px-3 pt-4 lg:hidden">
-            <p className="text-base font-semibold text-[#173a2e]">
-              {profile ? `Welcome, ${displayName}` : 'TrailSync account'}
-            </p>
-            {profile && (
-              <div className="mt-3 flex items-center gap-3">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#e8f1eb] text-sm font-bold text-[#006b43]">
-                  {displayName?.charAt(0).toUpperCase() ?? '?'}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#70857b]">
-                    Signed in as
-                  </p>
-                  <p className="truncate text-sm font-semibold text-[#173a2e]">
-                    {displayName}
-                  </p>
-                  <p className="truncate text-xs text-[#70857b]">{email}</p>
-                </div>
-              </div>
-            )}
-            <button
-              className="mt-4 w-full cursor-pointer rounded-lg border border-[#d5e1da] px-3 py-2.5 text-left text-sm font-bold text-[#007e4f] hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
-              onClick={handleLogout}
-              type="button"
-            >
-              Log out
-            </button>
-          </div>
-        </nav>
-      </aside>
-      <div className="flex min-h-screen min-w-0 flex-col">
-        <header className="hidden items-center justify-between gap-4 border-b border-[#d5e1da] px-5 py-4 sm:px-8 lg:flex lg:px-10">
-          <div className="min-w-0">
-            <p className="text-lg font-semibold text-[#173a2e]">
-              {profile ? `Welcome, ${displayName}` : 'TrailSync account'}
-            </p>
-          </div>
-          <div className="relative shrink-0" ref={menuRef}>
+            <img alt="TrailSync" className="h-9 w-auto" src={logo} />
+          </NavLink>
+
+          <nav
+            aria-label="Main navigation"
+            className="hidden h-full items-center gap-1 lg:flex"
+          >
+            {navItems.map((item) => (
+              <NavLink
+                className={({ isActive }) =>
+                  `rounded-lg px-3.5 py-2 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${isActive ? 'bg-[#e8f1eb] text-[#006b43]' : 'text-[#52675e] hover:bg-[#f3f6f2] hover:text-[#173a2e]'}`
+                }
+                end={item.end}
+                key={item.to}
+                to={item.to}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="relative ml-auto hidden lg:block" ref={menuRef}>
             <button
               aria-expanded={menuOpen}
               aria-haspopup="menu"
               aria-label="Account menu"
-              className="cursor-pointer flex items-center gap-2 rounded-full border border-[#d5e1da] bg-white py-1 pl-1 pr-2.5 hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
+              className="flex cursor-pointer items-center gap-2 rounded-full border border-[#d5e1da] bg-white py-1 pl-1 pr-2.5 hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
               onClick={() => setMenuOpen((open) => !open)}
               type="button"
             >
-              <span className="flex size-7 items-center justify-center rounded-full bg-[#e8f1eb] text-xs font-bold text-[#006b43]">
-                {displayName?.charAt(0).toUpperCase() ?? '?'}
+              <span className="flex size-8 items-center justify-center rounded-full bg-[#e8f1eb] text-sm font-bold text-[#006b43]">
+                {initial}
+              </span>
+              <span className="max-w-40 truncate text-sm font-semibold text-[#173a2e]">
+                {displayName ?? 'Account'}
               </span>
               <svg
                 aria-hidden="true"
@@ -201,7 +132,7 @@ export default function HikerAppShell({
                   </div>
                 )}
                 <button
-                  className="mt-1 w-full px-4 py-2 text-left text-sm font-bold text-[#007e4f] hover:bg-[#f3f6f2] focus-visible:bg-[#f3f6f2] focus-visible:outline-none"
+                  className="mt-1 w-full cursor-pointer px-4 py-2 text-left text-sm font-bold text-[#007e4f] hover:bg-[#f3f6f2] focus-visible:bg-[#f3f6f2] focus-visible:outline-none"
                   onClick={handleLogout}
                   role="menuitem"
                   type="button"
@@ -211,14 +142,93 @@ export default function HikerAppShell({
               </div>
             )}
           </div>
-        </header>
-        <main className="w-full flex-1 px-5 py-8 sm:px-8 sm:py-10 lg:px-10 lg:py-12">
-          <div className="mx-auto max-w-5xl">{children}</div>
-        </main>
-        <footer className="px-5 pb-6 text-xs text-[#70857b] sm:px-8 lg:px-10">
-          TrailSync · Trekking journeys, connected.
-        </footer>
-      </div>
+
+          <button
+            aria-controls="hiker-mobile-nav"
+            aria-expanded={navOpen}
+            aria-label={navOpen ? 'Close navigation' : 'Open navigation'}
+            className="ml-auto cursor-pointer rounded-lg border border-[#d5e1da] p-2 text-[#173a2e] hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] lg:hidden"
+            onClick={() => setNavOpen((open) => !open)}
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              className="size-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              viewBox="0 0 24 24"
+            >
+              {navOpen ? (
+                <path
+                  d="M6 6l12 12M18 6 6 18"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ) : (
+                <path
+                  d="M4 7h16M4 12h16M4 17h16"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </svg>
+          </button>
+        </div>
+
+        {navOpen && (
+          <nav
+            aria-label="Main navigation"
+            className="border-t border-[#e7ece8] px-5 pb-5 pt-3 sm:px-8 lg:hidden"
+            id="hiker-mobile-nav"
+          >
+            <div className="flex flex-col gap-1">
+              {navItems.map((item) => (
+                <NavLink
+                  className={({ isActive }) =>
+                    `rounded-lg px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-[#e8f1eb] text-[#006b43]' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`
+                  }
+                  end={item.end}
+                  key={item.to}
+                  onClick={() => setNavOpen(false)}
+                  to={item.to}
+                >
+                  {item.label}
+                </NavLink>
+              ))}
+            </div>
+            <div className="mt-3 border-t border-[#e7ece8] px-3 pt-4">
+              {profile && (
+                <div className="flex items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[#e8f1eb] text-sm font-bold text-[#006b43]">
+                    {initial}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[#173a2e]">
+                      {displayName}
+                    </p>
+                    <p className="truncate text-xs text-[#70857b]">{email}</p>
+                  </div>
+                </div>
+              )}
+              <button
+                className="mt-4 w-full cursor-pointer rounded-lg border border-[#d5e1da] px-3 py-2.5 text-left text-sm font-bold text-[#007e4f] hover:bg-[#f3f6f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
+                onClick={handleLogout}
+                type="button"
+              >
+                Log out
+              </button>
+            </div>
+          </nav>
+        )}
+      </header>
+
+      <main className="w-full flex-1 px-5 py-8 sm:px-8 sm:py-10">
+        <div className="mx-auto max-w-6xl">{children}</div>
+      </main>
+      <footer className="mx-auto w-full max-w-6xl px-5 pb-6 text-xs text-[#70857b] sm:px-8">
+        TrailSync · Trekking journeys, connected.
+      </footer>
     </div>
   )
 }

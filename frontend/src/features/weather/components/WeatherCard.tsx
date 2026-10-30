@@ -10,6 +10,7 @@ import type { WeatherState } from '../lib/use-weather'
 type WeatherCardProps = {
   state: WeatherState
   className?: string
+  compact?: boolean
 }
 
 const dayFormat = new Intl.DateTimeFormat('en-PH', {
@@ -59,11 +60,41 @@ function DayRow({ day }: { day: DailyWeather }) {
   )
 }
 
+// One short line per day for the compact card.
+function CompactDayRow({ day }: { day: DailyWeather }) {
+  return (
+    <li className="flex items-center gap-2 py-1.5 text-sm">
+      <span className="w-16 shrink-0 font-semibold text-[#173a2e]">
+        {dayLabel(day.date)}
+      </span>
+      <img
+        alt={capitalize(day.condition.description)}
+        className="-my-2 size-9 shrink-0"
+        src={conditionIconUrl(day.condition)}
+        title={capitalize(day.condition.description)}
+      />
+      <span className="flex-1 text-xs text-[#52675e]">
+        {day.rainChancePercent}% rain
+        {day.thunderstorm && (
+          <span className="ml-1.5 rounded-full bg-[#fdf3dc] px-1.5 py-0.5 font-bold text-[#7a5300]">
+            Storms
+          </span>
+        )}
+      </span>
+      <span className="shrink-0 font-semibold text-[#173a2e]">
+        {Math.round(day.minTemperatureC)}–{Math.round(day.maxTemperatureC)}°
+      </span>
+    </li>
+  )
+}
+
 // Current conditions and the coming days at the trail point. Advisory only:
-// trails are closed by a coordinator, never by the forecast.
+// trails are closed by a coordinator, never by the forecast. The compact
+// variant fits a narrow side column and shows only the next three days.
 export default function WeatherCard({
   state,
   className = '',
+  compact = false,
 }: WeatherCardProps) {
   return (
     <section
@@ -97,7 +128,37 @@ export default function WeatherCard({
           Weather isn’t available right now. Please check again later.
         </p>
       )}
-      {state.status === 'loaded' && (
+      {state.status === 'loaded' && compact && (
+        <>
+          <div className="mt-4 flex items-center gap-3">
+            <img
+              alt=""
+              className="-my-2 size-14 shrink-0"
+              src={conditionIconUrl(state.weather.current.condition)}
+            />
+            <div>
+              <p className="text-3xl font-bold text-[#002d20]">
+                {Math.round(state.weather.current.temperatureC)}°C
+              </p>
+              <p className="text-sm text-[#52675e]">
+                {capitalize(state.weather.current.condition.description)} ·
+                feels like {Math.round(state.weather.current.feelsLikeC)}°C
+              </p>
+            </div>
+          </div>
+          <ul className="mt-4 divide-y divide-[#e7ece8] border-t border-[#e7ece8]">
+            {state.weather.daily.slice(0, 3).map((day) => (
+              <CompactDayRow day={day} key={day.date} />
+            ))}
+          </ul>
+          <p className="mt-3 text-xs leading-5 text-[#70857b]">
+            {state.weather.stale ? 'May be out of date · ' : ''}
+            Updated {timeFormat.format(new Date(state.weather.fetchedAt))}.
+            Coordinators close trails when conditions are unsafe.
+          </p>
+        </>
+      )}
+      {state.status === 'loaded' && !compact && (
         <>
           <div className="mt-4 flex items-center gap-3">
             <img

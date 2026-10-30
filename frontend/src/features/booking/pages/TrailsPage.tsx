@@ -111,7 +111,7 @@ function TrailCard({
         </div>
       </dl>
       <Link
-        className="mt-6 inline-flex self-start rounded-lg bg-[#008755] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#006b43] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2"
+        className="mt-6 inline-flex self-start rounded-lg bg-[#477a69] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#3a6457] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] focus-visible:ring-offset-2"
         to={`/bookings/new?trailId=${encodeURIComponent(trail.id)}`}
       >
         Book this trail

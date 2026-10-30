@@ -104,7 +104,7 @@ export default function BookingQueuePage() {
         {tabs.map((tab) => (
           <button
             aria-selected={tab.status === activeTab.status}
-            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${tab.status === activeTab.status ? 'bg-[#002d20] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
+            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${tab.status === activeTab.status ? 'bg-[#477a69] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
             key={tab.status}
             onClick={() => setSearchParams({ status: tab.status })}
             role="tab"

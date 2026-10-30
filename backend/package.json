@@ -12,7 +12,8 @@
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:migrate": "prisma migrate dev",
-    "set-role": "tsx src/scripts/set-role.ts"
+    "set-role": "tsx src/scripts/set-role.ts",
+    "reset-data": "tsx src/scripts/reset-data.ts"
   },
   "keywords": [],
   "dependencies": {
