@@ -17,6 +17,7 @@ vi.mock('./lib/prisma.js', () => ({
 }));
 
 import { app } from './app.js';
+import { CURRENT_TERMS_VERSION } from './lib/agreements.js';
 import { firebaseAuth } from './lib/firebase-admin.js';
 import { prisma } from './lib/prisma.js';
 
@@ -52,6 +53,7 @@ describe('POST /users', () => {
         firebaseUid: 'attacker-uid',
         fullName: ' Trail Hiker ',
         role: 'COORDINATOR',
+        acceptedTermsVersion: CURRENT_TERMS_VERSION,
       });
 
     expect(response.status).toBe(201);
@@ -60,6 +62,8 @@ describe('POST /users', () => {
         email: 'hiker@example.com',
         firebaseUid: 'firebase-hiker-uid',
         fullName: 'Trail Hiker',
+        termsAcceptedAt: expect.any(Date),
+        termsVersion: CURRENT_TERMS_VERSION,
       },
     });
     expect(response.body).toMatchObject({
@@ -116,6 +120,24 @@ describe('POST /users', () => {
     expect(createUser).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ['missing', undefined],
+    ['outdated', '2000-01-01'],
+  ])('rejects a profile whose terms acceptance is %s', async (_label, acceptedTermsVersion) => {
+    verifyIdToken.mockResolvedValue({
+      email: 'hiker@example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+
+    const response = await request(app)
+      .post('/users')
+      .set('Authorization', 'Bearer valid-token')
+      .send({ fullName: 'Trail Hiker', acceptedTermsVersion });
+
+    expect(response.status).toBe(400);
+    expect(createUser).not.toHaveBeenCalled();
+  });
+
   it('returns a conflict for a duplicate profile', async () => {
     verifyIdToken.mockResolvedValue({
       email: 'hiker@example.com',
@@ -126,7 +148,10 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: 'Trail Hiker' });
+      .send({
+        fullName: 'Trail Hiker',
+        acceptedTermsVersion: CURRENT_TERMS_VERSION,
+      });
 
     expect(response.status).toBe(409);
   });

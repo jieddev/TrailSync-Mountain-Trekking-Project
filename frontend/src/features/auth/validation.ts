@@ -4,6 +4,7 @@ export type LoginFormValues = {
 }
 
 export type RegisterFormValues = {
+  acceptedTerms: boolean
   confirmPassword: string
   email: string
   fullName: string
@@ -105,6 +106,11 @@ export function validateRegisterForm(
     errors.confirmPassword = 'Confirm your password.'
   } else if (values.confirmPassword !== values.password) {
     errors.confirmPassword = 'Passwords do not match.'
+  }
+
+  if (!values.acceptedTerms) {
+    errors.acceptedTerms =
+      'Confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.'
   }
 
   return errors

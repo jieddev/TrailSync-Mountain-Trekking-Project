@@ -13,6 +13,7 @@ vi.mock("./lib/prisma.js", () => ({
 }));
 
 import { app } from "./app.js";
+import { CURRENT_WAIVER_VERSION } from "./lib/agreements.js";
 import { firebaseAuth } from "./lib/firebase-admin.js";
 import { prisma } from "./lib/prisma.js";
 
@@ -36,7 +37,7 @@ const booking = (overrides: Record<string, unknown> = {}) => ({
   createdAt: new Date("2026-10-07T00:00:00Z"), updatedAt: new Date("2026-10-07T00:00:00Z"),
   participants: [{ id: "participant-owner", kind: "BOOKING_OWNER", name: "Hiker One", age: 28, address: "Ormoc" }], ...overrides,
 });
-const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_sulfatara", scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { age: 28, address: "Ormoc City" }, additionalParticipants });
+const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_sulfatara", scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { age: 28, address: "Ormoc City" }, additionalParticipants, acceptedWaiverVersion: CURRENT_WAIVER_VERSION });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -105,6 +106,37 @@ describe("Booking Foundation", () => {
     const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send(body);
     expect(response.status).toBe(422);
     expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "trailId", code: "REQUIRED" }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
+  });
+
+  it("requires the booking owner to be 18 or older", async () => {
+    const minor = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send({ ...createBody(), ownerDetails: { age: 17, address: "Ormoc City" } });
+    expect(minor.status).toBe(422);
+    expect(minor.body.error.details).toContainEqual(expect.objectContaining({ field: "ownerDetails.age", code: "OWNER_UNDERAGE" }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
+
+    tx.booking.create.mockResolvedValue(booking() as never);
+    const adult = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send({ ...createBody(), ownerDetails: { age: 18, address: "Ormoc City" } });
+    expect(adult.status).toBe(201);
+  });
+
+  it("still lets the owner bring participants under 18", async () => {
+    tx.booking.create.mockResolvedValue(booking() as never);
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send(createBody([{ name: "Child", age: 10, address: "Ormoc" }]));
+    expect(response.status).toBe(201);
+  });
+
+  it("records the trek waiver the owner accepted for the group", async () => {
+    tx.booking.create.mockResolvedValue(booking() as never);
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send(createBody());
+    expect(response.status).toBe(201);
+    expect(tx.booking.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ waiverAcceptedAt: expect.any(Date), waiverVersion: CURRENT_WAIVER_VERSION }) }));
+  });
+
+  it.each([["missing", undefined], ["outdated", "2000-01-01"]])("requires the current trek waiver, rejecting one that is %s", async (_label, acceptedWaiverVersion) => {
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send({ ...createBody(), acceptedWaiverVersion });
+    expect(response.status).toBe(422);
+    expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "acceptedWaiverVersion", code: "WAIVER_NOT_ACCEPTED" }));
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 

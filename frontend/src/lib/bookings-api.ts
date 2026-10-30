@@ -66,6 +66,8 @@ export type CreateBookingInput = {
   scheduledTime: string
   ownerDetails: { age: number; address: string }
   additionalParticipants: ParticipantInput[]
+  // The Trek Waiver version the owner agreed to for the whole group.
+  acceptedWaiverVersion: string
 }
 
 export type ScheduleInput = { scheduledDate: string; scheduledTime: string }

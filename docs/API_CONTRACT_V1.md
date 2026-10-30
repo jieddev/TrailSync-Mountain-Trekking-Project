@@ -76,14 +76,17 @@ Any new or changed endpoint must be documented here in the same PR: method, path
 Creates the TrailSync profile for the verified Firebase account. **Auth:** Bearer token. **Role:** any.
 
 ```json
-{ "fullName": "Juan Dela Cruz" }
+{ "fullName": "Juan Dela Cruz", "acceptedTermsVersion": "2026-10-30" }
 ```
 
 `201` returns the created user. Email and Firebase UID come from the token; the role is always `HIKER`.
 
+`acceptedTermsVersion` must equal the current Terms of Use and Privacy Policy version (`backend/src/lib/agreements.ts`). The server stores it with the acceptance time as `termsVersion` / `termsAcceptedAt`.
+
 | Status | Body                                                              |
 | ------ | ----------------------------------------------------------------- |
 | `400`  | `{ "message": "fullName is required and must be a non-empty string." }` |
+| `400`  | Current terms not accepted (`acceptedTermsVersion` missing or outdated) |
 | `400`  | Verified account has no email                                     |
 | `401`  | `UNAUTHORIZED`                                                    |
 | `409`  | Profile with this Firebase UID or email already exists            |
@@ -230,20 +233,23 @@ Creates a booking. **Role:** `HIKER`.
   "scheduledDate": "2026-11-20",
   "scheduledTime": "08:00",
   "ownerDetails": { "age": 28, "address": "Ormoc City, Leyte" },
-  "additionalParticipants": [{ "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "email": "maria@example.com" }]
+  "additionalParticipants": [{ "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "email": "maria@example.com" }],
+  "acceptedWaiverVersion": "2026-10-30"
 }
 ```
 
 - `trailId` must be an active catalog trail.
 - `scheduledDate` is `YYYY-MM-DD`; `scheduledTime` is 24-hour `HH:mm`.
 - The owner's name comes from their profile; `ownerDetails` supplies only age and address.
+- The owner must be 18 or older (`MIN_BOOKING_OWNER_AGE`); a younger owner is `OWNER_UNDERAGE`. Additional participants and walk-ins may be under 18.
 - `additionalParticipants` is optional, at most 4 people. Ages are positive integers; names and addresses are non-blank.
 - `email` is optional for each additional participant and used only for their certificate; an invalid one is `INVALID_EMAIL`. The owner's participant email is taken from their profile.
+- `acceptedWaiverVersion` must equal the current Trek Waiver and Trail Rules version (`backend/src/lib/agreements.ts`); otherwise `WAIVER_NOT_ACCEPTED`. The owner accepts for the whole group. The server stores it with the acceptance time as `waiverVersion` / `waiverAcceptedAt`. Rescheduling does not ask again.
 - Owner, price, downpayment, status, and participant count are server-derived; client values are ignored.
 
 `201` returns the booking with `PENDING_CONFIRMATION` / `PENDING_VERIFICATION`.
 
-`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`. Other errors: `409 TRAIL_RESTRICTED` (the trail is closed on `scheduledDate`, §8), `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`, `OWNER_UNDERAGE`, `WAIVER_NOT_ACCEPTED`. Other errors: `409 TRAIL_RESTRICTED` (the trail is closed on `scheduledDate`, §8), `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
 
 ### `GET /api/v1/bookings`
 

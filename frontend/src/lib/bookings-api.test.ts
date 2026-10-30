@@ -16,6 +16,7 @@ const input: CreateBookingInput = {
   additionalParticipants: [
     { name: 'Maria Dela Cruz', age: 26, address: 'Ormoc City, Leyte' },
   ],
+  acceptedWaiverVersion: '2026-10-30',
 }
 
 function jsonResponse(body: unknown, status: number) {

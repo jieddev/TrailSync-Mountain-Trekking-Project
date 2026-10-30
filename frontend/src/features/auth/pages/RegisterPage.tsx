@@ -20,8 +20,11 @@ import {
 
 import { auth } from '../../../lib/firebase'
 import { ApiError, createUser } from '../../../lib/users-api'
+import { TERMS_VERSION } from '../../legal/agreements'
+import AgreementCheckbox from '../../legal/components/AgreementCheckbox'
 
 const initialValues: RegisterFormValues = {
+  acceptedTerms: false,
   confirmPassword: '',
   email: '',
   fullName: '',
@@ -43,8 +46,11 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    const { name, value } = event.target
-    const nextValues = { ...values, [name]: value } as RegisterFormValues
+    const { checked, name, type, value } = event.target
+    const nextValues = {
+      ...values,
+      [name]: type === 'checkbox' ? checked : value,
+    } as RegisterFormValues
 
     setValues(nextValues)
     if (hasSubmitted) {
@@ -112,6 +118,7 @@ export default function RegisterPage() {
       })
 
       await createUser({
+        acceptedTermsVersion: TERMS_VERSION,
         fullName: values.fullName.trim(),
         idToken: await credential.user.getIdToken(),
       })
@@ -274,6 +281,20 @@ export default function RegisterPage() {
           type={isConfirmPasswordVisible ? 'text' : 'password'}
           value={values.confirmPassword}
         />
+        <AgreementCheckbox
+          checked={values.acceptedTerms}
+          error={errors.acceptedTerms}
+          id="accepted-terms"
+          name="acceptedTerms"
+          onChange={handleChange}
+        >
+          {(link) => (
+            <>
+              I am 18 or older and agree to the {link('terms', 'Terms of Use')}{' '}
+              and {link('privacy', 'Privacy Policy')}.
+            </>
+          )}
+        </AgreementCheckbox>
         <AuthSubmitButton isLoading={isLoading} label="Create account" />
       </form>
     </AuthPageLayout>

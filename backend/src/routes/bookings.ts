@@ -1,7 +1,8 @@
 import { Router, type Response } from "express";
+import { CURRENT_WAIVER_VERSION } from "../lib/agreements.js";
 import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
 import { bookingInclude, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
-import { MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
+import { MAX_PARTICIPANTS, MIN_BOOKING_OWNER_AGE, downpaymentFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
 import { activeRestriction } from "../lib/trail-restrictions.js";
 import { nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
@@ -57,6 +58,7 @@ bookingsRouter.post("/", async (request, response) => {
     details.push(...validateSchedule(body));
     const ownerDetails = body.ownerDetails && typeof body.ownerDetails === "object" && !Array.isArray(body.ownerDetails) ? body.ownerDetails as Record<string, unknown> : {};
     if (!validAge(ownerDetails.age)) details.push({ field: "ownerDetails.age", code: "INVALID_AGE", message: "Age must be a positive integer." });
+    else if (ownerDetails.age < MIN_BOOKING_OWNER_AGE) details.push({ field: "ownerDetails.age", code: "OWNER_UNDERAGE", message: `The person booking must be ${MIN_BOOKING_OWNER_AGE} or older.` });
     if (!nonblank(ownerDetails.address)) details.push({ field: "ownerDetails.address", code: "REQUIRED", message: "Address is required." });
     const additional = body.additionalParticipants === undefined ? [] : body.additionalParticipants;
     if (!Array.isArray(additional)) details.push({ field: "additionalParticipants", code: "INVALID_TYPE", message: "Additional participants must be an array." });
@@ -70,6 +72,7 @@ bookingsRouter.post("/", async (request, response) => {
         if (!validOptionalEmail(person.email)) details.push({ field: `additionalParticipants.${index}.email`, code: "INVALID_EMAIL", message: "Enter a valid email address." });
       });
     }
+    if (body.acceptedWaiverVersion !== CURRENT_WAIVER_VERSION) details.push({ field: "acceptedWaiverVersion", code: "WAIVER_NOT_ACCEPTED", message: "Agree to the Trek Waiver and Trail Rules to book." });
     if (details.length) return validation(response, details);
 
     const trail = await prisma.trail.findFirst({ where: { id: body.trailId as string, isActive: true }, select: { id: true, packagePrice: true } });
@@ -87,6 +90,8 @@ bookingsRouter.post("/", async (request, response) => {
           downpaymentAmount: downpaymentFor(trail.packagePrice),
           status: "PENDING_CONFIRMATION",
           downpaymentStatus: "PENDING_VERIFICATION",
+          waiverAcceptedAt: new Date(),
+          waiverVersion: CURRENT_WAIVER_VERSION,
           participants: { create: [
             { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerDetails.age as number, address: (ownerDetails.address as string).trim(), email: profile.email },
             ...(additional as Record<string, unknown>[]).map((person) => ({

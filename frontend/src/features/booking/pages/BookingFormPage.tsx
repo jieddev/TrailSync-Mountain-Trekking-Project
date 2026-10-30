@@ -9,6 +9,7 @@ import { closureOn } from '../../../lib/trail-restrictions-api'
 import { listTrails, type Trail } from '../../../lib/trails-api'
 import AuthFormField from '../../auth/components/AuthFormField'
 import AuthSubmitButton from '../../auth/components/AuthSubmitButton'
+import AgreementCheckbox from '../../legal/components/AgreementCheckbox'
 import { useHikerProfile } from '../../home/hiker-profile'
 import DayForecastNote from '../../weather/components/DayForecastNote'
 import { useWeather } from '../../weather/lib/use-weather'
@@ -22,6 +23,7 @@ import {
   fieldErrorsFromApi,
   formatDateRange,
   formatMoney,
+  MIN_BOOKING_OWNER_AGE,
   todayLocalIso,
   toCreateBookingInput,
   validateBookingForm,
@@ -42,6 +44,7 @@ const initialValues: BookingFormValues = {
   ownerAge: '',
   ownerAddress: '',
   additionalParticipants: [],
+  acceptedWaiver: false,
 }
 
 const secondaryButtonClass =
@@ -336,6 +339,7 @@ export default function BookingFormPage() {
               <AuthFormField
                 autoComplete="off"
                 error={errors.ownerAge}
+                hint={`You must be ${MIN_BOOKING_OWNER_AGE} or older to book.`}
                 id="ownerAge"
                 inputMode="numeric"
                 label="Age"
@@ -497,6 +501,29 @@ export default function BookingFormPage() {
             A tourism coordinator reviews your request and verifies the
             downpayment before confirming. Your guide is assigned at check-in.
           </p>
+          <div className="mt-4">
+            <AgreementCheckbox
+              checked={values.acceptedWaiver}
+              error={errors.acceptedWaiver}
+              id="accepted-waiver"
+              name="acceptedWaiver"
+              onChange={(event) =>
+                updateValues({
+                  ...values,
+                  acceptedWaiver: event.target.checked,
+                })
+              }
+            >
+              {(link) => (
+                <>
+                  I have read the{' '}
+                  {link('waiver', 'Trek Waiver and Trail Rules')}, and I confirm
+                  every participant (or a parent or guardian of each minor)
+                  agrees to them.
+                </>
+              )}
+            </AgreementCheckbox>
+          </div>
           <AuthSubmitButton isLoading={isSubmitting} label="Send booking" />
           <p
             aria-live="polite"
