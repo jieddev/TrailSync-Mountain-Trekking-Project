@@ -78,6 +78,29 @@ describe('validateBookingForm', () => {
     }
   })
 
+  it('requires the booking owner to be 18 or older', () => {
+    expect(
+      validateBookingForm({ ...validValues, ownerAge: '17' }, 4, today),
+    ).toEqual({
+      ownerAge:
+        'You must be 18 or older to book. Ask an adult in your group to book instead.',
+    })
+    expect(
+      validateBookingForm({ ...validValues, ownerAge: '18' }, 4, today),
+    ).toEqual({})
+  })
+
+  it('accepts additional participants under 18', () => {
+    const child = { ...validValues.additionalParticipants[0], age: '10' }
+    expect(
+      validateBookingForm(
+        { ...validValues, additionalParticipants: [child] },
+        4,
+        today,
+      ),
+    ).toEqual({})
+  })
+
   it('validates each additional participant by index', () => {
     const errors = validateBookingForm(
       {

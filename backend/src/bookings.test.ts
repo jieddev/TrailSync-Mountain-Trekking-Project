@@ -109,6 +109,23 @@ describe("Booking Foundation", () => {
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
+  it("requires the booking owner to be 18 or older", async () => {
+    const minor = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send({ ...createBody(), ownerDetails: { age: 17, address: "Ormoc City" } });
+    expect(minor.status).toBe(422);
+    expect(minor.body.error.details).toContainEqual(expect.objectContaining({ field: "ownerDetails.age", code: "OWNER_UNDERAGE" }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
+
+    tx.booking.create.mockResolvedValue(booking() as never);
+    const adult = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send({ ...createBody(), ownerDetails: { age: 18, address: "Ormoc City" } });
+    expect(adult.status).toBe(201);
+  });
+
+  it("still lets the owner bring participants under 18", async () => {
+    tx.booking.create.mockResolvedValue(booking() as never);
+    const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send(createBody([{ name: "Child", age: 10, address: "Ormoc" }]));
+    expect(response.status).toBe(201);
+  });
+
   it("records the trek waiver the owner accepted for the group", async () => {
     tx.booking.create.mockResolvedValue(booking() as never);
     const response = await request(app).post("/api/v1/bookings").set("Authorization", "Bearer token").send(createBody());

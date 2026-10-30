@@ -110,7 +110,7 @@ export function validateRegisterForm(
 
   if (!values.acceptedTerms) {
     errors.acceptedTerms =
-      'You must agree to the Terms of Use and Privacy Policy.'
+      'Confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.'
   }
 
   return errors

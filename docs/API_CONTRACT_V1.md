@@ -241,6 +241,7 @@ Creates a booking. **Role:** `HIKER`.
 - `trailId` must be an active catalog trail.
 - `scheduledDate` is `YYYY-MM-DD`; `scheduledTime` is 24-hour `HH:mm`.
 - The owner's name comes from their profile; `ownerDetails` supplies only age and address.
+- The owner must be 18 or older (`MIN_BOOKING_OWNER_AGE`); a younger owner is `OWNER_UNDERAGE`. Additional participants and walk-ins may be under 18.
 - `additionalParticipants` is optional, at most 4 people. Ages are positive integers; names and addresses are non-blank.
 - `email` is optional for each additional participant and used only for their certificate; an invalid one is `INVALID_EMAIL`. The owner's participant email is taken from their profile.
 - `acceptedWaiverVersion` must equal the current Trek Waiver and Trail Rules version (`backend/src/lib/agreements.ts`); otherwise `WAIVER_NOT_ACCEPTED`. The owner accepts for the whole group. The server stores it with the acceptance time as `waiverVersion` / `waiverAcceptedAt`. Rescheduling does not ask again.
@@ -248,7 +249,7 @@ Creates a booking. **Role:** `HIKER`.
 
 `201` returns the booking with `PENDING_CONFIRMATION` / `PENDING_VERIFICATION`.
 
-`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`, `WAIVER_NOT_ACCEPTED`. Other errors: `409 TRAIL_RESTRICTED` (the trail is closed on `scheduledDate`, §8), `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`, `OWNER_UNDERAGE`, `WAIVER_NOT_ACCEPTED`. Other errors: `409 TRAIL_RESTRICTED` (the trail is closed on `scheduledDate`, §8), `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
 
 ### `GET /api/v1/bookings`
 

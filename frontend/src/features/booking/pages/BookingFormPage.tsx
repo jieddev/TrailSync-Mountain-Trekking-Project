@@ -23,6 +23,7 @@ import {
   fieldErrorsFromApi,
   formatDateRange,
   formatMoney,
+  MIN_BOOKING_OWNER_AGE,
   todayLocalIso,
   toCreateBookingInput,
   validateBookingForm,
@@ -338,6 +339,7 @@ export default function BookingFormPage() {
               <AuthFormField
                 autoComplete="off"
                 error={errors.ownerAge}
+                hint={`You must be ${MIN_BOOKING_OWNER_AGE} or older to book.`}
                 id="ownerAge"
                 inputMode="numeric"
                 label="Age"

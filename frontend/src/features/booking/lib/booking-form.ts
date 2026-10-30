@@ -30,6 +30,10 @@ export type ScheduleFormValues = ScheduleInput
 // Keys: 'trailId', 'ownerAge', 'additionalParticipants.0.name', etc.
 export type BookingFormErrors = Record<string, string>
 
+// Must match MIN_BOOKING_OWNER_AGE in backend/src/lib/package-policy.ts.
+// Only the person booking must be an adult; participants may be minors.
+export const MIN_BOOKING_OWNER_AGE = 18
+
 export const emptyParticipant: ParticipantFormValues = {
   name: '',
   age: '',
@@ -91,6 +95,8 @@ export function validateBookingForm(
   Object.assign(errors, validateSchedule(values, today))
   if (!isPositiveInteger(values.ownerAge)) {
     errors.ownerAge = 'Enter your age as a whole number.'
+  } else if (Number(values.ownerAge) < MIN_BOOKING_OWNER_AGE) {
+    errors.ownerAge = `You must be ${MIN_BOOKING_OWNER_AGE} or older to book. Ask an adult in your group to book instead.`
   }
   if (!values.ownerAddress.trim()) errors.ownerAddress = 'Enter your address.'
 

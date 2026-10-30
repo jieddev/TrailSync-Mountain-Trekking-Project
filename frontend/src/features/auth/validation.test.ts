@@ -93,7 +93,8 @@ describe('validateRegisterForm', () => {
     expect(
       validateRegisterForm({ ...validValues, acceptedTerms: false }),
     ).toEqual({
-      acceptedTerms: 'You must agree to the Terms of Use and Privacy Policy.',
+      acceptedTerms:
+        'Confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.',
     })
   })
 
@@ -107,7 +108,8 @@ describe('validateRegisterForm', () => {
         acceptedTerms: false,
       }),
     ).toEqual({
-      acceptedTerms: 'You must agree to the Terms of Use and Privacy Policy.',
+      acceptedTerms:
+        'Confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.',
       confirmPassword: 'Confirm your password.',
       email: 'Enter a valid email address.',
       fullName: 'Enter your full name.',

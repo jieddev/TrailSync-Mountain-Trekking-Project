@@ -290,8 +290,8 @@ export default function RegisterPage() {
         >
           {(link) => (
             <>
-              I agree to the {link('terms', 'Terms of Use')} and{' '}
-              {link('privacy', 'Privacy Policy')}.
+              I am 18 or older and agree to the {link('terms', 'Terms of Use')}{' '}
+              and {link('privacy', 'Privacy Policy')}.
             </>
           )}
         </AgreementCheckbox>

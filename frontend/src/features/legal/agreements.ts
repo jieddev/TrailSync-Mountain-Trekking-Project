@@ -34,6 +34,7 @@ export const agreements: Record<AgreementId, Agreement> = {
       {
         heading: 'Your account',
         paragraphs: [
+          'You must be 18 or older to create an account and book a trek. Participants under 18 may join a booking made by an adult.',
           'Give your real name and a working email address. Keep your password private; you are responsible for what is done with your account.',
           'You may use TrailSync only to plan and book treks for yourself and the people in your group.',
         ],
@@ -147,7 +148,7 @@ export const agreements: Record<AgreementId, Agreement> = {
       {
         heading: 'Agreeing for your group',
         paragraphs: [
-          'As the person making this booking, you confirm that every participant has read and agreed to these rules, and that a parent or guardian agrees for each participant under 18 and will be responsible for them on the trek.',
+          'As the person making this booking, you confirm that you are 18 or older, that every participant has read and agreed to these rules, and that a parent or guardian agrees for each participant under 18 and will be responsible for them on the trek.',
           '[Liability wording to be reviewed by the tourism office or its legal adviser.]',
         ],
       },
