@@ -3,6 +3,7 @@ import { ApiError, apiBaseUrl } from './api'
 export { ApiError }
 
 type CreateUserInput = {
+  acceptedTermsVersion: string
   fullName: string
   idToken: string
 }

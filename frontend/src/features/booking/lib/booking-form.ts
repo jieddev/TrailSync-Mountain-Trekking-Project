@@ -4,6 +4,7 @@ import type {
   ScheduleInput,
 } from '../../../lib/bookings-api'
 import type { Money } from '../../../lib/trails-api'
+import { WAIVER_VERSION } from '../../legal/agreements'
 
 // Form values stay as strings so inputs remain controlled; they are converted
 // to the API shape only on submit.
@@ -21,6 +22,7 @@ export type BookingFormValues = {
   ownerAge: string
   ownerAddress: string
   additionalParticipants: ParticipantFormValues[]
+  acceptedWaiver: boolean
 }
 
 export type ScheduleFormValues = ScheduleInput
@@ -107,6 +109,10 @@ export function validateBookingForm(
       errors[`${prefix}.email`] = 'Enter a valid email or leave it blank.'
   })
 
+  if (!values.acceptedWaiver) {
+    errors.acceptedWaiver = 'Agree to the Trek Waiver and Trail Rules to book.'
+  }
+
   return errors
 }
 
@@ -127,12 +133,14 @@ export function toCreateBookingInput(
       address: person.address.trim(),
       ...(person.email.trim() && { email: person.email.trim() }),
     })),
+    acceptedWaiverVersion: WAIVER_VERSION,
   }
 }
 
 const apiFieldToFormField: Record<string, string> = {
   'ownerDetails.age': 'ownerAge',
   'ownerDetails.address': 'ownerAddress',
+  acceptedWaiverVersion: 'acceptedWaiver',
 }
 
 // Maps backend validation details onto form error keys. Backend messages are

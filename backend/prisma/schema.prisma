@@ -56,6 +56,9 @@ model User {
   fullName                  String
   email                     String             @unique
   role                      UserRole           @default(HIKER)
+  // Terms of Use and Privacy Policy accepted at registration; null for accounts made before agreements existed.
+  termsAcceptedAt           DateTime?
+  termsVersion              String?
   createdAt                 DateTime           @default(now())
   updatedAt                 DateTime           @updatedAt
   bookings                  Booking[]
@@ -161,6 +164,9 @@ model Booking {
   guideAssignedAt   DateTime?
   trekStartedAt     DateTime?
   completedAt       DateTime?
+  // Trek waiver and trail rules the owner accepted for the whole group.
+  waiverAcceptedAt  DateTime?
+  waiverVersion     String?
   participants      BookingParticipant[]
   incidents         Incident[]
   createdAt         DateTime             @default(now())

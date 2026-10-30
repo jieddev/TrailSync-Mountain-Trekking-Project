@@ -53,6 +53,7 @@ describe('validateRegisterForm', () => {
     email: 'hiker@example.com',
     fullName: 'Trail Hiker',
     password: 'TrailSync1!',
+    acceptedTerms: true,
   }
 
   it('accepts a valid registration form at the eight-character boundary', () => {
@@ -88,6 +89,14 @@ describe('validateRegisterForm', () => {
     ).toEqual({ confirmPassword: 'Passwords do not match.' })
   })
 
+  it('requires agreeing to the Terms of Use and Privacy Policy', () => {
+    expect(
+      validateRegisterForm({ ...validValues, acceptedTerms: false }),
+    ).toEqual({
+      acceptedTerms: 'You must agree to the Terms of Use and Privacy Policy.',
+    })
+  })
+
   it('reports required and invalid registration fields', () => {
     expect(
       validateRegisterForm({
@@ -95,8 +104,10 @@ describe('validateRegisterForm', () => {
         email: 'invalid-email',
         fullName: '   ',
         password: '',
+        acceptedTerms: false,
       }),
     ).toEqual({
+      acceptedTerms: 'You must agree to the Terms of Use and Privacy Policy.',
       confirmPassword: 'Confirm your password.',
       email: 'Enter a valid email address.',
       fullName: 'Enter your full name.',

@@ -1,4 +1,5 @@
 import { Router, type Response } from "express";
+import { CURRENT_WAIVER_VERSION } from "../lib/agreements.js";
 import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
 import { bookingInclude, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
 import { MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
@@ -70,6 +71,7 @@ bookingsRouter.post("/", async (request, response) => {
         if (!validOptionalEmail(person.email)) details.push({ field: `additionalParticipants.${index}.email`, code: "INVALID_EMAIL", message: "Enter a valid email address." });
       });
     }
+    if (body.acceptedWaiverVersion !== CURRENT_WAIVER_VERSION) details.push({ field: "acceptedWaiverVersion", code: "WAIVER_NOT_ACCEPTED", message: "Agree to the Trek Waiver and Trail Rules to book." });
     if (details.length) return validation(response, details);
 
     const trail = await prisma.trail.findFirst({ where: { id: body.trailId as string, isActive: true }, select: { id: true, packagePrice: true } });
@@ -87,6 +89,8 @@ bookingsRouter.post("/", async (request, response) => {
           downpaymentAmount: downpaymentFor(trail.packagePrice),
           status: "PENDING_CONFIRMATION",
           downpaymentStatus: "PENDING_VERIFICATION",
+          waiverAcceptedAt: new Date(),
+          waiverVersion: CURRENT_WAIVER_VERSION,
           participants: { create: [
             { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerDetails.age as number, address: (ownerDetails.address as string).trim(), email: profile.email },
             ...(additional as Record<string, unknown>[]).map((person) => ({

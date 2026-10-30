@@ -2,6 +2,7 @@ import cors from "cors";
 import express, { type NextFunction, type Request, type Response } from "express";
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
+import { CURRENT_TERMS_VERSION } from "./lib/agreements.js";
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { prisma } from "./lib/prisma.js";
 import { isPrismaUniqueConstraintError } from "./lib/prisma-errors.js";
@@ -56,7 +57,7 @@ const requestId = (request: Request): string | undefined =>
 
 app.post("/users", requireFirebaseAuth, async (request, response) => {
   const log = requestLogger(request);
-  const { fullName } = request.body as Record<string, unknown>;
+  const { fullName, acceptedTermsVersion } = request.body as Record<string, unknown>;
   const { authUser } = request as AuthenticatedRequest;
 
   if (typeof fullName !== "string" || !fullName.trim()) {
@@ -67,6 +68,17 @@ app.post("/users", requireFirebaseAuth, async (request, response) => {
 
     return response.status(400).json({
       message: "fullName is required and must be a non-empty string.",
+    });
+  }
+
+  if (acceptedTermsVersion !== CURRENT_TERMS_VERSION) {
+    log.warn(
+      { requestId: requestId(request) },
+      "User profile creation rejected because the current terms were not accepted",
+    );
+
+    return response.status(400).json({
+      message: "You must agree to the current Terms of Use and Privacy Policy.",
     });
   }
 
@@ -92,6 +104,8 @@ app.post("/users", requireFirebaseAuth, async (request, response) => {
         firebaseUid: authUser.firebaseUid,
         fullName: fullName.trim(),
         email: authUser.email.trim().toLowerCase(),
+        termsAcceptedAt: new Date(),
+        termsVersion: CURRENT_TERMS_VERSION,
       },
     });
 

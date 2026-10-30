@@ -10,6 +10,7 @@ import {
   validateBookingForm,
   validateSchedule,
 } from './booking-form'
+import { WAIVER_VERSION } from '../../legal/agreements'
 
 const today = '2026-10-18'
 
@@ -27,6 +28,7 @@ const validValues: BookingFormValues = {
       email: ' maria@example.com ',
     },
   ],
+  acceptedWaiver: true,
 }
 
 describe('validateBookingForm', () => {
@@ -53,11 +55,13 @@ describe('validateBookingForm', () => {
         ownerAge: '',
         ownerAddress: '  ',
         additionalParticipants: [],
+        acceptedWaiver: false,
       },
       4,
       today,
     )
     expect(Object.keys(errors).sort()).toEqual([
+      'acceptedWaiver',
       'ownerAddress',
       'ownerAge',
       'scheduledDate',
@@ -92,6 +96,14 @@ describe('validateBookingForm', () => {
       'additionalParticipants.1.address': 'Enter an address.',
       'additionalParticipants.1.email':
         'Enter a valid email or leave it blank.',
+    })
+  })
+
+  it('requires agreeing to the trek waiver', () => {
+    expect(
+      validateBookingForm({ ...validValues, acceptedWaiver: false }, 4, today),
+    ).toEqual({
+      acceptedWaiver: 'Agree to the Trek Waiver and Trail Rules to book.',
     })
   })
 
@@ -136,6 +148,7 @@ describe('toCreateBookingInput', () => {
           email: 'maria@example.com',
         },
       ],
+      acceptedWaiverVersion: WAIVER_VERSION,
     })
   })
 
@@ -163,8 +176,14 @@ describe('fieldErrorsFromApi', () => {
           code: 'UNSUPPORTED_TRAIL',
           message: 'Select a supported trail.',
         },
+        {
+          field: 'acceptedWaiverVersion',
+          code: 'WAIVER_NOT_ACCEPTED',
+          message: 'Agree to the waiver.',
+        },
       ]),
     ).toEqual({
+      acceptedWaiver: 'Agree to the waiver.',
       ownerAge: 'Bad age.',
       'additionalParticipants.0.name': 'Name is required.',
       trailId: 'Select a supported trail.',
