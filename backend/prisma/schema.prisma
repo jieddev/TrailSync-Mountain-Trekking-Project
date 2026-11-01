@@ -101,6 +101,7 @@ model Guide {
   availableSince DateTime?
   bookings       Booking[]
   incidents      Incident[]
+  locations      GuideLocation[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -169,6 +170,7 @@ model Booking {
   waiverVersion     String?
   participants      BookingParticipant[]
   incidents         Incident[]
+  locations         GuideLocation[]
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
@@ -231,4 +233,23 @@ model Incident {
   @@index([status, createdAt])
   @@index([bookingId])
   @@map("incidents")
+}
+
+// A guide's GPS fix during a started trek, so a coordinator can follow the
+// group live and see the path walked so far. Fixes may arrive late in a batch
+// after the phone loses signal; recordedAt is when the phone took the fix.
+model GuideLocation {
+  id         String   @id @default(cuid())
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  guideId    String
+  guide      Guide    @relation(fields: [guideId], references: [id], onDelete: Restrict)
+  latitude   Float
+  longitude  Float
+  accuracyM  Float?
+  recordedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([bookingId, recordedAt])
+  @@map("guide_locations")
 }

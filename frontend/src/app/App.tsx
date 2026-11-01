@@ -17,6 +17,7 @@ import DispatchPage from '../features/coordinator/pages/DispatchPage'
 import GuideApplicationsPage from '../features/coordinator/pages/GuideApplicationsPage'
 import GuideQueuePage from '../features/coordinator/pages/GuideQueuePage'
 import IncidentsPage from '../features/coordinator/pages/IncidentsPage'
+import LiveMapPage from '../features/coordinator/pages/LiveMapPage'
 import TrailRestrictionsPage from '../features/coordinator/pages/TrailRestrictionsPage'
 import HikerLayout from '../features/home/components/HikerLayout'
 import HikerHomePage from '../features/home/pages/HikerHomePage'
@@ -176,6 +177,7 @@ export default function App() {
               element={<CheckInPage />}
             />
             <Route path="dispatch" element={<DispatchPage />} />
+            <Route path="live-map" element={<LiveMapPage />} />
             <Route path="guides" element={<GuideQueuePage />} />
             <Route
               path="trail-restrictions"

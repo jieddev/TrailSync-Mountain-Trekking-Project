@@ -8,6 +8,7 @@ import { queuePosition } from "../lib/guide-queue.js";
 import { completeOwnTrek, startTrek } from "../lib/guide-treks.js";
 import { guideResponse, guideSelect } from "../lib/guide-representation.js";
 import { fail } from "../lib/http-errors.js";
+import { parseLocationBatch, recordLocations } from "../lib/guide-locations.js";
 import { incidentResponse, latestIncident, parseSos, raiseSos } from "../lib/incidents.js";
 import { prisma } from "../lib/prisma.js";
 import { asObject } from "../lib/validation.js";
@@ -135,6 +136,28 @@ guidesRouter.post("/me/hike-requests/:bookingId/sos", async (request, response) 
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Guide SOS failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not send the SOS.");
+  }
+});
+
+// Live tracking (API_CONTRACT_V1.md §11): a batch of GPS fixes for the
+// guide's started trek. 202 with how many were stored.
+guidesRouter.post("/me/hike-requests/:bookingId/locations", async (request, response) => {
+  const parsed = parseLocationBatch(asObject(request.body), new Date());
+  if ("details" in parsed) return fail(response, 422, "VALIDATION_ERROR", "Review the locations and try again.", parsed.details);
+  try {
+    const guide = await currentGuide(request, response);
+    if (!guide) return;
+    const result = await recordLocations(guide.id, String(request.params.bookingId), parsed.points);
+    if ("refusal" in result) {
+      if (result.refusal === "TREK_NOT_IN_PROGRESS") {
+        return fail(response, 409, result.refusal, "Your location can only be shared during a trek you have started.");
+      }
+      return refuse(response, result.refusal);
+    }
+    return response.status(202).json({ accepted: result.accepted });
+  } catch (error) {
+    request.log?.error({ requestId: request.id, err: error }, "Guide location upload failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not share your location.");
   }
 });
 

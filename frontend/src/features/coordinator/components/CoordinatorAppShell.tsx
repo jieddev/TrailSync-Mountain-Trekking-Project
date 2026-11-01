@@ -9,6 +9,7 @@ import { useOpenIncidentCount } from '../lib/use-open-incident-count'
 const navItems = [
   { to: '/coordinator/bookings', label: 'Booking queue' },
   { to: '/coordinator/dispatch', label: 'Check-in & dispatch' },
+  { to: '/coordinator/live-map', label: 'Live map' },
   { to: '/coordinator/guides', label: 'Guide queue' },
   { to: '/coordinator/guide-applications', label: 'Guide requests' },
   { to: '/coordinator/trail-restrictions', label: 'Trail restrictions' },

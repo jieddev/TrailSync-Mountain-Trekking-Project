@@ -1,5 +1,6 @@
 import type { IncidentStatus, Prisma } from "@prisma/client";
 
+import { accuracyDetails, coordinateDetails, finite } from "./geo.js";
 import type { ErrorDetail } from "./http-errors.js";
 import { isPrismaUniqueConstraintError } from "./prisma-errors.js";
 import { prisma } from "./prisma.js";
@@ -83,21 +84,12 @@ type SosInput = {
   note: string | null;
 };
 
-const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-
 // Everything is optional so an SOS can go out with no GPS fix and no typing.
 // A location needs both coordinates; accuracy and its time are extras.
 export function parseSos(body: Record<string, unknown>, now: Date): { input: SosInput } | { details: ErrorDetail[] } {
-  const details: ErrorDetail[] = [];
   const { latitude, longitude, accuracyM, recordedAt, note } = body;
   const hasLocation = (latitude !== undefined && latitude !== null) || (longitude !== undefined && longitude !== null);
-  if (hasLocation) {
-    if (!finite(latitude) || latitude < -90 || latitude > 90) details.push({ field: "latitude", code: "INVALID_LOCATION", message: "Latitude must be between -90 and 90." });
-    if (!finite(longitude) || longitude < -180 || longitude > 180) details.push({ field: "longitude", code: "INVALID_LOCATION", message: "Longitude must be between -180 and 180." });
-  }
-  if (accuracyM !== undefined && accuracyM !== null && (!finite(accuracyM) || accuracyM < 0)) {
-    details.push({ field: "accuracyM", code: "INVALID_LOCATION", message: "Accuracy must be zero or more metres." });
-  }
+  const details: ErrorDetail[] = [...(hasLocation ? coordinateDetails(latitude, longitude) : []), ...accuracyDetails(accuracyM)];
   const recorded = typeof recordedAt === "string" ? new Date(recordedAt) : null;
   if (recordedAt !== undefined && recordedAt !== null && (!recorded || Number.isNaN(recorded.valueOf()))) {
     details.push({ field: "recordedAt", code: "INVALID_DATE", message: "Use an ISO 8601 date and time." });

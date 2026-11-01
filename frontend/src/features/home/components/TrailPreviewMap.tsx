@@ -1,85 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { parseKmlLineStrings, type KmlCoordinate } from '../lib/kml'
-import type { TrailPreview, TrailPreviewCamera } from '../trail-previews'
-
-type Map3DElementOptions = TrailPreviewCamera
-
-type Map3DElement = HTMLElement & {
-  flyCameraTo?: (options: {
-    endCamera: Omit<TrailPreviewCamera, 'mode'>
-    durationMillis?: number
-  }) => void
-}
-
-type Polyline3DElementOptions = {
-  coordinates: KmlCoordinate[]
-  strokeColor?: string
-  strokeWidth?: number
-  altitudeMode?: unknown
-}
-
-type Maps3DLibrary = {
-  Map3DElement: new (options: Map3DElementOptions) => Map3DElement
-  Polyline3DElement: new (options: Polyline3DElementOptions) => HTMLElement
-  AltitudeMode: { CLAMP_TO_GROUND: unknown }
-}
-
-type GoogleMapsApi = {
-  maps: {
-    importLibrary: (libraryName: 'maps3d') => Promise<Maps3DLibrary>
-  }
-}
-
-declare global {
-  interface Window {
-    google?: GoogleMapsApi
-  }
-}
-
-let mapsApiPromise: Promise<GoogleMapsApi> | null = null
-
-declare global {
-  interface Window {
-    __trailsyncMapsLoaded__?: () => void
-  }
-}
-
-function loadGoogleMapsApi(apiKey: string): Promise<GoogleMapsApi> {
-  if (window.google?.maps?.importLibrary) return Promise.resolve(window.google)
-  if (mapsApiPromise) return mapsApiPromise
-
-  mapsApiPromise = new Promise<GoogleMapsApi>((resolve, reject) => {
-    const fail = (message: string, script: HTMLScriptElement) => {
-      // Reset so a later mount can retry instead of reusing a rejected promise.
-      mapsApiPromise = null
-      delete window.__trailsyncMapsLoaded__
-      script.remove()
-      reject(new Error(message))
-    }
-
-    const script = document.createElement('script')
-    script.async = true
-    // The script's `load` event fires once this bootstrap file itself has
-    // run, but it then fetches the real API payload asynchronously, so
-    // `importLibrary` isn't defined yet at that point. The `callback` param
-    // is invoked only once the requested `libraries` are actually ready.
-    window.__trailsyncMapsLoaded__ = () => {
-      delete window.__trailsyncMapsLoaded__
-      if (window.google?.maps?.importLibrary) {
-        resolve(window.google)
-      } else {
-        fail('Google Maps loaded without its API namespace.', script)
-      }
-    }
-    // `v=beta` is needed on projects where maps3d is not yet generally available.
-    script.src = `https://maps.googleapis.com/maps/api/js?loading=async&v=beta&libraries=maps3d&callback=__trailsyncMapsLoaded__&key=${encodeURIComponent(apiKey)}`
-    script.onerror = () => fail('Google Maps could not be loaded.', script)
-    document.head.appendChild(script)
-  })
-
-  return mapsApiPromise
-}
+import {
+  fillParent,
+  googleMapsApiKey,
+  loadMaps3d,
+  type Map3DElement,
+  type Maps3DLibrary,
+} from '../../../lib/google-maps'
+import { parseKmlLineStrings } from '../lib/kml'
+import type { TrailPreview } from '../trail-previews'
 
 type MapState =
   | { status: 'loading' }
@@ -94,7 +23,7 @@ export default function TrailPreviewMap({
   const mapHostRef = useRef<HTMLDivElement>(null)
   // The map is created once; later preview changes move the camera instead.
   const initialCameraRef = useRef(preview.camera)
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined
+  const apiKey = googleMapsApiKey
   const [mapState, setMapState] = useState<MapState>(
     apiKey ? { status: 'loading' } : { status: 'error', reason: 'missing-key' },
   )
@@ -111,16 +40,12 @@ export default function TrailPreviewMap({
 
     async function initializeMap(key: string) {
       try {
-        const googleMaps = await loadGoogleMapsApi(key)
-        const maps3d = await googleMaps.maps.importLibrary('maps3d')
+        const maps3d = await loadMaps3d(key)
         if (!isCurrent || !mapHostRef.current) return
 
         const element = new maps3d.Map3DElement(initialCameraRef.current)
         mapElement = element
-        // Custom elements don't always fill their parent, so size explicitly.
-        element.style.display = 'block'
-        element.style.width = '100%'
-        element.style.height = '100%'
+        fillParent(element)
         mapHostRef.current.replaceChildren(element)
         setMapState({ status: 'ready' })
         setLoadedMap({ element, maps3d })
