@@ -26,7 +26,7 @@ import {
   fieldErrorsFromApi,
   formatDateRange,
   formatMoney,
-  MIN_BOOKING_OWNER_AGE,
+  MIN_PARTICIPANT_AGE,
   todayLocalIso,
   toCreateBookingInput,
   validateBookingForm,
@@ -44,7 +44,6 @@ const initialValues: BookingFormValues = {
   trailId: '',
   scheduledDate: '',
   scheduledTime: '',
-  ownerAge: '',
   ownerAddress: '',
   additionalParticipants: [],
   paymentOption: '',
@@ -141,7 +140,6 @@ export default function BookingFormPage() {
       | 'trailId'
       | 'scheduledDate'
       | 'scheduledTime'
-      | 'ownerAge'
       | 'ownerAddress'
       | 'paymentOption'
       | 'referenceNumber',
@@ -212,7 +210,14 @@ export default function BookingFormPage() {
         } satisfies BookingCreatedState,
       })
     } catch (error) {
-      if (error instanceof ApiError && error.status === 422) {
+      // The owner's age comes from their profile, so an age problem has no
+      // field to highlight; show the server's message instead.
+      const ownerAgeError =
+        error instanceof ApiError &&
+        error.details.find((detail) => detail.field === 'ownerAge')
+      if (ownerAgeError) {
+        setFormError(ownerAgeError.message)
+      } else if (error instanceof ApiError && error.status === 422) {
         setErrors(fieldErrorsFromApi(error.details))
         setFormError('Review the highlighted fields and try again.')
       } else if (
@@ -350,7 +355,7 @@ export default function BookingFormPage() {
             <legend className="px-1 text-sm font-bold text-[#173a2e]">
               You (booking owner)
             </legend>
-            <div className="mt-2 grid gap-x-4 sm:grid-cols-[minmax(0,1fr)_120px]">
+            <div className="mt-2">
               <AuthFormField
                 autoComplete="name"
                 hint="From your TrailSync profile."
@@ -361,18 +366,6 @@ export default function BookingFormPage() {
                 readOnly
                 type="text"
                 value={profile.fullName}
-              />
-              <AuthFormField
-                autoComplete="off"
-                error={errors.ownerAge}
-                hint={`You must be ${MIN_BOOKING_OWNER_AGE} or older to book.`}
-                id="ownerAge"
-                inputMode="numeric"
-                label="Age"
-                name="ownerAge"
-                onChange={(event) => setField('ownerAge', event.target.value)}
-                type="text"
-                value={values.ownerAge}
               />
             </div>
             <AuthFormField
@@ -394,7 +387,8 @@ export default function BookingFormPage() {
             </legend>
             <p className="mt-1 text-sm text-[#52675e]">
               Optional. Add up to {maxAdditional} more{' '}
-              {maxAdditional === 1 ? 'person' : 'people'}.
+              {maxAdditional === 1 ? 'person' : 'people'}, each{' '}
+              {MIN_PARTICIPANT_AGE} or older.
             </p>
             {values.additionalParticipants.map((person, index) => {
               const prefix = `additionalParticipants.${index}`

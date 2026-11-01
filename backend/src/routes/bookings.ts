@@ -2,7 +2,7 @@ import { Router, type Response } from "express";
 import { CURRENT_WAIVER_VERSION } from "../lib/agreements.js";
 import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
 import { bookingInclude, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
-import { MAX_PARTICIPANTS, MIN_BOOKING_OWNER_AGE, PAYMENT_OPTIONS, amountDueOnline, downpaymentFor, isPaymentOption } from "../lib/package-policy.js";
+import { MAX_PARTICIPANTS, MIN_BOOKING_OWNER_AGE, MIN_PARTICIPANT_AGE, PAYMENT_OPTIONS, amountDueOnline, downpaymentFor, isPaymentOption } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
 import { deleteReceiptFile, parseReceiptSubmission, receiptUpload, saveReceiptFile, sendReceiptFile } from "../lib/receipt-upload.js";
 import { activeRestriction } from "../lib/trail-restrictions.js";
@@ -39,7 +39,7 @@ async function currentProfile(request: AuthenticatedRequest) {
   if (!request.authUser) return { error: "UNAUTHORIZED" as const };
   const user = await prisma.user.findUnique({
     where: { firebaseUid: request.authUser.firebaseUid },
-    select: { id: true, fullName: true, email: true, role: true },
+    select: { id: true, fullName: true, email: true, age: true, role: true },
   });
   return user ?? { error: "PROFILE_NOT_FOUND" as const };
 }
@@ -80,8 +80,10 @@ bookingsRouter.post("/", receiptUpload, async (request, response) => {
     if (!nonblank(body.trailId)) details.push({ field: "trailId", code: "REQUIRED", message: "Select a trail." });
     details.push(...validateSchedule(body));
     const ownerDetails = body.ownerDetails && typeof body.ownerDetails === "object" && !Array.isArray(body.ownerDetails) ? body.ownerDetails as Record<string, unknown> : {};
-    if (!validAge(ownerDetails.age)) details.push({ field: "ownerDetails.age", code: "INVALID_AGE", message: "Age must be a positive integer." });
-    else if (ownerDetails.age < MIN_BOOKING_OWNER_AGE) details.push({ field: "ownerDetails.age", code: "OWNER_UNDERAGE", message: `The person booking must be ${MIN_BOOKING_OWNER_AGE} or older.` });
+    // The owner's age is the one saved at registration; a client-sent age is ignored.
+    const ownerAge = profile.age;
+    if (ownerAge === null) details.push({ field: "ownerAge", code: "PROFILE_AGE_MISSING", message: "Your account has no age saved, so it can't book yet. Contact the tourism office to add it." });
+    else if (ownerAge < MIN_BOOKING_OWNER_AGE) details.push({ field: "ownerAge", code: "OWNER_UNDERAGE", message: `The person booking must be ${MIN_BOOKING_OWNER_AGE} or older.` });
     if (!nonblank(ownerDetails.address)) details.push({ field: "ownerDetails.address", code: "REQUIRED", message: "Address is required." });
     const additional = body.additionalParticipants === undefined ? [] : body.additionalParticipants;
     if (!Array.isArray(additional)) details.push({ field: "additionalParticipants", code: "INVALID_TYPE", message: "Additional participants must be an array." });
@@ -91,6 +93,7 @@ bookingsRouter.post("/", receiptUpload, async (request, response) => {
         const person = item && typeof item === "object" && !Array.isArray(item) ? item as Record<string, unknown> : {};
         if (!nonblank(person.name)) details.push({ field: `additionalParticipants.${index}.name`, code: "REQUIRED", message: "Name is required." });
         if (!validAge(person.age)) details.push({ field: `additionalParticipants.${index}.age`, code: "INVALID_AGE", message: "Age must be a positive integer." });
+        else if (person.age < MIN_PARTICIPANT_AGE) details.push({ field: `additionalParticipants.${index}.age`, code: "PARTICIPANT_UNDERAGE", message: `Every participant must be ${MIN_PARTICIPANT_AGE} or older.` });
         if (!nonblank(person.address)) details.push({ field: `additionalParticipants.${index}.address`, code: "REQUIRED", message: "Address is required." });
         if (!validOptionalEmail(person.email)) details.push({ field: `additionalParticipants.${index}.email`, code: "INVALID_EMAIL", message: "Enter a valid email address." });
       });
@@ -129,7 +132,7 @@ bookingsRouter.post("/", receiptUpload, async (request, response) => {
           waiverAcceptedAt: new Date(),
           waiverVersion: CURRENT_WAIVER_VERSION,
           participants: { create: [
-            { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerDetails.age as number, address: (ownerDetails.address as string).trim(), email: profile.email },
+            { kind: "BOOKING_OWNER", name: profile.fullName, age: ownerAge as number, address: (ownerDetails.address as string).trim(), email: profile.email },
             ...(additional as Record<string, unknown>[]).map((person) => ({
               kind: "ADDITIONAL_PARTICIPANT" as const,
               name: (person.name as string).trim(), age: person.age as number, address: (person.address as string).trim(),

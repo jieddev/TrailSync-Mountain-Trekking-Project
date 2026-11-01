@@ -5,11 +5,16 @@ export type LoginFormValues = {
 
 export type RegisterFormValues = {
   acceptedTerms: boolean
+  age: string
   confirmPassword: string
   email: string
   fullName: string
   password: string
 }
+
+// Must match MIN_BOOKING_OWNER_AGE in backend/src/lib/package-policy.ts, which
+// POST /users also enforces. The age is saved and used as the booking owner's age.
+export const MIN_ACCOUNT_AGE = 18
 
 export type FormErrors<T> = Partial<Record<keyof T, string>>
 
@@ -92,6 +97,12 @@ export function validateRegisterForm(
 
   if (!values.fullName.trim()) {
     errors.fullName = 'Enter your full name.'
+  }
+
+  if (!/^\d+$/.test(values.age.trim()) || Number(values.age) <= 0) {
+    errors.age = 'Enter your age as a whole number.'
+  } else if (Number(values.age) < MIN_ACCOUNT_AGE) {
+    errors.age = `You must be ${MIN_ACCOUNT_AGE} or older to create an account.`
   }
 
   if (emailError) {

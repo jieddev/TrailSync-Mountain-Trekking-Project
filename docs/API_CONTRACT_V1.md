@@ -76,16 +76,19 @@ Any new or changed endpoint must be documented here in the same PR: method, path
 Creates the TrailSync profile for the verified Firebase account. **Auth:** Bearer token. **Role:** any.
 
 ```json
-{ "fullName": "Juan Dela Cruz", "acceptedTermsVersion": "2026-10-30" }
+{ "fullName": "Juan Dela Cruz", "age": 28, "acceptedTermsVersion": "2026-10-30" }
 ```
 
 `201` returns the created user. Email and Firebase UID come from the token; the role is always `HIKER`.
+
+`age` is a whole number of at least 18 (`MIN_BOOKING_OWNER_AGE`). It is saved on the profile and used as the owner's age on their bookings.
 
 `acceptedTermsVersion` must equal the current Terms of Use and Privacy Policy version (`backend/src/lib/agreements.ts`). The server stores it with the acceptance time as `termsVersion` / `termsAcceptedAt`.
 
 | Status | Body                                                              |
 | ------ | ----------------------------------------------------------------- |
 | `400`  | `{ "message": "fullName is required and must be a non-empty string." }` |
+| `400`  | `age` missing, not a whole number, or under 18                    |
 | `400`  | Current terms not accepted (`acceptedTermsVersion` missing or outdated) |
 | `400`  | Verified account has no email                                     |
 | `401`  | `UNAUTHORIZED`                                                    |
@@ -98,8 +101,10 @@ Creates the TrailSync profile for the verified Firebase account. **Auth:** Beare
 Returns the caller's profile. **Auth:** Bearer token. **Role:** any. (Also served at the legacy alias `/users/me`.)
 
 ```json
-{ "id": "user-id", "fullName": "Juan Dela Cruz", "email": "juan@example.com", "role": "HIKER" }
+{ "id": "user-id", "fullName": "Juan Dela Cruz", "email": "juan@example.com", "age": 28, "role": "HIKER" }
 ```
+
+`age` is `null` for accounts made before registration asked for it; those accounts cannot book.
 
 Errors: `401 UNAUTHORIZED`, `404 PROFILE_NOT_FOUND` (valid Firebase account without a TrailSync profile), `500 INTERNAL_SERVER_ERROR`.
 
@@ -265,7 +270,7 @@ The `booking` JSON:
   "trailId": "trl_sulfatara",
   "scheduledDate": "2026-11-20",
   "scheduledTime": "08:00",
-  "ownerDetails": { "age": 28, "address": "Ormoc City, Leyte" },
+  "ownerDetails": { "address": "Ormoc City, Leyte" },
   "additionalParticipants": [{ "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "email": "maria@example.com" }],
   "paymentOption": "DOWNPAYMENT",
   "acceptedWaiverVersion": "2026-11-01"
@@ -274,8 +279,8 @@ The `booking` JSON:
 
 - `trailId` must be an active catalog trail.
 - `scheduledDate` is `YYYY-MM-DD`; `scheduledTime` is 24-hour `HH:mm`.
-- The owner's name comes from their profile; `ownerDetails` supplies only age and address.
-- The owner must be 18 or older (`MIN_BOOKING_OWNER_AGE`); a younger owner is `OWNER_UNDERAGE`. Additional participants and walk-ins may be under 18.
+- The owner's name and age come from their profile; `ownerDetails` supplies only the address (a client-sent age is ignored). An account with no saved age (made before registration asked for it) is refused with `PROFILE_AGE_MISSING` on field `ownerAge`.
+- The owner must be 18 or older (`MIN_BOOKING_OWNER_AGE`); a younger owner is `OWNER_UNDERAGE` (field `ownerAge`). Each additional participant must also be 18 or older (`MIN_PARTICIPANT_AGE`); a younger one is `PARTICIPANT_UNDERAGE` on `additionalParticipants.<i>.age`. Walk-ins added at check-in may be under 18.
 - `additionalParticipants` is optional, at most 4 people. Ages are positive integers; names and addresses are non-blank.
 - `email` is optional for each additional participant and used only for their certificate; an invalid one is `INVALID_EMAIL`. The owner's participant email is taken from their profile.
 - `acceptedWaiverVersion` must equal the current Trek Waiver and Trail Rules version (`backend/src/lib/agreements.ts`); otherwise `WAIVER_NOT_ACCEPTED`. The owner accepts for the whole group. The server stores it with the acceptance time as `waiverVersion` / `waiverAcceptedAt`. Rescheduling does not ask again.

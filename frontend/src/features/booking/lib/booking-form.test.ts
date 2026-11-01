@@ -20,7 +20,6 @@ const validValues: BookingFormValues = {
   trailId: 'trl_sulfatara',
   scheduledDate: '2026-11-20',
   scheduledTime: '08:00',
-  ownerAge: '28',
   ownerAddress: ' Ormoc City, Leyte ',
   additionalParticipants: [
     {
@@ -83,7 +82,6 @@ describe('validateBookingForm', () => {
         trailId: '',
         scheduledDate: '',
         scheduledTime: '',
-        ownerAge: '',
         ownerAddress: '  ',
         additionalParticipants: [],
         paymentOption: '',
@@ -97,7 +95,6 @@ describe('validateBookingForm', () => {
     expect(Object.keys(errors).sort()).toEqual([
       'acceptedWaiver',
       'ownerAddress',
-      'ownerAge',
       'paymentOption',
       'receipt',
       'scheduledDate',
@@ -106,31 +103,20 @@ describe('validateBookingForm', () => {
     ])
   })
 
-  it('rejects ages that are not positive whole numbers', () => {
-    for (const age of ['0', '-3', '2.5', 'abc']) {
-      expect(
-        validateBookingForm({ ...validValues, ownerAge: age }, 4, today),
-      ).toHaveProperty('ownerAge')
-    }
-  })
-
-  it('requires the booking owner to be 18 or older', () => {
-    expect(
-      validateBookingForm({ ...validValues, ownerAge: '17' }, 4, today),
-    ).toEqual({
-      ownerAge:
-        'You must be 18 or older to book. Ask an adult in your group to book instead.',
-    })
-    expect(
-      validateBookingForm({ ...validValues, ownerAge: '18' }, 4, today),
-    ).toEqual({})
-  })
-
-  it('accepts additional participants under 18', () => {
-    const child = { ...validValues.additionalParticipants[0], age: '10' }
+  it('requires additional participants to be 18 or older', () => {
+    const person = validValues.additionalParticipants[0]
     expect(
       validateBookingForm(
-        { ...validValues, additionalParticipants: [child] },
+        { ...validValues, additionalParticipants: [{ ...person, age: '17' }] },
+        4,
+        today,
+      ),
+    ).toEqual({
+      'additionalParticipants.0.age': 'Every participant must be 18 or older.',
+    })
+    expect(
+      validateBookingForm(
+        { ...validValues, additionalParticipants: [{ ...person, age: '18' }] },
         4,
         today,
       ),
@@ -198,7 +184,7 @@ describe('toCreateBookingInput', () => {
       trailId: 'trl_sulfatara',
       scheduledDate: '2026-11-20',
       scheduledTime: '08:00',
-      ownerDetails: { age: 28, address: 'Ormoc City, Leyte' },
+      ownerDetails: { address: 'Ormoc City, Leyte' },
       additionalParticipants: [
         {
           name: 'Maria Dela Cruz',
@@ -225,7 +211,11 @@ describe('fieldErrorsFromApi', () => {
   it('maps backend fields onto form fields', () => {
     expect(
       fieldErrorsFromApi([
-        { field: 'ownerDetails.age', code: 'INVALID_AGE', message: 'Bad age.' },
+        {
+          field: 'ownerDetails.address',
+          code: 'REQUIRED',
+          message: 'Address is required.',
+        },
         {
           field: 'additionalParticipants.0.name',
           code: 'REQUIRED',
@@ -244,7 +234,7 @@ describe('fieldErrorsFromApi', () => {
       ]),
     ).toEqual({
       acceptedWaiver: 'Agree to the waiver.',
-      ownerAge: 'Bad age.',
+      ownerAddress: 'Address is required.',
       'additionalParticipants.0.name': 'Name is required.',
       trailId: 'Select a supported trail.',
     })

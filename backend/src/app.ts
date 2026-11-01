@@ -4,8 +4,10 @@ import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { CURRENT_TERMS_VERSION } from "./lib/agreements.js";
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
+import { MIN_BOOKING_OWNER_AGE } from "./lib/package-policy.js";
 import { prisma } from "./lib/prisma.js";
 import { isPrismaUniqueConstraintError } from "./lib/prisma-errors.js";
+import { validAge } from "./lib/validation.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { coordinatorBookingsRouter } from "./routes/coordinator-bookings.js";
 import { coordinatorGuideApplicationsRouter } from "./routes/coordinator-guide-applications.js";
@@ -59,7 +61,7 @@ const requestId = (request: Request): string | undefined =>
 
 app.post("/users", requireFirebaseAuth, async (request, response) => {
   const log = requestLogger(request);
-  const { fullName, acceptedTermsVersion } = request.body as Record<string, unknown>;
+  const { fullName, age, acceptedTermsVersion } = request.body as Record<string, unknown>;
   const { authUser } = request as AuthenticatedRequest;
 
   if (typeof fullName !== "string" || !fullName.trim()) {
@@ -70,6 +72,17 @@ app.post("/users", requireFirebaseAuth, async (request, response) => {
 
     return response.status(400).json({
       message: "fullName is required and must be a non-empty string.",
+    });
+  }
+
+  if (!validAge(age) || age < MIN_BOOKING_OWNER_AGE) {
+    log.warn(
+      { requestId: requestId(request) },
+      "User profile creation rejected because age was missing or under the minimum",
+    );
+
+    return response.status(400).json({
+      message: `age is required and must be a whole number of at least ${MIN_BOOKING_OWNER_AGE}.`,
     });
   }
 
@@ -105,6 +118,7 @@ app.post("/users", requireFirebaseAuth, async (request, response) => {
       data: {
         firebaseUid: authUser.firebaseUid,
         fullName: fullName.trim(),
+        age,
         email: authUser.email.trim().toLowerCase(),
         termsAcceptedAt: new Date(),
         termsVersion: CURRENT_TERMS_VERSION,
@@ -165,6 +179,7 @@ app.get(["/users/me", "/api/v1/users/me"], requireFirebaseAuth, async (request, 
         id: true,
         fullName: true,
         email: true,
+        age: true,
         role: true,
       },
     });

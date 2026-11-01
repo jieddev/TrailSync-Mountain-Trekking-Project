@@ -14,7 +14,7 @@ const input: CreateBookingInput = {
   trailId: 'trl_sulfatara',
   scheduledDate: '2026-11-20',
   scheduledTime: '08:00',
-  ownerDetails: { age: 28, address: 'Ormoc City, Leyte' },
+  ownerDetails: { address: 'Ormoc City, Leyte' },
   additionalParticipants: [
     { name: 'Maria Dela Cruz', age: 26, address: 'Ormoc City, Leyte' },
   ],

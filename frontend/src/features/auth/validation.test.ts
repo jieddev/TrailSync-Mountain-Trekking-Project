@@ -52,9 +52,22 @@ describe('validateRegisterForm', () => {
     confirmPassword: 'TrailSync1!',
     email: 'hiker@example.com',
     fullName: 'Trail Hiker',
+    age: '28',
     password: 'TrailSync1!',
     acceptedTerms: true,
   }
+
+  it('requires a whole-number age of at least 18', () => {
+    for (const age of ['', '0', '2.5', 'abc']) {
+      expect(validateRegisterForm({ ...validValues, age })).toEqual({
+        age: 'Enter your age as a whole number.',
+      })
+    }
+    expect(validateRegisterForm({ ...validValues, age: '17' })).toEqual({
+      age: 'You must be 18 or older to create an account.',
+    })
+    expect(validateRegisterForm({ ...validValues, age: '18' })).toEqual({})
+  })
 
   it('accepts a valid registration form at the eight-character boundary', () => {
     expect(
@@ -104,10 +117,12 @@ describe('validateRegisterForm', () => {
         confirmPassword: '',
         email: 'invalid-email',
         fullName: '   ',
+        age: '',
         password: '',
         acceptedTerms: false,
       }),
     ).toEqual({
+      age: 'Enter your age as a whole number.',
       acceptedTerms:
         'Confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.',
       confirmPassword: 'Confirm your password.',
