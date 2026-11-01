@@ -1,4 +1,4 @@
-export const coordinatorHomePath = '/coordinator/bookings'
+export const coordinatorHomePath = '/coordinator'
 export const hikerHomePath = '/home'
 
 export function homePathForRole(role: string) {

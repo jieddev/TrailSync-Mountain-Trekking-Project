@@ -21,6 +21,7 @@ import {
   type Notice,
 } from '../lib/dispatch'
 import { cardClass, linkButtonClass } from '../lib/ui'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
 
 type Board = {
   arrivals: CoordinatorBooking[]
@@ -36,6 +37,7 @@ type BoardState =
 
 export default function DispatchPage() {
   const { user } = useAuth()
+  const { refresh: refreshSummary } = useCoordinatorSummary()
   const [state, setState] = useState<BoardState>({ status: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -88,6 +90,7 @@ export default function DispatchPage() {
       setNotice({ tone: 'error', text: dispatchErrorMessage(error, fallback) })
     }
     setReloadKey((key) => key + 1)
+    refreshSummary()
   }
 
   return (

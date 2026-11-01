@@ -1,5 +1,10 @@
 import { fetchBlob, requestJson } from './api'
-import type { Booking, BookingStatus, ParticipantInput } from './bookings-api'
+import type {
+  Booking,
+  BookingStatus,
+  DownpaymentStatus,
+  ParticipantInput,
+} from './bookings-api'
 
 export type CoordinatorBooking = Booking & {
   owner: { id: string; fullName: string; email: string }
@@ -7,15 +12,22 @@ export type CoordinatorBooking = Booking & {
 
 const coordinatorBookingsPath = '/api/v1/coordinator/bookings'
 
-// `today` limits the list to bookings scheduled for today in Asia/Manila.
+// `today` limits the list to bookings scheduled for today in Asia/Manila;
+// `downpaymentStatus` to bookings whose GCash payment is in one of these states.
 export async function listCoordinatorBookings(
   idToken: string,
   status?: BookingStatus,
-  { today = false }: { today?: boolean } = {},
+  {
+    today = false,
+    downpaymentStatus,
+  }: { today?: boolean; downpaymentStatus?: DownpaymentStatus[] } = {},
 ) {
   const params = new URLSearchParams()
   if (status) params.set('status', status)
   if (today) params.set('today', 'true')
+  if (downpaymentStatus?.length) {
+    params.set('downpaymentStatus', downpaymentStatus.join(','))
+  }
   const query = params.toString() ? `?${params}` : ''
   const { items } = await requestJson<{ items: CoordinatorBooking[] }>(
     `${coordinatorBookingsPath}${query}`,
@@ -23,6 +35,34 @@ export async function listCoordinatorBookings(
     'Could not load the booking queue.',
   )
   return items
+}
+
+// Counts for the dashboard and navigation badges (API_CONTRACT_V1.md §12).
+export type CoordinatorSummary = {
+  bookings: {
+    needsReview: number
+    waitingOnHiker: number
+    upcoming: number
+    arrivingToday: number
+    completed: number
+  }
+  dispatch: { waitingForGuide: number; onTrail: number }
+  guides: {
+    available: number
+    onTrek: number
+    nextUp: { id: string; fullName: string } | null
+  }
+  guideApplications: { pending: number }
+  incidents: { open: number }
+  trailRestrictions: { active: number }
+}
+
+export function getCoordinatorSummary(idToken: string) {
+  return requestJson<CoordinatorSummary>(
+    '/api/v1/coordinator/summary',
+    { idToken },
+    'Could not load the coordinator summary.',
+  )
 }
 
 export function getCoordinatorBooking(idToken: string, bookingId: string) {

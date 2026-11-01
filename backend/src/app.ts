@@ -14,6 +14,7 @@ import { coordinatorGuideApplicationsRouter } from "./routes/coordinator-guide-a
 import { coordinatorGuidesRouter } from "./routes/coordinator-guides.js";
 import { coordinatorIncidentsRouter } from "./routes/coordinator-incidents.js";
 import { coordinatorLiveTreksRouter } from "./routes/coordinator-live-treks.js";
+import { coordinatorSummaryRouter } from "./routes/coordinator-summary.js";
 import { coordinatorTrailRestrictionsRouter } from "./routes/coordinator-trail-restrictions.js";
 import { guideApplicationsRouter } from "./routes/guide-applications.js";
 import { guidesRouter } from "./routes/guides.js";
@@ -45,6 +46,7 @@ app.use("/api/v1/coordinator/guides", coordinatorGuidesRouter);
 app.use("/api/v1/coordinator/trail-restrictions", coordinatorTrailRestrictionsRouter);
 app.use("/api/v1/coordinator/incidents", coordinatorIncidentsRouter);
 app.use("/api/v1/coordinator/live-treks", coordinatorLiveTreksRouter);
+app.use("/api/v1/coordinator/summary", coordinatorSummaryRouter);
 app.use("/api/v1/guides", guidesRouter);
 app.use("/api/v1/weather", weatherRouter);
 

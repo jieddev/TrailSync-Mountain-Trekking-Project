@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '../../../app/AuthContext'
-import type { BookingStatus } from '../../../lib/bookings-api'
 import {
   listCoordinatorBookings,
   type CoordinatorBooking,
@@ -12,43 +11,12 @@ import PageHeader from '../../booking/components/PageHeader'
 import StatusBadge from '../../booking/components/StatusBadge'
 import StatusCard from '../../booking/components/StatusCard'
 import { formatMoney, formatSchedule } from '../../booking/lib/booking-form'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
 import {
-  bookingStatusLabel,
-  downpaymentStatusLabel,
-} from '../../booking/lib/booking-status'
-
-const tabs: { status: BookingStatus; label: string; empty: string }[] = [
-  {
-    status: 'PENDING_CONFIRMATION',
-    label: 'Pending review',
-    empty: 'No bookings are waiting for review.',
-  },
-  {
-    status: 'CONFIRMED',
-    label: 'Confirmed',
-    empty: 'No confirmed bookings yet.',
-  },
-  {
-    status: 'CHECKED_IN',
-    label: 'Waiting for guide',
-    empty: 'No checked-in groups are waiting for a guide.',
-  },
-  {
-    status: 'GUIDE_ASSIGNED',
-    label: 'Guide assigned',
-    empty: 'No groups are waiting for their guide to start.',
-  },
-  {
-    status: 'IN_PROGRESS',
-    label: 'On trail',
-    empty: 'No groups are on the trail.',
-  },
-  {
-    status: 'COMPLETED',
-    label: 'Completed',
-    empty: 'No completed treks yet.',
-  },
-]
+  bookingTabs,
+  coordinatorPaymentLabel,
+  coordinatorStatusLabel,
+} from '../lib/coordinator-status'
 
 type QueueState =
   | { status: 'loading' }
@@ -60,9 +28,11 @@ const reviewLinkClass =
 
 export default function BookingQueuePage() {
   const { user } = useAuth()
+  const { summary } = useCoordinatorSummary()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab =
-    tabs.find((tab) => tab.status === searchParams.get('status')) ?? tabs[0]
+    bookingTabs.find((tab) => tab.key === searchParams.get('tab')) ??
+    bookingTabs[0]
   const [state, setState] = useState<QueueState>({ status: 'loading' })
 
   useEffect(() => {
@@ -74,7 +44,8 @@ export default function BookingQueuePage() {
         const idToken = await user!.getIdToken()
         const bookings = await listCoordinatorBookings(
           idToken,
-          activeTab.status,
+          activeTab.query.status,
+          { downpaymentStatus: activeTab.query.downpaymentStatus },
         )
         if (isCurrent) setState({ status: 'loaded', bookings })
       } catch {
@@ -86,41 +57,63 @@ export default function BookingQueuePage() {
     return () => {
       isCurrent = false
     }
-  }, [user, activeTab.status])
+  }, [user, activeTab])
 
   return (
     <>
-      <PageHeader eyebrow="Coordinator" title="Booking queue">
-        Review new and rescheduled bookings, check the GCash receipt, and
-        confirm the trek. Soonest treks are listed first; groups waiting for a
-        guide are listed by check-in time.
+      <PageHeader eyebrow="Coordinator" title="Bookings">
+        Review payments and confirm treks before the hike day.
       </PageHeader>
 
+      <p className="mb-5 rounded-xl border border-[#d5e1da] bg-white px-4 py-3 text-sm text-[#52675e]">
+        Today’s arrivals, groups waiting for a guide, and groups on the trail
+        are on{' '}
+        <Link
+          className="font-bold text-[#007e4f] underline-offset-4 hover:underline"
+          to="/coordinator/dispatch"
+        >
+          Check-in &amp; dispatch
+        </Link>
+        .
+      </p>
+
       <div
-        aria-label="Booking status"
-        className="mb-5 flex max-w-full overflow-x-auto rounded-xl border border-[#d5e1da] bg-white p-1 sm:inline-flex"
+        aria-label="Booking lists"
+        className="mb-3 flex max-w-full overflow-x-auto rounded-xl border border-[#d5e1da] bg-white p-1 sm:inline-flex"
         role="tablist"
       >
-        {tabs.map((tab) => (
-          <button
-            aria-selected={tab.status === activeTab.status}
-            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${tab.status === activeTab.status ? 'bg-[#477a69] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
-            key={tab.status}
-            onClick={() => setSearchParams({ status: tab.status })}
-            role="tab"
-            type="button"
-          >
-            {tab.label}
-          </button>
-        ))}
+        {bookingTabs.map((tab) => {
+          const selected = tab.key === activeTab.key
+          const count = summary ? tab.count(summary) : null
+          return (
+            <button
+              aria-selected={selected}
+              className={`flex shrink-0 items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755] ${selected ? 'bg-[#477a69] text-white' : 'text-[#52675e] hover:bg-[#f3f6f2]'}`}
+              key={tab.key}
+              onClick={() => setSearchParams({ tab: tab.key })}
+              role="tab"
+              type="button"
+            >
+              {tab.label}
+              {count !== null && (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${selected ? 'bg-white/20 text-white' : tab.key === 'review' && count > 0 ? 'bg-[#f2c94c] text-[#3d2c00]' : 'bg-[#eef3ef] text-[#52675e]'}`}
+                >
+                  {count}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
+      <p className="mb-5 max-w-2xl text-sm text-[#52675e]">{activeTab.intro}</p>
 
       {state.status === 'loading' && (
         <StatusCard role="status">Loading bookings…</StatusCard>
       )}
       {state.status === 'error' && (
-        <StatusCard title="Booking queue couldn’t load">
-          We couldn’t load the booking queue. Please try again later.
+        <StatusCard title="Bookings couldn’t load">
+          We couldn’t load these bookings. Please try again later.
         </StatusCard>
       )}
       {state.status === 'loaded' && state.bookings.length === 0 && (
@@ -171,8 +164,8 @@ export default function BookingQueuePage() {
 }
 
 function QueueRow({ booking }: { booking: CoordinatorBooking }) {
-  const status = bookingStatusLabel(booking)
-  const downpayment = downpaymentStatusLabel(booking)
+  const status = coordinatorStatusLabel(booking)
+  const downpayment = coordinatorPaymentLabel(booking)
   return (
     <tr className="align-top">
       <td className="px-4 py-4">
@@ -219,8 +212,8 @@ function QueueRow({ booking }: { booking: CoordinatorBooking }) {
 }
 
 function QueueCard({ booking }: { booking: CoordinatorBooking }) {
-  const status = bookingStatusLabel(booking)
-  const downpayment = downpaymentStatusLabel(booking)
+  const status = coordinatorStatusLabel(booking)
+  const downpayment = coordinatorPaymentLabel(booking)
   return (
     <li>
       <Link

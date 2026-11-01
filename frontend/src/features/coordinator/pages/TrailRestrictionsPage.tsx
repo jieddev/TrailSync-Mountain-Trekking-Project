@@ -17,6 +17,7 @@ import { useWeather } from '../../weather/lib/use-weather'
 import ConfirmAction from '../components/ConfirmAction'
 import type { Notice } from '../lib/dispatch'
 import { cardClass, primaryButtonClass } from '../lib/ui'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
 
 const MAX_REASON_LENGTH = 500
 
@@ -61,6 +62,7 @@ function validate(values: FormValues, today: string): FormErrors {
 
 export default function TrailRestrictionsPage() {
   const { user } = useAuth()
+  const { refresh: refreshSummary } = useCoordinatorSummary()
   const today = manilaTodayIso()
   const [state, setState] = useState<PageState>({ status: 'loading' })
   const weather = useWeather()
@@ -122,6 +124,7 @@ export default function TrailRestrictionsPage() {
       })
       setValues({ trailId: '', startDate: today, endDate: today, reason: '' })
       setReloadKey((key) => key + 1)
+      refreshSummary()
     } catch (error) {
       if (error instanceof ApiError && error.details.length) {
         const fromApi: FormErrors = {}
@@ -160,6 +163,7 @@ export default function TrailRestrictionsPage() {
       })
     } finally {
       setReloadKey((key) => key + 1)
+      refreshSummary()
     }
   }
 

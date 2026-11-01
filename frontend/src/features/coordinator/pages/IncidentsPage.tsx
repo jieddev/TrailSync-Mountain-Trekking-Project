@@ -16,6 +16,7 @@ import { formatSchedule } from '../../booking/lib/booking-form'
 import type { Notice } from '../lib/dispatch'
 import { cardClass, primaryButtonClass, secondaryButtonClass } from '../lib/ui'
 import { INCIDENT_POLL_MS, usePollingTick } from '../lib/use-polling'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
 
 const MAX_NOTE_LENGTH = 500
 
@@ -190,6 +191,7 @@ function ResolveForm({ onResolve }: ResolveFormProps) {
 
 export default function IncidentsPage() {
   const { user } = useAuth()
+  const { refresh: refreshSummary } = useCoordinatorSummary()
   const [state, setState] = useState<PageState>({ status: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -247,6 +249,7 @@ export default function IncidentsPage() {
     } finally {
       setBusyId(null)
       setReloadKey((key) => key + 1)
+      refreshSummary()
     }
   }
 
@@ -260,6 +263,7 @@ export default function IncidentsPage() {
         text: `Incident on ${incident.booking.trail.name} resolved.`,
       })
       setReloadKey((key) => key + 1)
+      refreshSummary()
       return true
     } catch (error) {
       setNotice({
@@ -270,6 +274,7 @@ export default function IncidentsPage() {
         ),
       })
       setReloadKey((key) => key + 1)
+      refreshSummary()
       return false
     }
   }
