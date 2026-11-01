@@ -25,11 +25,11 @@ describe("Trail catalog", () => {
     expect(response.body).toEqual({ items: [{
       id: "trl_mt_malingatong", slug: "mt-malingatong", name: "Mt. Malingatong", description: null,
       package: { price: { amount: 680, currency: "PHP" }, maximumParticipants: 5, guideCount: 1 },
-      paymentRequirement: { downpaymentPercent: 50, amount: 340, currency: "PHP" },
+      paymentRequirement: { downpaymentPercent: 50, amount: 340, currency: "PHP", fullAmount: 680, method: { provider: "GCASH", accountName: "TrailSync Tourism Office (TEST)", accountNumber: "0917 000 0000", qrImagePath: "/payments/gcash-qr-sample.png", testMode: true } },
     }, {
       id: "trl_sulfatara", slug: "sulfatara", name: "Sulfatara", description: null,
       package: { price: { amount: 550, currency: "PHP" }, maximumParticipants: 5, guideCount: 1 },
-      paymentRequirement: { downpaymentPercent: 50, amount: 275, currency: "PHP" },
+      paymentRequirement: { downpaymentPercent: 50, amount: 275, currency: "PHP", fullAmount: 550, method: { provider: "GCASH", accountName: "TrailSync Tourism Office (TEST)", accountNumber: "0917 000 0000", qrImagePath: "/payments/gcash-qr-sample.png", testMode: true } },
     }] });
   });
 

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { fail } from "../lib/http-errors.js";
 import { manilaToday } from "../lib/manila-date.js";
 import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
+import { paymentMethod } from "../lib/payment-config.js";
 import { prisma } from "../lib/prisma.js";
 import { publicRestrictionResponse } from "../lib/trail-restrictions.js";
 
@@ -16,7 +17,10 @@ function trailResponse(trail: TrailRecord) {
     name: trail.name,
     description: trail.description,
     package: { price: { amount: trail.packagePrice, currency: CURRENCY }, maximumParticipants: MAX_PARTICIPANTS, guideCount: GUIDE_COUNT },
-    paymentRequirement: { downpaymentPercent: DOWNPAYMENT_PERCENT, amount: downpaymentFor(trail.packagePrice), currency: CURRENCY },
+    paymentRequirement: {
+      downpaymentPercent: DOWNPAYMENT_PERCENT, amount: downpaymentFor(trail.packagePrice), currency: CURRENCY,
+      fullAmount: trail.packagePrice, method: paymentMethod(),
+    },
   };
 }
 

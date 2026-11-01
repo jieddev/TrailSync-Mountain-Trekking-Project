@@ -3,14 +3,22 @@ import { Link, useLocation, useParams } from 'react-router-dom'
 
 import { useAuth } from '../../../app/AuthContext'
 import { ApiError } from '../../../lib/api'
-import { getBooking, type Booking } from '../../../lib/bookings-api'
+import {
+  getBooking,
+  getReceiptImage,
+  type Booking,
+} from '../../../lib/bookings-api'
+import Alert from '../components/Alert'
 import BookingRestrictionNotice from '../components/BookingRestrictionNotice'
 import PageHeader from '../components/PageHeader'
+import PaymentReceiptList from '../components/PaymentReceiptList'
+import ReceiptReuploadForm from '../components/ReceiptReuploadForm'
 import RescheduleForm from '../components/RescheduleForm'
 import StatusBadge from '../components/StatusBadge'
 import StatusCard from '../components/StatusCard'
 import { formatMoney, formatSchedule } from '../lib/booking-form'
 import {
+  balanceStatusLabel,
   bookingStatusLabel,
   downpaymentStatusLabel,
 } from '../lib/booking-status'
@@ -60,6 +68,18 @@ export default function BookingDetailPage() {
     }
   }, [user, bookingId])
 
+  function handleReceiptUploaded(booking: Booking) {
+    setState({ status: 'loaded', booking })
+    setSuccessMessage(
+      'Your new receipt was sent. A tourism coordinator will check it.',
+    )
+  }
+
+  async function loadReceiptImage(receiptId: string) {
+    const idToken = await user!.getIdToken()
+    return getReceiptImage(idToken, bookingId!, receiptId)
+  }
+
   function handleRescheduled(booking: Booking) {
     setState({ status: 'loaded', booking })
     setSuccessMessage(
@@ -94,6 +114,8 @@ export default function BookingDetailPage() {
   const { booking } = state
   const status = bookingStatusLabel(booking)
   const downpayment = downpaymentStatusLabel(booking)
+  const balance = balanceStatusLabel(booking)
+  const latestReceipt = booking.payment.receipts[0]
 
   return (
     <>
@@ -129,10 +151,45 @@ export default function BookingDetailPage() {
             <div className="mt-3 flex flex-wrap gap-2">
               <StatusBadge label={status.label} tone={status.tone} />
               <StatusBadge label={downpayment.label} tone={downpayment.tone} />
+              {balance && (
+                <StatusBadge label={balance.label} tone={balance.tone} />
+              )}
             </div>
             <p className="mt-3 text-sm leading-6 text-[#52675e]">
               {hikerStatusMessage(booking)}
             </p>
+          </section>
+
+          <section
+            aria-labelledby="payment-title"
+            className="rounded-2xl border border-[#d5e1da] bg-white p-6"
+          >
+            <h2 id="payment-title" className="text-sm font-bold text-[#173a2e]">
+              GCash payment
+            </h2>
+            {booking.downpaymentStatus === 'REJECTED' && (
+              <div className="mt-3 grid gap-4">
+                <Alert tone="danger" title="Your receipt was not accepted">
+                  {latestReceipt?.rejectionReason ??
+                    'The coordinator could not verify your payment.'}{' '}
+                  Upload a new screenshot to continue.
+                </Alert>
+                <ReceiptReuploadForm
+                  booking={booking}
+                  key={booking.updatedAt}
+                  onUploaded={handleReceiptUploaded}
+                />
+              </div>
+            )}
+            <h3 className="mt-4 text-xs font-bold uppercase tracking-wide text-[#70857b]">
+              Uploaded receipts
+            </h3>
+            <div className="mt-2">
+              <PaymentReceiptList
+                loadImage={loadReceiptImage}
+                payment={booking.payment}
+              />
+            </div>
           </section>
 
           <section
@@ -188,10 +245,25 @@ export default function BookingDetailPage() {
             </div>
             <div className="flex justify-between gap-3">
               <dt className="text-[#70857b]">
-                Downpayment ({booking.paymentRequirement.downpaymentPercent}%)
+                {booking.payment.option === 'FULL'
+                  ? 'Paid by GCash (full)'
+                  : `Paid by GCash (${booking.paymentRequirement.downpaymentPercent}%)`}
               </dt>
               <dd className="font-bold text-[#006b43]">
-                {formatMoney(booking.paymentRequirement)}
+                {formatMoney({
+                  amount: booking.payment.amountDueOnline,
+                  currency: booking.payment.currency,
+                })}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#70857b]">Cash at check-in</dt>
+              <dd className="font-semibold text-[#173a2e]">
+                {formatMoney({
+                  amount: booking.payment.balanceDueOnSite,
+                  currency: booking.payment.currency,
+                })}
+                {booking.payment.balanceCollectedAt && ' · paid'}
               </dd>
             </div>
             <div className="flex justify-between gap-3">
@@ -213,7 +285,9 @@ export default function BookingDetailPage() {
 function hikerStatusMessage(booking: Booking) {
   switch (booking.status) {
     case 'CONFIRMED':
-      return 'Your trek is confirmed. Check in at the tourism office on your trek day; your guide is assigned at check-in.'
+      return booking.payment.balanceDueOnSite > 0
+        ? `Your trek is confirmed. Check in at the tourism office on your trek day and bring the ${formatMoney({ amount: booking.payment.balanceDueOnSite, currency: booking.payment.currency })} cash balance; your guide is assigned at check-in.`
+        : 'Your trek is confirmed and fully paid. Check in at the tourism office on your trek day; your guide is assigned at check-in.'
     case 'CHECKED_IN':
       return 'You’re checked in. Your guide will be assigned as soon as one is available.'
     case 'GUIDE_ASSIGNED':
@@ -223,6 +297,11 @@ function hikerStatusMessage(booking: Booking) {
     case 'COMPLETED':
       return 'Your trek is complete. Thank you for trekking with us!'
     default:
-      return 'A tourism coordinator will review your booking and verify the downpayment.'
+      if (booking.downpaymentStatus === 'REJECTED') {
+        return 'Your GCash receipt was not accepted. Upload a new one below so the coordinator can confirm your booking.'
+      }
+      return booking.downpaymentStatus === 'VERIFIED'
+        ? 'A tourism coordinator will confirm your new schedule. Your payment is kept.'
+        : 'A tourism coordinator is checking your GCash receipt and will confirm your booking.'
   }
 }

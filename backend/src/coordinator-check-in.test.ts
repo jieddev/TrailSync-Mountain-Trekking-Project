@@ -336,3 +336,38 @@ describe("Trail restrictions at check-in and dispatch", () => {
     expect(response.body.items[0].trailRestriction).toEqual(closure);
   });
 });
+
+describe("Cash balance at check-in", () => {
+  const downpaymentRoster = { ...roster, paymentOption: "DOWNPAYMENT", packagePrice: 550, downpaymentAmount: 275 };
+
+  it("requires the coordinator to collect the balance of a 50% booking", async () => {
+    findBooking.mockResolvedValue(downpaymentRoster as never);
+    const response = await post(`${base}/booking-1/check-in`, { attendance: allPresent });
+    expect(response.status).toBe(422);
+    expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "balanceCollected", code: "BALANCE_NOT_COLLECTED" }));
+    expect(updateBookings).not.toHaveBeenCalled();
+  });
+
+  it("records who collected the balance and when", async () => {
+    findBooking.mockResolvedValue(downpaymentRoster as never);
+    const response = await post(`${base}/booking-1/check-in`, { attendance: allPresent, balanceCollected: true });
+    expect(response.status).toBe(200);
+    expect(updateBookings).toHaveBeenNthCalledWith(1, {
+      where: { id: "booking-1", status: "CONFIRMED", scheduledDate: "2026-10-20" },
+      data: { status: "CHECKED_IN", checkedInAt: expect.any(Date), balanceCollectedAt: expect.any(Date), balanceCollectedById: "coordinator-1" },
+    });
+  });
+
+  it("needs no balance for a fully paid booking", async () => {
+    findBooking.mockResolvedValue({ ...roster, paymentOption: "FULL", packagePrice: 550, downpaymentAmount: 275 } as never);
+    const response = await post(`${base}/booking-1/check-in`, { attendance: allPresent });
+    expect(response.status).toBe(200);
+    expect(updateBookings).toHaveBeenNthCalledWith(1, expect.objectContaining({ data: { status: "CHECKED_IN", checkedInAt: expect.any(Date) } }));
+  });
+
+  it("rejects a non-boolean balance flag", async () => {
+    const response = await post(`${base}/booking-1/check-in`, { attendance: allPresent, balanceCollected: "yes" });
+    expect(response.status).toBe(422);
+    expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "balanceCollected", code: "INVALID_TYPE" }));
+  });
+});

@@ -5,9 +5,11 @@ import {
   fieldErrorsFromApi,
   formatMoney,
   manilaTodayIso,
+  MAX_RECEIPT_BYTES,
   todayLocalIso,
   toCreateBookingInput,
   validateBookingForm,
+  validateReceipt,
   validateSchedule,
 } from './booking-form'
 import { WAIVER_VERSION } from '../../legal/agreements'
@@ -28,8 +30,37 @@ const validValues: BookingFormValues = {
       email: ' maria@example.com ',
     },
   ],
+  paymentOption: 'DOWNPAYMENT',
+  receipt: new File([new Uint8Array(10)], 'receipt.png', { type: 'image/png' }),
+  referenceNumber: '',
   acceptedWaiver: true,
 }
+
+describe('validateReceipt', () => {
+  const image = (type: string, size = 10) =>
+    new File([new Uint8Array(size)], 'receipt', { type })
+
+  it('accepts a screenshot with or without a reference number', () => {
+    expect(validateReceipt(image('image/jpeg'), '')).toEqual({})
+    expect(validateReceipt(image('image/webp'), '1234 567 890123')).toEqual({})
+  })
+
+  it('requires an image of a supported type and size', () => {
+    expect(validateReceipt(null, '')).toHaveProperty('receipt')
+    expect(validateReceipt(image('application/pdf'), '')).toHaveProperty(
+      'receipt',
+    )
+    expect(
+      validateReceipt(image('image/png', MAX_RECEIPT_BYTES + 1), ''),
+    ).toHaveProperty('receipt')
+  })
+
+  it('rejects a reference number that is not 13 digits', () => {
+    expect(validateReceipt(image('image/png'), '12345')).toHaveProperty(
+      'referenceNumber',
+    )
+  })
+})
 
 describe('validateBookingForm', () => {
   it('accepts a complete booking', () => {
@@ -55,6 +86,9 @@ describe('validateBookingForm', () => {
         ownerAge: '',
         ownerAddress: '  ',
         additionalParticipants: [],
+        paymentOption: '',
+        receipt: null,
+        referenceNumber: '',
         acceptedWaiver: false,
       },
       4,
@@ -64,6 +98,8 @@ describe('validateBookingForm', () => {
       'acceptedWaiver',
       'ownerAddress',
       'ownerAge',
+      'paymentOption',
+      'receipt',
       'scheduledDate',
       'scheduledTime',
       'trailId',
@@ -171,6 +207,7 @@ describe('toCreateBookingInput', () => {
           email: 'maria@example.com',
         },
       ],
+      paymentOption: 'DOWNPAYMENT',
       acceptedWaiverVersion: WAIVER_VERSION,
     })
   })

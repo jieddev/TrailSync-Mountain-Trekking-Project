@@ -122,7 +122,7 @@ Lists active trails, ordered by name. **Auth:** none.
       "name": "Mt. Malingatong",
       "description": null,
       "package": { "price": { "amount": 680, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
-      "paymentRequirement": { "downpaymentPercent": 50, "amount": 340, "currency": "PHP" }
+      "paymentRequirement": { "downpaymentPercent": 50, "amount": 340, "currency": "PHP", "fullAmount": 680, "method": { "provider": "GCASH", "accountName": "TrailSync Tourism Office (TEST)", "accountNumber": "0917 000 0000", "qrImagePath": "/payments/gcash-qr-sample.png", "testMode": true } }
     },
     {
       "id": "trl_sulfatara",
@@ -130,11 +130,13 @@ Lists active trails, ordered by name. **Auth:** none.
       "name": "Sulfatara",
       "description": null,
       "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
-      "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" }
+      "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP", "fullAmount": 550, "method": { "…": "as above" } }
     }
   ]
 }
 ```
+
+`paymentRequirement.amount` is the 50% downpayment and `fullAmount` the full package price; the hiker pays one of them by GCash when booking (§4). `method` is where to send it: the account name and number for a manual transfer, and `qrImagePath`, a QR image served by the web app (`frontend/public`). The account comes from `GCASH_ACCOUNT_NAME` / `GCASH_ACCOUNT_NUMBER` (placeholders by default). `testMode` is always `true` for now: no money moves through TrailSync.
 
 ### `GET /api/v1/trails/:trailId`
 
@@ -160,7 +162,7 @@ Lists the trail's closures that apply today or later (not lifted, `endDate` on o
 
 ## 4. Bookings
 
-One booking is one trekking group/package: one guide, up to five participants **including the owner**, and the selected trail's full package price regardless of group size. A 50% downpayment is required; verification is **simulated** — no real payment is processed.
+One booking is one trekking group/package: one guide, up to five participants **including the owner**, and the selected trail's full package price regardless of group size. When booking, the hiker pays by GCash either the 50% downpayment (`DOWNPAYMENT`; the rest is paid in cash at check-in) or the full price (`FULL`), and uploads a screenshot of the GCash receipt. A coordinator views the screenshot and accepts it (confirming the booking) or rejects it with a reason, after which the hiker uploads a new one. **Test mode:** no money moves through TrailSync and any image is accepted as a receipt; the coordinator checks it by eye.
 
 All booking routes require a Bearer token. Hiker routes are scoped to bookings the caller owns.
 
@@ -188,6 +190,17 @@ Returned by every booking endpoint:
   "completedAt": null,
   "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
   "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" },
+  "payment": {
+    "option": "DOWNPAYMENT",
+    "currency": "PHP",
+    "amountDueOnline": 275,
+    "balanceDueOnSite": 275,
+    "balanceCollectedAt": null,
+    "method": { "provider": "GCASH", "accountName": "TrailSync Tourism Office (TEST)", "accountNumber": "0917 000 0000", "qrImagePath": "/payments/gcash-qr-sample.png", "testMode": true },
+    "receipts": [
+      { "id": "receipt-id", "amount": 275, "referenceNumber": null, "status": "SUBMITTED", "rejectionReason": null, "reviewedAt": null, "createdAt": "2026-10-07T01:00:00.000Z" }
+    ]
+  },
   "trailRestriction": null,
   "createdAt": "2026-10-07T01:00:00.000Z",
   "updatedAt": "2026-10-07T01:00:00.000Z"
@@ -197,6 +210,9 @@ Returned by every booking endpoint:
 - `participants` are ordered owner first, then additional participants, then walk-ins. `kind` is `BOOKING_OWNER`, `ADDITIONAL_PARTICIPANT`, or `WALK_IN` (added at check-in). `attendance` is `PRESENT`, `ABSENT`, or `null` before check-in. `email` is where the participant's certificate goes (`null`: it goes to the booking owner); `certificateSentAt` is when it was emailed (§5).
 - `guide` is `{ "id", "fullName" }` once a guide is assigned at check-in, otherwise `null`. It stays set after completion.
 - `checkedInAt`, `guideAssignedAt`, `trekStartedAt`, and `completedAt` are ISO timestamps, or `null` until that step happens. `trekStartedAt` stays `null` when the coordinator completes a trek the guide never started.
+- `payment.option` is `DOWNPAYMENT` or `FULL`. `amountDueOnline` is what the hiker pays by GCash (the downpayment, or the full price); `balanceDueOnSite` is the cash due at check-in (`0` for `FULL`). `balanceCollectedAt` is set when the coordinator records the cash balance at check-in.
+- `payment.receipts` lists every uploaded GCash screenshot, newest first. `status` is `SUBMITTED` (awaiting review), `ACCEPTED`, or `REJECTED` (with the coordinator's `rejectionReason`). `referenceNumber` is the optional 13-digit GCash Ref. No. The image itself is read from the receipt file routes below; its stored file name is never returned.
+- `downpaymentStatus` describes the GCash payment as a whole, despite its name: `PENDING_VERIFICATION` (a receipt awaits review), `VERIFIED`, or `REJECTED` (the last receipt was rejected; the hiker must upload a new one).
 - `trailRestriction` is `{ "startDate", "endDate", "reason" }` when a coordinator has closed the booking's trail on its `scheduledDate` (§8), otherwise `null`. The booking itself is not changed by a closure; the hiker can reschedule.
 
 `package.price.amount` and `paymentRequirement.amount` are **snapshots** taken from the trail when the booking was created; later catalog price changes do not affect existing bookings.
@@ -205,15 +221,22 @@ Returned by every booking endpoint:
 
 | `status`               | `downpaymentStatus`    | Meaning                                                  |
 | ---------------------- | ---------------------- | -------------------------------------------------------- |
-| `PENDING_CONFIRMATION` | `PENDING_VERIFICATION` | New request awaiting coordinator review                  |
-| `CONFIRMED`            | `VERIFIED`             | Coordinator confirmed and (simulated) downpayment verified |
+| `PENDING_CONFIRMATION` | `PENDING_VERIFICATION` | New request; its GCash receipt awaits coordinator review |
+| `PENDING_CONFIRMATION` | `REJECTED`             | Receipt rejected; waiting for the hiker to upload a new one |
+| `CONFIRMED`            | `VERIFIED`             | Coordinator accepted the receipt and confirmed the trek  |
 | `PENDING_CONFIRMATION` | `VERIFIED`             | Rescheduled; new date awaits review, downpayment credit kept |
-| `CHECKED_IN`           | `VERIFIED`             | Group checked in at the office; waiting for a free guide |
+| `CHECKED_IN`           | `VERIFIED`             | Group checked in (cash balance collected for `DOWNPAYMENT`); waiting for a free guide |
 | `GUIDE_ASSIGNED`       | `VERIFIED`             | Guide dispatched from the FIFO queue; trek not started yet |
 | `IN_PROGRESS`          | `VERIFIED`             | The guide started the trek from the guide app            |
 | `COMPLETED`            | `VERIFIED`             | Group returned; the guide rejoined the end of the queue  |
 
 ```text
+payment:  PENDING_VERIFICATION ──accept──→ VERIFIED
+                │   ↑
+          reject│   │hiker uploads a new receipt
+                ↓   │
+              REJECTED
+
 PENDING_CONFIRMATION → CONFIRMED → CHECKED_IN → GUIDE_ASSIGNED → IN_PROGRESS → COMPLETED
                            ↑   └──────────────────↗           └──────────────────↗
                reschedule ─┘   (check-in assigns a guide       (coordinator fallback: complete
@@ -225,7 +248,17 @@ Hikers cannot cancel or confirm bookings and never choose a guide. Coordinators 
 
 ### `POST /api/v1/bookings`
 
-Creates a booking. **Role:** `HIKER`.
+Creates a booking together with its GCash receipt. **Role:** `HIKER`.
+
+The request is `multipart/form-data` with these parts:
+
+| Part              | Content                                                                 |
+| ----------------- | ----------------------------------------------------------------------- |
+| `booking`         | The booking details below, as a JSON string                             |
+| `receipt`         | The GCash receipt screenshot: one JPEG, PNG, or WebP image, at most 5 MB |
+| `referenceNumber` | Optional 13-digit GCash Ref. No. (spaces are ignored)                   |
+
+The `booking` JSON:
 
 ```json
 {
@@ -234,7 +267,8 @@ Creates a booking. **Role:** `HIKER`.
   "scheduledTime": "08:00",
   "ownerDetails": { "age": 28, "address": "Ormoc City, Leyte" },
   "additionalParticipants": [{ "name": "Maria Dela Cruz", "age": 26, "address": "Ormoc City, Leyte", "email": "maria@example.com" }],
-  "acceptedWaiverVersion": "2026-10-30"
+  "paymentOption": "DOWNPAYMENT",
+  "acceptedWaiverVersion": "2026-11-01"
 }
 ```
 
@@ -245,11 +279,14 @@ Creates a booking. **Role:** `HIKER`.
 - `additionalParticipants` is optional, at most 4 people. Ages are positive integers; names and addresses are non-blank.
 - `email` is optional for each additional participant and used only for their certificate; an invalid one is `INVALID_EMAIL`. The owner's participant email is taken from their profile.
 - `acceptedWaiverVersion` must equal the current Trek Waiver and Trail Rules version (`backend/src/lib/agreements.ts`); otherwise `WAIVER_NOT_ACCEPTED`. The owner accepts for the whole group. The server stores it with the acceptance time as `waiverVersion` / `waiverAcceptedAt`. Rescheduling does not ask again.
-- Owner, price, downpayment, status, and participant count are server-derived; client values are ignored.
+- `paymentOption` is `DOWNPAYMENT` or `FULL`; anything else is `INVALID_PAYMENT_OPTION`.
+- The receipt is required (`RECEIPT_REQUIRED`). Its type is read from the file's first bytes, not its name (`UNSUPPORTED_FILE_TYPE`); over 5 MB is `RECEIPT_TOO_LARGE`. Any image is accepted in test mode.
+- The booking and its first receipt (`SUBMITTED`, `amount` = `payment.amountDueOnline`) are stored together; if the booking is refused, the uploaded file is discarded.
+- Owner, price, amounts, status, and participant count are server-derived; client values are ignored.
 
 `201` returns the booking with `PENDING_CONFIRMATION` / `PENDING_VERIFICATION`.
 
-`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`, `OWNER_UNDERAGE`, `WAIVER_NOT_ACCEPTED`. Other errors: `409 TRAIL_RESTRICTED` (the trail is closed on `scheduledDate`, §8), `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+`422 VALIDATION_ERROR` detail codes: `REQUIRED`, `UNSUPPORTED_TRAIL`, `INVALID_DATE`, `INVALID_TIME`, `INVALID_AGE`, `INVALID_TYPE`, `PARTICIPANT_LIMIT_EXCEEDED`, `OWNER_UNDERAGE`, `INVALID_PAYMENT_OPTION`, `RECEIPT_REQUIRED`, `UNSUPPORTED_FILE_TYPE`, `RECEIPT_TOO_LARGE`, `INVALID_REFERENCE_NUMBER`, `WAIVER_NOT_ACCEPTED`, and `INVALID_JSON` (field `booking`). Other errors: `409 TRAIL_RESTRICTED` (the trail is closed on `scheduledDate`, §8), `401`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
 
 ### `GET /api/v1/bookings`
 
@@ -267,13 +304,26 @@ Moves a `CONFIRMED` booking to a new date/time. **Role:** `HIKER` (owner).
 { "scheduledDate": "2026-11-21", "scheduledTime": "09:00" }
 ```
 
-`200` returns the same booking with the new schedule and `status: PENDING_CONFIRMATION`. Trail, participants, price, and verified downpayment credit are kept; no second downpayment is required. Errors: `422 VALIDATION_ERROR`, `404 BOOKING_NOT_FOUND`, `409 RESCHEDULE_NOT_ALLOWED` (not currently `CONFIRMED`), `409 TRAIL_RESTRICTED` (the booking's trail is closed on the new date), `401`, `403`, `500`.
+`200` returns the same booking with the new schedule and `status: PENDING_CONFIRMATION`. Trail, participants, price, and the verified payment are kept; no new receipt is required. Errors: `422 VALIDATION_ERROR`, `404 BOOKING_NOT_FOUND`, `409 RESCHEDULE_NOT_ALLOWED` (not currently `CONFIRMED`), `409 TRAIL_RESTRICTED` (the booking's trail is closed on the new date), `401`, `403`, `500`.
+
+### `POST /api/v1/bookings/:bookingId/payment-receipt`
+
+Uploads a new GCash receipt after the coordinator rejected the last one. **Role:** `HIKER` (owner). Same `multipart/form-data` parts as booking creation, without `booking`: `receipt` (required) and `referenceNumber` (optional).
+
+`201` returns the booking with a new `SUBMITTED` receipt and `downpaymentStatus: PENDING_VERIFICATION`. Errors: `422 VALIDATION_ERROR` (receipt detail codes as above), `404 BOOKING_NOT_FOUND` (also for another owner's booking), `409 RECEIPT_UPLOAD_NOT_ALLOWED` (the booking is not `PENDING_CONFIRMATION` / `REJECTED`), `401`, `403`, `500`.
+
+### `GET /api/v1/bookings/:bookingId/payment-receipts/:receiptId/file`
+
+Streams the owner's receipt image with its stored `Content-Type` and `Cache-Control: private, no-store`. **Role:** `HIKER` (owner). Clients send the Bearer token, so the web app fetches the image and shows it from an object URL. Errors: `404 RECEIPT_NOT_FOUND` (also for another owner's receipt), `404 RECEIPT_FILE_MISSING`, `401`, `403`, `500`.
 
 ### `POST /api/v1/bookings/:bookingId/confirm`
 
-Coordinator review: records simulated downpayment verification and confirms the booking. **Role:** `COORDINATOR`. No request body.
+Coordinator review: accepts the GCash payment and confirms the booking. **Role:** `COORDINATOR`. No request body.
 
-`200` returns the booking with `CONFIRMED` / `VERIFIED`. Errors: `404 BOOKING_NOT_FOUND`, `409 BOOKING_NOT_CONFIRMABLE` (not `PENDING_CONFIRMATION`), `401`, `403`, `500`.
+- A new booking must be `PENDING_VERIFICATION` with its latest receipt `SUBMITTED`; that receipt becomes `ACCEPTED`, with the reviewer and time recorded.
+- A rescheduled booking (`VERIFIED`) is confirmed again without a new receipt.
+
+`200` returns the booking with `CONFIRMED` / `VERIFIED`. Errors: `404 BOOKING_NOT_FOUND`, `409 BOOKING_NOT_CONFIRMABLE` (not `PENDING_CONFIRMATION`, no receipt awaiting review, or the receipt was rejected), `401`, `403`, `500`.
 
 ---
 
@@ -316,7 +366,24 @@ Errors: `422 VALIDATION_ERROR` (detail codes `INVALID_STATUS`, `INVALID_DATE`, `
 
 Returns any booking in the coordinator representation. Errors: `404 BOOKING_NOT_FOUND`, `401`, `403`, `404 PROFILE_NOT_FOUND`, `500`.
 
-To confirm, use `POST /api/v1/bookings/:bookingId/confirm` (§4); its response is the §4 representation without `owner`.
+To accept the payment and confirm, use `POST /api/v1/bookings/:bookingId/confirm` (§4); its response is the §4 representation without `owner`.
+
+### `POST /api/v1/coordinator/bookings/:bookingId/payment/reject`
+
+Rejects the receipt awaiting review. The booking stays `PENDING_CONFIRMATION` and the hiker can upload a new receipt (§4).
+
+```json
+{ "reason": "The amount on the screenshot does not match." }
+```
+
+- `reason` is required, at most 500 characters, and shown to the hiker.
+- The booking must be `PENDING_CONFIRMATION` / `PENDING_VERIFICATION` with its latest receipt `SUBMITTED`.
+
+`200` returns the coordinator booking with `downpaymentStatus: REJECTED` and the receipt `REJECTED`. Errors: `422 VALIDATION_ERROR` (detail codes `REQUIRED`, `TOO_LONG`), `409 PAYMENT_NOT_REJECTABLE`, `404 BOOKING_NOT_FOUND`, `401`, `403`, `500`.
+
+### `GET /api/v1/coordinator/bookings/:bookingId/payment-receipts/:receiptId/file`
+
+Streams any booking's receipt image, as in §4. Errors: `404 RECEIPT_NOT_FOUND`, `404 RECEIPT_FILE_MISSING`, `401`, `403`, `500`.
 
 ### `POST /api/v1/coordinator/bookings/:bookingId/check-in`
 
@@ -328,7 +395,8 @@ Physical check-in at the office (rules in `PROJECT_CONTEXT.md` §5.2). In the **
     { "participantId": "p1", "present": true },
     { "participantId": "p2", "present": false }
   ],
-  "walkIns": [{ "name": "Pedro Santos", "age": 30, "address": "Ormoc City, Leyte", "email": "pedro@example.com" }]
+  "walkIns": [{ "name": "Pedro Santos", "age": 30, "address": "Ormoc City, Leyte", "email": "pedro@example.com" }],
+  "balanceCollected": true
 }
 ```
 
@@ -337,11 +405,12 @@ Physical check-in at the office (rules in `PROJECT_CONTEXT.md` §5.2). In the **
 - At least one booked participant must be present.
 - `walkIns` is optional. Present participants plus walk-ins must not exceed 5. Walk-ins are stored as `WALK_IN` participants marked `PRESENT`. A walk-in's `email` is optional, as in booking creation.
 - The package price never changes. Extra people beyond one package are handled outside TrailSync for now.
+- For a `DOWNPAYMENT` booking, `balanceCollected: true` is required: the coordinator has received the cash balance (`payment.balanceDueOnSite`). Check-in records `payment.balanceCollectedAt` and the coordinator. It is ignored for `FULL` bookings.
 
 `200` returns the coordinator booking as `GUIDE_ASSIGNED` (with `guide`) or `CHECKED_IN` (`guide: null`).
 
 Errors:
-- `422 VALIDATION_ERROR`, with detail codes `REQUIRED`, `INVALID_TYPE`, `INVALID_AGE`, `INVALID_EMAIL`, `UNKNOWN_PARTICIPANT`, `DUPLICATE_PARTICIPANT`, `MISSING_PARTICIPANT`, `AT_LEAST_ONE_PRESENT`, `PARTICIPANT_LIMIT_EXCEEDED`.
+- `422 VALIDATION_ERROR`, with detail codes `REQUIRED`, `INVALID_TYPE`, `INVALID_AGE`, `INVALID_EMAIL`, `UNKNOWN_PARTICIPANT`, `DUPLICATE_PARTICIPANT`, `MISSING_PARTICIPANT`, `AT_LEAST_ONE_PRESENT`, `PARTICIPANT_LIMIT_EXCEEDED`, `BALANCE_NOT_COLLECTED`.
 - `409 CHECK_IN_NOT_ALLOWED`: the booking is not `CONFIRMED`, which also covers a repeated check-in.
 - `409 NOT_SCHEDULED_TODAY`: the group must reschedule first.
 - `409 TRAIL_RESTRICTED`: the trail is closed today (§8); nothing is changed.

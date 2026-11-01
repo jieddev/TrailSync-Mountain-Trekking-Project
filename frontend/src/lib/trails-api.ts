@@ -8,7 +8,24 @@ export type TrailPackage = {
   guideCount: number
 }
 
+// Where hikers send their GCash payment. Test mode: no money moves through
+// TrailSync and the coordinator checks the uploaded screenshot by eye.
+export type PaymentMethod = {
+  provider: 'GCASH'
+  accountName: string
+  accountNumber: string
+  // Served by this web app from /public.
+  qrImagePath: string
+  testMode: boolean
+}
+
 export type PaymentRequirement = Money & { downpaymentPercent: number }
+
+// The trail catalog also offers paying the full price up front.
+export type TrailPaymentRequirement = PaymentRequirement & {
+  fullAmount: number
+  method: PaymentMethod
+}
 
 export type Trail = {
   id: string
@@ -16,7 +33,7 @@ export type Trail = {
   name: string
   description: string | null
   package: TrailPackage
-  paymentRequirement: PaymentRequirement
+  paymentRequirement: TrailPaymentRequirement
 }
 
 export async function listTrails() {

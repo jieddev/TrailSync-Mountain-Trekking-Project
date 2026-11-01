@@ -1,8 +1,8 @@
 // Must match CURRENT_TERMS_VERSION and CURRENT_WAIVER_VERSION in
 // backend/src/lib/agreements.ts; the API rejects any other version. Bump both
 // whenever the text of that agreement changes.
-export const TERMS_VERSION = '2026-10-30'
-export const WAIVER_VERSION = '2026-10-30'
+export const TERMS_VERSION = '2026-11-01'
+export const WAIVER_VERSION = '2026-11-01'
 
 export type AgreementId = 'terms' | 'privacy' | 'waiver'
 
@@ -42,7 +42,8 @@ export const agreements: Record<AgreementId, Agreement> = {
       {
         heading: 'Bookings',
         paragraphs: [
-          'A booking is a request. It is confirmed only after a tourism coordinator reviews it and verifies the downpayment.',
+          'A booking is a request. When you book, you pay by GCash either the downpayment or the full package price, and upload a screenshot of the GCash receipt. The booking is confirmed only after a tourism coordinator checks that payment.',
+          'If the coordinator cannot verify your receipt, they will tell you why and you can upload a new one. If you paid only the downpayment, the remaining balance is paid in cash at check-in.',
           'Prices, downpayments, group limits, and trail availability are set by the tourism office and shown when you book. Trails may be closed for weather or safety, and bookings on closed dates are not accepted.',
           'Your guide is assigned by the tourism office at check-in. You cannot choose a guide.',
         ],
@@ -140,7 +141,8 @@ export const agreements: Record<AgreementId, Agreement> = {
       {
         heading: 'Booking and payment',
         paragraphs: [
-          'The booking is confirmed only after the coordinator verifies the downpayment shown on the booking form.',
+          'The booking is confirmed only after the coordinator verifies the GCash payment (downpayment or full price) shown on the booking form.',
+          'If you paid only the downpayment, the group pays the remaining balance in cash at check-in. Check-in is not completed until it is paid.',
           'Groups check in on the scheduled date. A group arriving on another day must reschedule first.',
           'Refunds and no-shows: [policy to be set by the tourism office].',
         ],

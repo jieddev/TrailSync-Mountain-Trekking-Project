@@ -2,8 +2,9 @@ import { Router, type Response } from "express";
 import { CURRENT_WAIVER_VERSION } from "../lib/agreements.js";
 import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
 import { bookingInclude, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
-import { MAX_PARTICIPANTS, MIN_BOOKING_OWNER_AGE, downpaymentFor } from "../lib/package-policy.js";
+import { MAX_PARTICIPANTS, MIN_BOOKING_OWNER_AGE, PAYMENT_OPTIONS, amountDueOnline, downpaymentFor, isPaymentOption } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
+import { deleteReceiptFile, parseReceiptSubmission, receiptUpload, saveReceiptFile, sendReceiptFile } from "../lib/receipt-upload.js";
 import { activeRestriction } from "../lib/trail-restrictions.js";
 import { nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
 import { requireFirebaseAuth, type AuthenticatedRequest } from "../middleware/require-firebase-auth.js";
@@ -43,16 +44,38 @@ async function currentProfile(request: AuthenticatedRequest) {
   return user ?? { error: "PROFILE_NOT_FOUND" as const };
 }
 
+// Thrown inside a transaction to roll it back when a guarded update loses a race.
+class Conflict extends Error {}
+
+// The booking fields arrive as JSON in the multipart "booking" field, next to
+// the receipt file. A plain JSON body is read the same way.
+function bookingBody(body: unknown): Record<string, unknown> | null {
+  const raw = body && typeof body === "object" && !Array.isArray(body) ? body as Record<string, unknown> : {};
+  if (typeof raw.booking !== "string") return raw;
+  try {
+    const parsed = JSON.parse(raw.booking);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function formField(body: unknown, name: string) {
+  return body && typeof body === "object" ? (body as Record<string, unknown>)[name] : undefined;
+}
+
 export const bookingsRouter = Router();
 bookingsRouter.use(requireFirebaseAuth);
 
-bookingsRouter.post("/", async (request, response) => {
+bookingsRouter.post("/", receiptUpload, async (request, response) => {
+  let storedFileName: string | null = null;
   try {
     const profile = await currentProfile(request as AuthenticatedRequest);
     if ("error" in profile) return fail(response, profile.error === "UNAUTHORIZED" ? 401 : 404, profile.error, profile.error === "PROFILE_NOT_FOUND" ? "User profile was not found." : "Authentication is required.");
     if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can create bookings.");
 
-    const body = request.body && typeof request.body === "object" && !Array.isArray(request.body) ? request.body as Record<string, unknown> : {};
+    const body = bookingBody(request.body);
+    if (!body) return validation(response, [{ field: "booking", code: "INVALID_JSON", message: "Booking details must be valid JSON." }]);
     const details: Details[] = [];
     if (!nonblank(body.trailId)) details.push({ field: "trailId", code: "REQUIRED", message: "Select a trail." });
     details.push(...validateSchedule(body));
@@ -72,12 +95,19 @@ bookingsRouter.post("/", async (request, response) => {
         if (!validOptionalEmail(person.email)) details.push({ field: `additionalParticipants.${index}.email`, code: "INVALID_EMAIL", message: "Enter a valid email address." });
       });
     }
+    if (!isPaymentOption(body.paymentOption)) details.push({ field: "paymentOption", code: "INVALID_PAYMENT_OPTION", message: `Choose ${PAYMENT_OPTIONS.join(" or ")}.` });
     if (body.acceptedWaiverVersion !== CURRENT_WAIVER_VERSION) details.push({ field: "acceptedWaiverVersion", code: "WAIVER_NOT_ACCEPTED", message: "Agree to the Trek Waiver and Trail Rules to book." });
-    if (details.length) return validation(response, details);
+    const submission = parseReceiptSubmission(request.file, formField(request.body, "referenceNumber"));
+    if ("details" in submission) details.push(...submission.details);
+    if (details.length || "details" in submission) return validation(response, details);
+    const paymentOption = body.paymentOption as "DOWNPAYMENT" | "FULL";
 
     const trail = await prisma.trail.findFirst({ where: { id: body.trailId as string, isActive: true }, select: { id: true, packagePrice: true } });
     if (!trail) return validation(response, [{ field: "trailId", code: "UNSUPPORTED_TRAIL", message: "Select a supported trail." }]);
 
+    const downpaymentAmount = downpaymentFor(trail.packagePrice);
+    storedFileName = await saveReceiptFile(submission.receipt);
+    const receiptFile = { storedFileName, mimeType: submission.receipt.mimeType, sizeBytes: submission.receipt.sizeBytes };
     const booking = await prisma.$transaction(async (tx) => {
       if (await activeRestriction(tx, trail.id, body.scheduledDate as string)) return null;
       return tx.booking.create({
@@ -87,9 +117,15 @@ bookingsRouter.post("/", async (request, response) => {
           scheduledDate: body.scheduledDate as string,
           scheduledTime: body.scheduledTime as string,
           packagePrice: trail.packagePrice,
-          downpaymentAmount: downpaymentFor(trail.packagePrice),
+          downpaymentAmount,
+          paymentOption,
           status: "PENDING_CONFIRMATION",
           downpaymentStatus: "PENDING_VERIFICATION",
+          paymentReceipts: { create: [{
+            amount: amountDueOnline({ packagePrice: trail.packagePrice, downpaymentAmount, paymentOption }),
+            referenceNumber: submission.receipt.referenceNumber,
+            ...receiptFile,
+          }] },
           waiverAcceptedAt: new Date(),
           waiverVersion: CURRENT_WAIVER_VERSION,
           participants: { create: [
@@ -103,9 +139,14 @@ bookingsRouter.post("/", async (request, response) => {
         }, include: bookingInclude,
       });
     });
-    if (!booking) return trailRestricted(response);
+    if (!booking) {
+      await deleteReceiptFile(storedFileName);
+      return trailRestricted(response);
+    }
+    storedFileName = null;
     return response.status(201).json(await withTrailRestriction(prisma, booking));
   } catch (error) {
+    if (storedFileName) await deleteReceiptFile(storedFileName).catch(() => undefined);
     request.log?.error({ requestId: request.id, err: error }, "Booking creation failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not create booking.");
   }
@@ -168,26 +209,106 @@ bookingsRouter.post("/:bookingId/reschedule", async (request, response) => {
   }
 });
 
+// Coordinator accepts the payment and confirms the booking. A new booking needs
+// a receipt awaiting review, which is marked ACCEPTED. A rescheduled booking
+// already has a VERIFIED payment and is confirmed again without a new receipt.
 bookingsRouter.post("/:bookingId/confirm", async (request, response) => {
   try {
     const profile = await currentProfile(request as AuthenticatedRequest);
     if ("error" in profile) return fail(response, profile.error === "UNAUTHORIZED" ? 401 : 404, profile.error, profile.error === "PROFILE_NOT_FOUND" ? "User profile was not found." : "Authentication is required.");
     if (profile.role !== "COORDINATOR") return fail(response, 403, "FORBIDDEN", "Coordinator access is required.");
-    const booking = await prisma.$transaction(async (tx) => {
+    const { bookingId } = request.params;
+    const result = await prisma.$transaction(async (tx) => {
+      const current = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: { status: true, downpaymentStatus: true, paymentReceipts: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true } } },
+      });
+      if (!current) return "BOOKING_NOT_FOUND" as const;
+      const latest = current.paymentReceipts?.[0];
+      const awaitingReview = current.downpaymentStatus === "PENDING_VERIFICATION" && latest?.status === "SUBMITTED";
+      if (current.status !== "PENDING_CONFIRMATION" || !(awaitingReview || current.downpaymentStatus === "VERIFIED")) return "BOOKING_NOT_CONFIRMABLE" as const;
       const updated = await tx.booking.updateMany({
-        where: { id: request.params.bookingId, status: "PENDING_CONFIRMATION", downpaymentStatus: { in: ["PENDING_VERIFICATION", "VERIFIED"] } },
+        where: { id: bookingId, status: "PENDING_CONFIRMATION", downpaymentStatus: current.downpaymentStatus },
         data: { status: "CONFIRMED", downpaymentStatus: "VERIFIED" },
       });
-      if (!updated.count) return null;
-      return tx.booking.findUnique({ where: { id: request.params.bookingId }, include: bookingInclude });
+      if (!updated.count) return "BOOKING_NOT_CONFIRMABLE" as const;
+      if (awaitingReview) {
+        const accepted = await tx.paymentReceipt.updateMany({
+          where: { id: latest!.id, status: "SUBMITTED" },
+          data: { status: "ACCEPTED", reviewedAt: new Date(), reviewedById: profile.id },
+        });
+        if (!accepted.count) throw new Conflict();
+      }
+      return tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude });
     });
-    if (!booking) {
-      const existing = await prisma.booking.findUnique({ where: { id: request.params.bookingId }, select: { id: true } });
-      return existing ? fail(response, 409, "BOOKING_NOT_CONFIRMABLE", "Booking cannot be confirmed in its current state.") : fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
-    }
-    return response.status(200).json(await withTrailRestriction(prisma, booking));
+    if (result === "BOOKING_NOT_FOUND") return fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
+    if (result === "BOOKING_NOT_CONFIRMABLE") return fail(response, 409, "BOOKING_NOT_CONFIRMABLE", "Booking cannot be confirmed in its current state.");
+    return response.status(200).json(await withTrailRestriction(prisma, result));
   } catch (error) {
+    if (error instanceof Conflict) return fail(response, 409, "BOOKING_NOT_CONFIRMABLE", "Booking cannot be confirmed in its current state.");
     request.log?.error({ requestId: request.id, err: error }, "Booking confirmation failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not confirm booking.");
+  }
+});
+
+// The owner uploads a new screenshot after the coordinator rejected the last one.
+bookingsRouter.post("/:bookingId/payment-receipt", receiptUpload, async (request, response) => {
+  let storedFileName: string | null = null;
+  try {
+    const profile = await currentProfile(request as AuthenticatedRequest);
+    if ("error" in profile) return fail(response, profile.error === "UNAUTHORIZED" ? 401 : 404, profile.error, profile.error === "PROFILE_NOT_FOUND" ? "User profile was not found." : "Authentication is required.");
+    if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can upload payment receipts.");
+    const submission = parseReceiptSubmission(request.file, formField(request.body, "referenceNumber"));
+    if ("details" in submission) return fail(response, 422, "VALIDATION_ERROR", "Review the payment receipt and try again.", submission.details);
+    const bookingId = request.params.bookingId as string;
+    const owned = await prisma.booking.findFirst({
+      where: { id: bookingId, ownerId: profile.id },
+      select: { status: true, downpaymentStatus: true, packagePrice: true, downpaymentAmount: true, paymentOption: true },
+    });
+    if (!owned) return fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
+    const uploadNotAllowed = () => fail(response, 409, "RECEIPT_UPLOAD_NOT_ALLOWED", "A new receipt can be uploaded only after the coordinator rejects the last one.");
+    if (owned.status !== "PENDING_CONFIRMATION" || owned.downpaymentStatus !== "REJECTED") return uploadNotAllowed();
+
+    storedFileName = await saveReceiptFile(submission.receipt);
+    const receiptFile = { storedFileName, mimeType: submission.receipt.mimeType, sizeBytes: submission.receipt.sizeBytes };
+    const booking = await prisma.$transaction(async (tx) => {
+      const reopened = await tx.booking.updateMany({
+        where: { id: bookingId, ownerId: profile.id, status: "PENDING_CONFIRMATION", downpaymentStatus: "REJECTED" },
+        data: { downpaymentStatus: "PENDING_VERIFICATION" },
+      });
+      if (!reopened.count) return null;
+      await tx.paymentReceipt.create({
+        data: { bookingId, amount: amountDueOnline(owned), referenceNumber: submission.receipt.referenceNumber, ...receiptFile },
+      });
+      return tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: bookingInclude });
+    });
+    if (!booking) {
+      await deleteReceiptFile(storedFileName);
+      return uploadNotAllowed();
+    }
+    storedFileName = null;
+    return response.status(201).json(await withTrailRestriction(prisma, booking));
+  } catch (error) {
+    if (storedFileName) await deleteReceiptFile(storedFileName).catch(() => undefined);
+    request.log?.error({ requestId: request.id, err: error }, "Payment receipt upload failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not upload the payment receipt.");
+  }
+});
+
+// The owner's own receipt screenshot.
+bookingsRouter.get("/:bookingId/payment-receipts/:receiptId/file", async (request, response) => {
+  try {
+    const profile = await currentProfile(request as AuthenticatedRequest);
+    if ("error" in profile) return fail(response, profile.error === "UNAUTHORIZED" ? 401 : 404, profile.error, profile.error === "PROFILE_NOT_FOUND" ? "User profile was not found." : "Authentication is required.");
+    if (profile.role !== "HIKER") return fail(response, 403, "FORBIDDEN", "Only hikers can view their receipts here.");
+    const receipt = await prisma.paymentReceipt.findFirst({
+      where: { id: request.params.receiptId, bookingId: request.params.bookingId, booking: { ownerId: profile.id } },
+      select: { storedFileName: true, mimeType: true },
+    });
+    if (!receipt) return fail(response, 404, "RECEIPT_NOT_FOUND", "Receipt was not found.");
+    return sendReceiptFile(response, receipt);
+  } catch (error) {
+    request.log?.error({ requestId: request.id, err: error }, "Payment receipt lookup failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve the receipt.");
   }
 });

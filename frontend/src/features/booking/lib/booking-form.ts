@@ -1,9 +1,10 @@
 import type { ApiErrorDetail } from '../../../lib/api'
 import type {
   CreateBookingInput,
+  PaymentOption,
   ScheduleInput,
 } from '../../../lib/bookings-api'
-import type { Money } from '../../../lib/trails-api'
+import type { Money, Trail } from '../../../lib/trails-api'
 import { WAIVER_VERSION } from '../../legal/agreements'
 
 // Form values stay as strings so inputs remain controlled; they are converted
@@ -22,6 +23,9 @@ export type BookingFormValues = {
   ownerAge: string
   ownerAddress: string
   additionalParticipants: ParticipantFormValues[]
+  paymentOption: PaymentOption | ''
+  receipt: File | null
+  referenceNumber: string
   acceptedWaiver: boolean
 }
 
@@ -33,6 +37,38 @@ export type BookingFormErrors = Record<string, string>
 // Must match MIN_BOOKING_OWNER_AGE in backend/src/lib/package-policy.ts.
 // Only the person booking must be an adult; participants may be minors.
 export const MIN_BOOKING_OWNER_AGE = 18
+
+// Must match the receipt rules in backend/src/lib/receipt-upload.ts.
+export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+export const RECEIPT_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+
+// The screenshot is required; the GCash reference number is optional.
+export function validateReceipt(
+  receipt: File | null,
+  referenceNumber: string,
+): BookingFormErrors {
+  const errors: BookingFormErrors = {}
+  if (!receipt) {
+    errors.receipt = 'Upload a screenshot of your GCash receipt.'
+  } else if (!RECEIPT_TYPES.includes(receipt.type)) {
+    errors.receipt = 'Upload a JPG, PNG or WebP image.'
+  } else if (receipt.size > MAX_RECEIPT_BYTES) {
+    errors.receipt = 'The screenshot must be 5 MB or smaller.'
+  }
+  const reference = referenceNumber.replace(/\s+/g, '')
+  if (reference && !/^\d{13}$/.test(reference)) {
+    errors.referenceNumber =
+      'The GCash reference number has 13 digits. Leave it blank if you don’t have it.'
+  }
+  return errors
+}
+
+// What the hiker sends by GCash now for the chosen option.
+export function amountDueOnline(trail: Trail, option: PaymentOption) {
+  return option === 'FULL'
+    ? trail.paymentRequirement.fullAmount
+    : trail.paymentRequirement.amount
+}
 
 export const emptyParticipant: ParticipantFormValues = {
   name: '',
@@ -115,6 +151,11 @@ export function validateBookingForm(
       errors[`${prefix}.email`] = 'Enter a valid email or leave it blank.'
   })
 
+  if (!values.paymentOption) {
+    errors.paymentOption = 'Choose how much you will pay now.'
+  }
+  Object.assign(errors, validateReceipt(values.receipt, values.referenceNumber))
+
   if (!values.acceptedWaiver) {
     errors.acceptedWaiver = 'Agree to the Trek Waiver and Trail Rules to book.'
   }
@@ -139,6 +180,7 @@ export function toCreateBookingInput(
       address: person.address.trim(),
       ...(person.email.trim() && { email: person.email.trim() }),
     })),
+    paymentOption: values.paymentOption as PaymentOption,
     acceptedWaiverVersion: WAIVER_VERSION,
   }
 }
