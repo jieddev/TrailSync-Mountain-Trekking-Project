@@ -1,4 +1,4 @@
-import { requestJson } from './api'
+import { fetchBlob, requestJson } from './api'
 import type { Booking, BookingStatus, ParticipantInput } from './bookings-api'
 
 export type CoordinatorBooking = Booking & {
@@ -100,6 +100,36 @@ const bookingActionPath = (bookingId: string, action: string) =>
 export type CheckInInput = {
   attendance: { participantId: string; present: boolean }[]
   walkIns: ParticipantInput[]
+  // Required for 50% bookings: the cash balance was received at the desk.
+  balanceCollected?: boolean
+}
+
+// The hiker can then upload a new screenshot; the booking stays pending.
+export function rejectPayment(
+  idToken: string,
+  bookingId: string,
+  reason: string,
+) {
+  return requestJson<CoordinatorBooking>(
+    bookingActionPath(bookingId, 'payment/reject'),
+    { idToken, method: 'POST', body: { reason } },
+    'Could not reject this payment.',
+  )
+}
+
+export function getCoordinatorReceiptImage(
+  idToken: string,
+  bookingId: string,
+  receiptId: string,
+) {
+  return fetchBlob(
+    bookingActionPath(
+      bookingId,
+      `payment-receipts/${encodeURIComponent(receiptId)}/file`,
+    ),
+    idToken,
+    'Could not load the receipt image.',
+  )
 }
 
 // Checks the group in and, in the same step, assigns the guide at the front of

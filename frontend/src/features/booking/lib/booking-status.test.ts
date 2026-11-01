@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { bookingStatusLabel, downpaymentStatusLabel } from './booking-status'
+import {
+  balanceStatusLabel,
+  bookingStatusLabel,
+  downpaymentStatusLabel,
+} from './booking-status'
 
 describe('booking status labels', () => {
   it('describes a new booking request', () => {
@@ -9,9 +13,7 @@ describe('booking status labels', () => {
       downpaymentStatus: 'PENDING_VERIFICATION',
     } as const
     expect(bookingStatusLabel(booking).label).toBe('Awaiting confirmation')
-    expect(downpaymentStatusLabel(booking).label).toBe(
-      'Downpayment pending verification',
-    )
+    expect(downpaymentStatusLabel(booking).label).toBe('Receipt under review')
   })
 
   it('describes a confirmed booking', () => {
@@ -59,5 +61,44 @@ describe('booking status labels', () => {
         'Downpayment verified',
       )
     }
+  })
+
+  it('asks the hiker to upload again after a rejected receipt', () => {
+    const booking = {
+      status: 'PENDING_CONFIRMATION',
+      downpaymentStatus: 'REJECTED',
+    } as const
+    expect(bookingStatusLabel(booking)).toEqual({
+      label: 'Payment needs attention',
+      tone: 'declined',
+    })
+    expect(downpaymentStatusLabel(booking)).toEqual({
+      label: 'Receipt rejected · upload a new one',
+      tone: 'declined',
+    })
+  })
+
+  it('names a full payment as such', () => {
+    expect(
+      downpaymentStatusLabel({
+        status: 'CONFIRMED',
+        downpaymentStatus: 'VERIFIED',
+        payment: { option: 'FULL' },
+      }).label,
+    ).toBe('Full payment verified')
+  })
+
+  it('tracks the cash balance only for 50% bookings', () => {
+    const payment = (
+      balanceDueOnSite: number,
+      balanceCollectedAt: string | null,
+    ) => ({ payment: { balanceDueOnSite, balanceCollectedAt } }) as never
+    expect(balanceStatusLabel(payment(0, null))).toBeNull()
+    expect(balanceStatusLabel(payment(275, null))?.label).toBe(
+      'Balance due at check-in',
+    )
+    expect(
+      balanceStatusLabel(payment(275, '2026-11-20T00:00:00Z'))?.label,
+    ).toBe('Balance paid at check-in')
   })
 })

@@ -63,6 +63,7 @@ The roadmap, in build order. Each phase depends on the ones before it.
 - [x] Create requires a valid `trailId`; price and 50% downpayment are copied from the trail.
 - [x] Hiker list, detail, and reschedule (keeps trail, price, and downpayment credit).
 - [x] Coordinator confirm with simulated downpayment verification.
+- [x] GCash payment in test mode: hiker chooses 50% or full payment and uploads a receipt screenshot with the booking; coordinator views it and accepts (confirms) or rejects with a reason; hiker re-uploads after a rejection; the 50% balance is collected in cash at check-in. Screenshots are stored on the backend disk (`UPLOAD_DIR`) and served only to the owner and coordinators.
 - [x] API tests for users, trails, and bookings.
 
 **Web — done**
@@ -146,7 +147,7 @@ Agreed approach: weather is advisory only; a coordinator closes a trail by hand.
 
 - [ ] PDF completion certificate for a completed trek.
 - [ ] Coordinator analytics from stored bookings, treks, guides, and incidents.
-- [ ] **Blocked:** certificate design/signing; real payment provider (payments stay simulated until decided).
+- [ ] **Blocked:** certificate design/signing; real GCash account and an automated payment provider (receipts are checked by hand in test mode until decided).
 
 ## 10. Production readiness (ongoing)
 

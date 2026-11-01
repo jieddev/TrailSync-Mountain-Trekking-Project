@@ -1,5 +1,9 @@
-import { requestJson } from './api'
-import type { PaymentRequirement, TrailPackage } from './trails-api'
+import { fetchBlob, requestForm, requestJson } from './api'
+import type {
+  PaymentMethod,
+  PaymentRequirement,
+  TrailPackage,
+} from './trails-api'
 
 export type BookingStatus =
   | 'PENDING_CONFIRMATION'
@@ -8,7 +12,35 @@ export type BookingStatus =
   | 'GUIDE_ASSIGNED'
   | 'IN_PROGRESS'
   | 'COMPLETED'
-export type DownpaymentStatus = 'PENDING_VERIFICATION' | 'VERIFIED'
+// The status of the GCash payment as a whole (downpayment or full).
+// REJECTED: the coordinator rejected the latest receipt; upload a new one.
+export type DownpaymentStatus = 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED'
+
+// DOWNPAYMENT: 50% by GCash now, the rest in cash at check-in.
+export type PaymentOption = 'DOWNPAYMENT' | 'FULL'
+
+export type ReceiptStatus = 'SUBMITTED' | 'ACCEPTED' | 'REJECTED'
+
+export type PaymentReceipt = {
+  id: string
+  amount: number
+  referenceNumber: string | null
+  status: ReceiptStatus
+  rejectionReason: string | null
+  reviewedAt: string | null
+  createdAt: string
+}
+
+export type BookingPayment = {
+  option: PaymentOption
+  currency: string
+  amountDueOnline: number
+  balanceDueOnSite: number
+  balanceCollectedAt: string | null
+  method: PaymentMethod
+  // Newest first.
+  receipts: PaymentReceipt[]
+}
 
 export type BookingParticipant = {
   id: string
@@ -41,6 +73,7 @@ export type Booking = {
   completedAt: string | null
   package: TrailPackage
   paymentRequirement: PaymentRequirement
+  payment: BookingPayment
   // The coordinator's closure of this trail on the booking's date, if any.
   trailRestriction: BookingTrailRestriction | null
   createdAt: string
@@ -66,6 +99,7 @@ export type CreateBookingInput = {
   scheduledTime: string
   ownerDetails: { age: number; address: string }
   additionalParticipants: ParticipantInput[]
+  paymentOption: PaymentOption
   // The Trek Waiver version the owner agreed to for the whole group.
   acceptedWaiverVersion: string
 }
@@ -75,11 +109,58 @@ export type ScheduleInput = { scheduledDate: string; scheduledTime: string }
 const bookingPath = (bookingId: string) =>
   `/api/v1/bookings/${encodeURIComponent(bookingId)}`
 
-export function createBooking(idToken: string, input: CreateBookingInput) {
-  return requestJson<Booking>(
+export type ReceiptInput = {
+  receipt: File
+  // Optional 13-digit GCash reference number.
+  referenceNumber?: string
+}
+
+function receiptForm({ receipt, referenceNumber }: ReceiptInput) {
+  const form = new FormData()
+  form.append('receipt', receipt)
+  if (referenceNumber?.trim())
+    form.append('referenceNumber', referenceNumber.trim())
+  return form
+}
+
+// The booking details go as JSON in the "booking" field next to the
+// screenshot, so a booking is never created without its receipt.
+export function createBooking(
+  idToken: string,
+  input: CreateBookingInput,
+  payment: ReceiptInput,
+) {
+  const form = receiptForm(payment)
+  form.append('booking', JSON.stringify(input))
+  return requestForm<Booking>(
     '/api/v1/bookings',
-    { idToken, method: 'POST', body: input },
+    { idToken, form },
     'Could not create your booking.',
+  )
+}
+
+// Allowed only after the coordinator rejected the last receipt.
+export function uploadPaymentReceipt(
+  idToken: string,
+  bookingId: string,
+  payment: ReceiptInput,
+) {
+  return requestForm<Booking>(
+    `${bookingPath(bookingId)}/payment-receipt`,
+    { idToken, form: receiptForm(payment) },
+    'Could not upload your receipt.',
+  )
+}
+
+export function getReceiptImage(
+  idToken: string,
+  bookingId: string,
+  receiptId: string,
+) {
+  return fetchBlob(
+    `${bookingPath(bookingId)}/payment-receipts/${encodeURIComponent(receiptId)}/file`,
+    idToken,
+    'Could not load the receipt image.',
   )
 }
 

@@ -702,7 +702,7 @@ The booking owner provides their own information and may list other participants
 
 Groups exceeding five require additional package/guide arrangements. Exact grouping for 6–10 or larger groups, whether each additional group is capped at five, whether each package requires a guide, independent payment, multiple-package pricing, and database representation are **TBD**. Differences between booked guests and actual arrivals at check-in follow the rules in §5.2: booked 5/arrived 3 marks absentees, booked 3/arrived 5 adds walk-ins, and booked 3/arrived 7 checks in at most 5. The arrangement for the extra people remains **TBD**.
 
-Every supported trail requires a 50% downpayment calculated from that selected trail’s package price. Sulfatara’s ₱550 price therefore requires ₱275, and Mt. Malingatong’s ₱680 price requires ₱340. Payment provider, deadline, refund rules, and other payment details remain **TBD**. TrailSync records the booking/downpayment statuses in its simulated workflow; real payment processing remains a future feature.
+Every supported trail requires a 50% downpayment calculated from that selected trail’s package price. Sulfatara’s ₱550 price therefore requires ₱275, and Mt. Malingatong’s ₱680 price requires ₱340. When booking, the hiker chooses to pay either the 50% downpayment or the full package price by GCash (QR code or manual transfer to the tourism office account) and must upload a screenshot of the GCash receipt. With the downpayment option, the remaining balance is paid in cash at check-in, where the coordinator records it. A coordinator views the screenshot and either accepts it (confirming the booking) or rejects it with a reason; the hiker then uploads a new screenshot. This runs in **test mode** for now: no money moves through TrailSync, any image is accepted as a receipt, and the GCash account details and QR code are placeholders until the tourism office provides its real account. Payment deadline, refund rules, and an automated payment provider remain **TBD**.
 
 Daily booking/visitor capacity is determined operationally by the Tourism Officer and is also constrained by available guide capacity. No fixed numeric capacity is confirmed. The formal capacity rule and the relationship between visitor capacity, group/package capacity, and guide availability are **TBD**.
 
@@ -1663,9 +1663,9 @@ The following should be treated as **TBD** rather than assumptions:
 - Exact Booking API request/response format
 - Booking states beyond `COMPLETED` (trek start/in progress, `NO_SHOW`, `SUSPENDED`, `EMERGENCY`)
 - Exact date/time scheduling model
-- Payment provider and downpayment verification process
-- Payment deadline, refund rules, and payment status values
-- Downpayment handling during rescheduling
+- Real GCash account details and QR code for the tourism office (placeholders in test mode)
+- Whether to move from manual receipt checking to an automated payment provider
+- Payment deadline and refund rules
 - Rescheduling limits and notice period
 - No-show policy details
 - Whether participants need information beyond name, age, and address

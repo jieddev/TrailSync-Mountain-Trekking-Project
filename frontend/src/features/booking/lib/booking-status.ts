@@ -1,4 +1,4 @@
-import type { Booking } from '../../../lib/bookings-api'
+import type { Booking, BookingPayment } from '../../../lib/bookings-api'
 
 export type StatusTone = 'pending' | 'success' | 'declined'
 
@@ -20,18 +20,41 @@ export function bookingStatusLabel(
     case 'COMPLETED':
       return { label: 'Completed', tone: 'success' }
   }
+  if (booking.downpaymentStatus === 'REJECTED') {
+    return { label: 'Payment needs attention', tone: 'declined' }
+  }
   return booking.downpaymentStatus === 'VERIFIED'
     ? { label: 'Reschedule awaiting confirmation', tone: 'pending' }
     : { label: 'Awaiting confirmation', tone: 'pending' }
 }
 
+type PaymentStatusInput = Pick<Booking, 'status' | 'downpaymentStatus'> & {
+  payment?: Pick<BookingPayment, 'option'>
+}
+
+// The GCash payment: the downpayment, or the full price when paid in full.
 export function downpaymentStatusLabel(
-  booking: Pick<Booking, 'status' | 'downpaymentStatus'>,
+  booking: PaymentStatusInput,
 ): StatusLabel {
-  if (booking.downpaymentStatus === 'PENDING_VERIFICATION') {
-    return { label: 'Downpayment pending verification', tone: 'pending' }
+  const paid =
+    booking.payment?.option === 'FULL' ? 'Full payment' : 'Downpayment'
+  switch (booking.downpaymentStatus) {
+    case 'PENDING_VERIFICATION':
+      return { label: 'Receipt under review', tone: 'pending' }
+    case 'REJECTED':
+      return { label: 'Receipt rejected · upload a new one', tone: 'declined' }
   }
   return booking.status === 'PENDING_CONFIRMATION'
-    ? { label: 'Downpayment credit kept', tone: 'success' }
-    : { label: 'Downpayment verified', tone: 'success' }
+    ? { label: `${paid} credit kept`, tone: 'success' }
+    : { label: `${paid} verified`, tone: 'success' }
+}
+
+// The cash balance owed at check-in on a 50% booking, or null when none is owed.
+export function balanceStatusLabel(
+  booking: Pick<Booking, 'payment'>,
+): StatusLabel | null {
+  if (booking.payment.balanceDueOnSite <= 0) return null
+  return booking.payment.balanceCollectedAt
+    ? { label: 'Balance paid at check-in', tone: 'success' }
+    : { label: 'Balance due at check-in', tone: 'pending' }
 }

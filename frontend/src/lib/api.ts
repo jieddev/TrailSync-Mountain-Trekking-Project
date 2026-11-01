@@ -25,6 +25,48 @@ type RequestOptions = {
   body?: unknown
 }
 
+async function failure(response: Response, fallbackMessage: string) {
+  const payload = (await response.json().catch(() => null)) as {
+    error?: { code?: string; details?: ApiErrorDetail[] }
+  } | null
+  return new ApiError(
+    fallbackMessage,
+    response.status,
+    payload?.error?.code,
+    payload?.error?.details ?? [],
+  )
+}
+
+// Sends multipart form data (e.g. a receipt screenshot). The browser sets the
+// Content-Type with its boundary, so it is not set here.
+export async function requestForm<T>(
+  path: string,
+  { idToken, form }: { idToken: string; form: FormData },
+  fallbackMessage: string,
+): Promise<T> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${idToken}` },
+    body: form,
+  })
+  if (!response.ok) throw await failure(response, fallbackMessage)
+  return (await response.json()) as T
+}
+
+// Reads a protected file such as a receipt image. An <img> cannot send the
+// Authorization header, so callers show the Blob through an object URL.
+export async function fetchBlob(
+  path: string,
+  idToken: string,
+  fallbackMessage: string,
+): Promise<Blob> {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  })
+  if (!response.ok) throw await failure(response, fallbackMessage)
+  return response.blob()
+}
+
 // Sends a JSON request to the TrailSync API. Failures become an ApiError with
 // the caller's safe message; backend error text is never shown to users.
 export async function requestJson<T>(
@@ -42,18 +84,7 @@ export async function requestJson<T>(
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
 
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as {
-      error?: { code?: string; details?: ApiErrorDetail[] }
-    } | null
-
-    throw new ApiError(
-      fallbackMessage,
-      response.status,
-      payload?.error?.code,
-      payload?.error?.details ?? [],
-    )
-  }
+  if (!response.ok) throw await failure(response, fallbackMessage)
 
   return (await response.json()) as T
 }

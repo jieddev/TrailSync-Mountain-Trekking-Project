@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS } from "./package-policy.js";
+import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, amountDueOnline, balanceDueOnSite } from "./package-policy.js";
+import { paymentMethod } from "./payment-config.js";
 import { restrictionsForBookings } from "./trail-restrictions.js";
 
 // Owner first, then additional participants, then walk-ins added at check-in.
@@ -8,6 +9,8 @@ export const bookingInclude = {
   participants: { orderBy: [{ kind: "asc" }, { id: "asc" }] },
   trail: { select: { id: true, name: true } },
   guide: { select: { id: true, user: { select: { fullName: true } } } },
+  // Newest first, so the first receipt is the one awaiting review.
+  paymentReceipts: { orderBy: { createdAt: "desc" } },
 } satisfies Prisma.BookingInclude;
 
 // The booking representation in API_CONTRACT_V1.md §4, shared by hiker and coordinator routes.
@@ -38,8 +41,32 @@ export function bookingResponse(booking: any) {
     completedAt: booking.completedAt ?? null,
     package: { price: { amount: booking.packagePrice, currency: CURRENCY }, maximumParticipants: MAX_PARTICIPANTS, guideCount: GUIDE_COUNT },
     paymentRequirement: { downpaymentPercent: DOWNPAYMENT_PERCENT, amount: booking.downpaymentAmount, currency: CURRENCY },
+    payment: paymentResponse(booking),
     createdAt: booking.createdAt,
     updatedAt: booking.updatedAt,
+  };
+}
+
+// GCash payment details (test mode). The stored file name is never exposed;
+// images are read through the receipt file routes.
+function paymentResponse(booking: any) {
+  const option = booking.paymentOption ?? "DOWNPAYMENT";
+  return {
+    option,
+    currency: CURRENCY,
+    amountDueOnline: amountDueOnline({ ...booking, paymentOption: option }),
+    balanceDueOnSite: balanceDueOnSite({ ...booking, paymentOption: option }),
+    balanceCollectedAt: booking.balanceCollectedAt ?? null,
+    method: paymentMethod(),
+    receipts: (booking.paymentReceipts ?? []).map((receipt: any) => ({
+      id: receipt.id,
+      amount: receipt.amount,
+      referenceNumber: receipt.referenceNumber ?? null,
+      status: receipt.status,
+      rejectionReason: receipt.rejectionReason ?? null,
+      reviewedAt: receipt.reviewedAt ?? null,
+      createdAt: receipt.createdAt,
+    })),
   };
 }
 

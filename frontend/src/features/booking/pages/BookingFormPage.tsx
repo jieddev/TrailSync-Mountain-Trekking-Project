@@ -14,9 +14,12 @@ import { useHikerProfile } from '../../home/hiker-profile'
 import DayForecastNote from '../../weather/components/DayForecastNote'
 import { useWeather } from '../../weather/lib/use-weather'
 import Alert from '../components/Alert'
+import GcashPaymentPanel from '../components/GcashPaymentPanel'
+import ReceiptUploadField from '../components/ReceiptUploadField'
 import PageHeader from '../components/PageHeader'
 import StatusCard from '../components/StatusCard'
 import {
+  amountDueOnline,
   type BookingFormErrors,
   type BookingFormValues,
   emptyParticipant,
@@ -44,6 +47,9 @@ const initialValues: BookingFormValues = {
   ownerAge: '',
   ownerAddress: '',
   additionalParticipants: [],
+  paymentOption: '',
+  receipt: null,
+  referenceNumber: '',
   acceptedWaiver: false,
 }
 
@@ -130,7 +136,17 @@ export default function BookingFormPage() {
     if (hasSubmitted) setErrors(validateBookingForm(next, maxAdditional, today))
   }
 
-  function setField(name: keyof BookingFormValues, value: string) {
+  function setField(
+    name:
+      | 'trailId'
+      | 'scheduledDate'
+      | 'scheduledTime'
+      | 'ownerAge'
+      | 'ownerAddress'
+      | 'paymentOption'
+      | 'referenceNumber',
+    value: string,
+  ) {
     updateValues({ ...values, [name]: value })
   }
 
@@ -181,11 +197,18 @@ export default function BookingFormPage() {
     setIsSubmitting(true)
     try {
       const idToken = await user!.getIdToken()
-      const booking = await createBooking(idToken, toCreateBookingInput(values))
+      const booking = await createBooking(
+        idToken,
+        toCreateBookingInput(values),
+        {
+          receipt: values.receipt!,
+          referenceNumber: values.referenceNumber,
+        },
+      )
       navigate(`/bookings/${booking.id}`, {
         state: {
           successMessage:
-            'Your booking request was sent. A tourism coordinator will review it.',
+            'Your booking and GCash receipt were sent. A tourism coordinator will check your payment and confirm.',
         } satisfies BookingCreatedState,
       })
     } catch (error) {
@@ -201,6 +224,9 @@ export default function BookingFormPage() {
             'This trail is closed on this date. Choose another date.',
         })
         setFormError('This trail is closed on the date you picked.')
+      } else if (error instanceof ApiError && error.status === 413) {
+        setErrors({ receipt: 'The screenshot must be 5 MB or smaller.' })
+        setFormError('Review the highlighted fields and try again.')
       } else if (error instanceof ApiError && error.status === 403) {
         setFormError('Only hiker accounts can book a trek.')
       } else {
@@ -458,6 +484,107 @@ export default function BookingFormPage() {
               Add participant
             </button>
           </fieldset>
+
+          <fieldset
+            aria-describedby="paymentOption-error"
+            className="rounded-2xl border border-[#d5e1da] bg-white p-6"
+          >
+            <legend className="px-1 text-sm font-bold text-[#173a2e]">
+              Payment
+            </legend>
+            {selectedTrail ? (
+              <>
+                <p className="mt-1 text-sm text-[#52675e]">
+                  Pay the {selectedTrail.paymentRequirement.downpaymentPercent}%
+                  downpayment now and the rest in cash at check-in, or pay the
+                  full package now.
+                </p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {(
+                    [
+                      {
+                        option: 'DOWNPAYMENT',
+                        title: `${selectedTrail.paymentRequirement.downpaymentPercent}% downpayment`,
+                        amount: selectedTrail.paymentRequirement.amount,
+                        note: `${formatMoney({ amount: selectedTrail.package.price.amount - selectedTrail.paymentRequirement.amount, currency: selectedTrail.package.price.currency })} cash balance at check-in`,
+                      },
+                      {
+                        option: 'FULL',
+                        title: 'Full payment',
+                        amount: selectedTrail.paymentRequirement.fullAmount,
+                        note: 'Nothing to pay at check-in',
+                      },
+                    ] as const
+                  ).map((choice) => (
+                    <label
+                      className={`flex cursor-pointer flex-col rounded-xl border p-4 transition has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-[#008755] ${values.paymentOption === choice.option ? 'border-[#008755] bg-[#f1f8f4]' : 'border-[#c8d7cf] hover:bg-[#f7faf8]'}`}
+                      key={choice.option}
+                    >
+                      <input
+                        checked={values.paymentOption === choice.option}
+                        className="sr-only"
+                        name="paymentOption"
+                        onChange={() =>
+                          setField('paymentOption', choice.option)
+                        }
+                        type="radio"
+                        value={choice.option}
+                      />
+                      <span className="font-bold text-[#173a2e]">
+                        {choice.title}
+                      </span>
+                      <span className="mt-1 text-lg font-bold text-[#006b43]">
+                        {formatMoney({
+                          amount: choice.amount,
+                          currency: selectedTrail.paymentRequirement.currency,
+                        })}
+                      </span>
+                      <span className="mt-1 text-xs text-[#52675e]">
+                        {choice.note}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                <p
+                  aria-live="polite"
+                  className="min-h-5 pt-1 text-sm text-rose-600"
+                  id="paymentOption-error"
+                >
+                  {errors.paymentOption}
+                </p>
+                {values.paymentOption && (
+                  <div className="grid gap-4">
+                    <GcashPaymentPanel
+                      amount={{
+                        amount: amountDueOnline(
+                          selectedTrail,
+                          values.paymentOption,
+                        ),
+                        currency: selectedTrail.paymentRequirement.currency,
+                      }}
+                      method={selectedTrail.paymentRequirement.method}
+                    />
+                    <ReceiptUploadField
+                      onReceiptChange={(receipt) =>
+                        updateValues({ ...values, receipt })
+                      }
+                      onReferenceNumberChange={(value) =>
+                        setField('referenceNumber', value)
+                      }
+                      receipt={values.receipt}
+                      receiptError={errors.receipt}
+                      referenceNumber={values.referenceNumber}
+                      referenceNumberError={errors.referenceNumber}
+                    />
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="mt-1 text-sm text-[#52675e]">
+                Select a trail to see the payment options.
+              </p>
+            )}
+          </fieldset>
         </div>
 
         <aside className="rounded-2xl border border-[#d5e1da] bg-white p-6 lg:sticky lg:top-6">
@@ -484,11 +611,32 @@ export default function BookingFormPage() {
               </div>
               <div className="flex justify-between gap-3">
                 <dt className="text-[#70857b]">
-                  Downpayment (
-                  {selectedTrail.paymentRequirement.downpaymentPercent}%)
+                  {values.paymentOption === 'FULL'
+                    ? 'Pay now by GCash'
+                    : `Downpayment now (${selectedTrail.paymentRequirement.downpaymentPercent}%)`}
                 </dt>
                 <dd className="font-bold text-[#006b43]">
-                  {formatMoney(selectedTrail.paymentRequirement)}
+                  {formatMoney({
+                    amount: amountDueOnline(
+                      selectedTrail,
+                      values.paymentOption || 'DOWNPAYMENT',
+                    ),
+                    currency: selectedTrail.paymentRequirement.currency,
+                  })}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-3">
+                <dt className="text-[#70857b]">Cash at check-in</dt>
+                <dd className="font-semibold text-[#173a2e]">
+                  {formatMoney({
+                    amount:
+                      selectedTrail.package.price.amount -
+                      amountDueOnline(
+                        selectedTrail,
+                        values.paymentOption || 'DOWNPAYMENT',
+                      ),
+                    currency: selectedTrail.package.price.currency,
+                  })}
                 </dd>
               </div>
             </dl>
@@ -498,8 +646,9 @@ export default function BookingFormPage() {
             </p>
           )}
           <p className="mt-4 text-xs leading-5 text-[#70857b]">
-            A tourism coordinator reviews your request and verifies the
-            downpayment before confirming. Your guide is assigned at check-in.
+            A tourism coordinator checks your GCash receipt before confirming.
+            If it can’t be verified, you’ll be asked to upload a new one. Your
+            guide is assigned at check-in.
           </p>
           <div className="mt-4">
             <AgreementCheckbox

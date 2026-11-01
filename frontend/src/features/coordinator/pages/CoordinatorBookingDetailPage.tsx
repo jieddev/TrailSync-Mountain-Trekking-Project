@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type FormEvent, useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 
 import { useAuth } from '../../../app/AuthContext'
@@ -9,11 +9,15 @@ import {
   completeTrek,
   confirmBooking,
   getCoordinatorBooking,
+  getCoordinatorReceiptImage,
+  rejectPayment,
   resendCertificates,
   type CoordinatorBooking,
 } from '../../../lib/coordinator-api'
 import BookingRestrictionNotice from '../../booking/components/BookingRestrictionNotice'
 import PageHeader from '../../booking/components/PageHeader'
+import PaymentReceiptList from '../../booking/components/PaymentReceiptList'
+import ReceiptImage from '../../booking/components/ReceiptImage'
 import StatusBadge from '../../booking/components/StatusBadge'
 import StatusCard from '../../booking/components/StatusCard'
 import {
@@ -22,6 +26,7 @@ import {
   manilaTodayIso,
 } from '../../booking/lib/booking-form'
 import {
+  balanceStatusLabel,
   bookingStatusLabel,
   downpaymentStatusLabel,
 } from '../../booking/lib/booking-status'
@@ -93,7 +98,10 @@ export default function CoordinatorBookingDetailPage() {
       setState({ status: 'loaded', booking: { ...booking, ...confirmed } })
       setNotice({
         tone: 'success',
-        text: 'Booking confirmed and downpayment marked as verified.',
+        text:
+          booking.downpaymentStatus === 'VERIFIED'
+            ? 'New schedule confirmed. The payment already verified is kept.'
+            : 'Payment accepted and booking confirmed.',
       })
     } catch (error) {
       if (
@@ -115,6 +123,42 @@ export default function CoordinatorBookingDetailPage() {
       setIsConfirming(false)
       setIsAskingToConfirm(false)
     }
+  }
+
+  async function handleReject(booking: CoordinatorBooking, reason: string) {
+    setNotice(null)
+    try {
+      const idToken = await user!.getIdToken()
+      const updated = await rejectPayment(idToken, booking.id, reason)
+      setState({ status: 'loaded', booking: updated })
+      setNotice({
+        tone: 'success',
+        text: 'Receipt rejected. The hiker can now upload a new one.',
+      })
+      return true
+    } catch (error) {
+      if (
+        error instanceof ApiError &&
+        error.code === 'PAYMENT_NOT_REJECTABLE'
+      ) {
+        setNotice({
+          tone: 'error',
+          text: 'This payment was already reviewed. Showing its latest status.',
+        })
+        setReloadKey((key) => key + 1)
+      } else {
+        setNotice({
+          tone: 'error',
+          text: 'We couldn’t reject this payment. Please try again.',
+        })
+      }
+      return false
+    }
+  }
+
+  async function loadReceiptImage(receiptId: string) {
+    const idToken = await user!.getIdToken()
+    return getCoordinatorReceiptImage(idToken, bookingId!, receiptId)
   }
 
   async function runTrekAction(
@@ -164,7 +208,16 @@ export default function CoordinatorBookingDetailPage() {
   const { booking } = state
   const status = bookingStatusLabel(booking)
   const downpayment = downpaymentStatusLabel(booking)
+  const balance = balanceStatusLabel(booking)
   const isPending = booking.status === 'PENDING_CONFIRMATION'
+  const latestReceipt = booking.payment.receipts[0]
+  const receiptToReview =
+    booking.downpaymentStatus === 'PENDING_VERIFICATION' &&
+    latestReceipt?.status === 'SUBMITTED'
+      ? latestReceipt
+      : null
+  const money = (amount: number) =>
+    formatMoney({ amount, currency: booking.payment.currency })
 
   return (
     <>
@@ -203,14 +256,58 @@ export default function CoordinatorBookingDetailPage() {
             <div className="mt-3 flex flex-wrap gap-2">
               <StatusBadge label={status.label} tone={status.tone} />
               <StatusBadge label={downpayment.label} tone={downpayment.tone} />
+              {balance && (
+                <StatusBadge label={balance.label} tone={balance.tone} />
+              )}
             </div>
             {isPending && booking.downpaymentStatus === 'VERIFIED' && (
               <p className="mt-3 text-sm leading-6 text-[#52675e]">
-                The hiker moved a confirmed trek to a new date. Their
-                downpayment credit is kept; only the new schedule needs
-                confirming.
+                The hiker moved a confirmed trek to a new date. Their verified
+                payment is kept; only the new schedule needs confirming.
               </p>
             )}
+          </section>
+
+          <section
+            aria-labelledby="payment-title"
+            className="rounded-2xl border border-[#d5e1da] bg-white p-6"
+          >
+            <h2 id="payment-title" className="text-sm font-bold text-[#173a2e]">
+              GCash payment
+            </h2>
+            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+              <div>
+                <dt className="text-[#70857b]">Option</dt>
+                <dd className="font-semibold text-[#173a2e]">
+                  {booking.payment.option === 'FULL'
+                    ? 'Full payment'
+                    : `${booking.paymentRequirement.downpaymentPercent}% downpayment`}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[#70857b]">Expected by GCash</dt>
+                <dd className="font-semibold text-[#173a2e]">
+                  {money(booking.payment.amountDueOnline)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[#70857b]">Cash at check-in</dt>
+                <dd className="font-semibold text-[#173a2e]">
+                  {money(booking.payment.balanceDueOnSite)}
+                  {booking.payment.balanceCollectedAt &&
+                    ` · collected ${formatClockTime(booking.payment.balanceCollectedAt)}`}
+                </dd>
+              </div>
+            </dl>
+            <h3 className="mt-5 text-xs font-bold uppercase tracking-wide text-[#70857b]">
+              Receipts
+            </h3>
+            <div className="mt-2">
+              <PaymentReceiptList
+                loadImage={loadReceiptImage}
+                payment={booking.payment}
+              />
+            </div>
           </section>
 
           <section
@@ -279,12 +376,9 @@ export default function CoordinatorBookingDetailPage() {
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
-                <dt className="text-[#70857b]">
-                  Downpayment ({booking.paymentRequirement.downpaymentPercent}
-                  %)
-                </dt>
+                <dt className="text-[#70857b]">Paid by GCash</dt>
                 <dd className="font-bold text-[#006b43]">
-                  {formatMoney(booking.paymentRequirement)}
+                  {money(booking.payment.amountDueOnline)}
                 </dd>
               </div>
               <div className="flex justify-between gap-3">
@@ -306,56 +400,191 @@ export default function CoordinatorBookingDetailPage() {
           {isPending && (
             <section className="rounded-2xl border border-[#d5e1da] bg-white p-6">
               <h2 className="text-sm font-bold text-[#173a2e]">Review</h2>
-              {isAskingToConfirm ? (
-                <>
-                  <p className="mt-3 text-sm leading-6 text-[#52675e]">
-                    Confirm this trek and mark the{' '}
-                    {formatMoney(booking.paymentRequirement)} downpayment as
-                    verified? The hiker will see the booking as confirmed.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
+              {receiptToReview && (
+                <div className="mt-3 flex gap-4">
+                  <ReceiptImage
+                    alt="Latest GCash receipt from the hiker"
+                    className="h-44 w-32"
+                    imageKey={receiptToReview.id}
+                    load={() => loadReceiptImage(receiptToReview.id)}
+                  />
+                  <dl className="min-w-0 text-sm">
+                    <dt className="text-[#70857b]">Should show</dt>
+                    <dd className="font-bold text-[#173a2e]">
+                      {money(receiptToReview.amount)}
+                    </dd>
+                    <dt className="mt-2 text-[#70857b]">Sent to</dt>
+                    <dd className="font-semibold text-[#173a2e]">
+                      {booking.payment.method.accountNumber}
+                    </dd>
+                    {receiptToReview.referenceNumber && (
+                      <>
+                        <dt className="mt-2 text-[#70857b]">Ref. No.</dt>
+                        <dd className="break-all font-semibold text-[#173a2e]">
+                          {receiptToReview.referenceNumber}
+                        </dd>
+                      </>
+                    )}
+                  </dl>
+                </div>
+              )}
+              {receiptToReview || booking.downpaymentStatus === 'VERIFIED' ? (
+                isAskingToConfirm ? (
+                  <>
+                    <p className="mt-3 text-sm leading-6 text-[#52675e]">
+                      {receiptToReview
+                        ? `Accept the ${money(receiptToReview.amount)} GCash payment and confirm this trek?`
+                        : 'Confirm the new schedule?'}{' '}
+                      The hiker will see the booking as confirmed.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        className={primaryButtonClass}
+                        disabled={isConfirming}
+                        onClick={() => void handleConfirm(booking)}
+                        type="button"
+                      >
+                        {isConfirming ? 'Confirming…' : 'Yes, confirm'}
+                      </button>
+                      <button
+                        className={secondaryButtonClass}
+                        disabled={isConfirming}
+                        onClick={() => setIsAskingToConfirm(false)}
+                        type="button"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-3 text-sm leading-6 text-[#52675e]">
+                      {receiptToReview
+                        ? 'Check that the screenshot shows the right amount sent to the office GCash account. Test mode: no money moves through TrailSync, so any image can be accepted.'
+                        : 'The payment was verified before the reschedule.'}
+                    </p>
                     <button
-                      className={primaryButtonClass}
-                      disabled={isConfirming}
-                      onClick={() => void handleConfirm(booking)}
+                      className={`mt-4 w-full ${primaryButtonClass}`}
+                      onClick={() => {
+                        setNotice(null)
+                        setIsAskingToConfirm(true)
+                      }}
                       type="button"
                     >
-                      {isConfirming ? 'Confirming…' : 'Yes, confirm'}
+                      {receiptToReview
+                        ? 'Accept payment & confirm'
+                        : 'Confirm new schedule'}
                     </button>
-                    <button
-                      className={secondaryButtonClass}
-                      disabled={isConfirming}
-                      onClick={() => setIsAskingToConfirm(false)}
-                      type="button"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </>
+                    {receiptToReview && (
+                      <RejectPaymentForm
+                        key={receiptToReview.id}
+                        onReject={(reason) => handleReject(booking, reason)}
+                      />
+                    )}
+                  </>
+                )
               ) : (
-                <>
-                  <p className="mt-3 text-sm leading-6 text-[#52675e]">
-                    Check the downpayment before confirming. Payment
-                    verification is simulated; no money is processed in
-                    TrailSync.
-                  </p>
-                  <button
-                    className={`mt-4 w-full ${primaryButtonClass}`}
-                    onClick={() => {
-                      setNotice(null)
-                      setIsAskingToConfirm(true)
-                    }}
-                    type="button"
-                  >
-                    Confirm & verify downpayment
-                  </button>
-                </>
+                <p className="mt-3 text-sm leading-6 text-[#52675e]">
+                  {booking.downpaymentStatus === 'REJECTED'
+                    ? 'You rejected the last receipt. Waiting for the hiker to upload a new one.'
+                    : 'No receipt has been uploaded for this booking, so it can’t be confirmed.'}
+                </p>
               )}
             </section>
           )}
         </aside>
       </div>
     </>
+  )
+}
+
+// Second step of the review: the reason is shown to the hiker.
+function RejectPaymentForm({
+  onReject,
+}: {
+  onReject: (reason: string) => Promise<boolean>
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState('')
+  const [isBusy, setIsBusy] = useState(false)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const trimmed = reason.trim()
+    if (!trimmed) {
+      setError('Tell the hiker why the receipt was rejected.')
+      return
+    }
+    setIsBusy(true)
+    const rejected = await onReject(trimmed)
+    setIsBusy(false)
+    if (rejected) setIsOpen(false)
+  }
+
+  if (!isOpen) {
+    return (
+      <button
+        className={`mt-2 w-full ${secondaryButtonClass}`}
+        onClick={() => setIsOpen(true)}
+        type="button"
+      >
+        Reject payment
+      </button>
+    )
+  }
+
+  return (
+    <form
+      className="mt-4 border-t border-[#e7ece8] pt-4"
+      noValidate
+      onSubmit={handleSubmit}
+    >
+      <label
+        className="mb-2 block text-sm font-bold text-[#173a2e]"
+        htmlFor="reject-reason"
+      >
+        Reason (shown to the hiker)
+      </label>
+      <textarea
+        aria-describedby="reject-reason-error"
+        aria-invalid={Boolean(error)}
+        className="block w-full rounded-xl border border-[#c8d7cf] bg-white px-4 py-3 text-sm text-[#173a2e] outline-none focus:border-[#008755] focus:ring-2 focus:ring-[#008755]/15"
+        id="reject-reason"
+        maxLength={500}
+        onChange={(event) => {
+          setReason(event.target.value)
+          setError('')
+        }}
+        placeholder="e.g. The amount doesn’t match, or the screenshot is unreadable."
+        rows={3}
+        value={reason}
+      />
+      <p
+        aria-live="polite"
+        className="min-h-5 pt-1 text-sm text-rose-600"
+        id="reject-reason-error"
+      >
+        {error}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <button
+          className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white hover:bg-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isBusy}
+          type="submit"
+        >
+          {isBusy ? 'Rejecting…' : 'Reject receipt'}
+        </button>
+        <button
+          className={secondaryButtonClass}
+          disabled={isBusy}
+          onClick={() => setIsOpen(false)}
+          type="button"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 

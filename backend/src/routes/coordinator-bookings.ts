@@ -8,10 +8,11 @@ import { fail, type ErrorDetail } from "../lib/http-errors.js";
 import { manilaToday } from "../lib/manila-date.js";
 import { MAX_PARTICIPANTS } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
+import { sendReceiptFile } from "../lib/receipt-upload.js";
 import { activeRestriction } from "../lib/trail-restrictions.js";
 import { asObject, nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
 import { requireFirebaseAuth } from "../middleware/require-firebase-auth.js";
-import { requireRole } from "../middleware/require-role.js";
+import { requireRole, type RoleRequest } from "../middleware/require-role.js";
 
 const BOOKING_STATUSES: BookingStatus[] = ["PENDING_CONFIRMATION", "CONFIRMED", "CHECKED_IN", "GUIDE_ASSIGNED", "IN_PROGRESS", "COMPLETED"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -32,8 +33,11 @@ const refusals = {
   BOOKING_NOT_ON_TREK: [409, "Only a group with an assigned guide can complete a trek."],
   BOOKING_NOT_COMPLETED: [409, "Certificates are sent only for completed treks."],
   TRAIL_RESTRICTED: [409, "This trail is closed today. Lift the restriction before checking in or dispatching a guide."],
+  PAYMENT_NOT_REJECTABLE: [409, "Only a receipt awaiting review can be rejected."],
 } as const;
 type Refusal = keyof typeof refusals;
+
+class PaymentRaceError extends Error {}
 
 function refuse(response: Response, code: Refusal) {
   const [status, message] = refusals[code];
@@ -52,6 +56,10 @@ function parseCheckIn(body: Record<string, unknown>) {
   const details: ErrorDetail[] = [];
   const { attendance } = body;
   const walkIns = body.walkIns === undefined ? [] : body.walkIns;
+  const { balanceCollected } = body;
+  if (balanceCollected !== undefined && typeof balanceCollected !== "boolean") {
+    details.push({ field: "balanceCollected", code: "INVALID_TYPE", message: "Confirm whether the cash balance was collected." });
+  }
   if (!Array.isArray(attendance) || attendance.length === 0) {
     details.push({ field: "attendance", code: "REQUIRED", message: "Mark each booked participant present or absent." });
   } else {
@@ -74,6 +82,7 @@ function parseCheckIn(body: Record<string, unknown>) {
   }
   if (details.length) return { details };
   return {
+    balanceCollected: balanceCollected === true,
     marks: (attendance as Record<string, unknown>[]).map((mark) => ({ participantId: mark.participantId as string, present: mark.present as boolean })),
     walkIns: (walkIns as Record<string, unknown>[]).map((person) => ({
       name: (person.name as string).trim(), age: person.age as number, address: (person.address as string).trim(),
@@ -162,18 +171,29 @@ coordinatorBookingsRouter.post("/:bookingId/check-in", async (request, response)
   const today = manilaToday();
   try {
     const result = await prisma.$transaction(async (tx): Promise<{ refusal: Refusal } | { details: ErrorDetail[] } | { booking: unknown }> => {
-      const booking = await tx.booking.findUnique({ where: { id: bookingId }, select: { status: true, scheduledDate: true, trailId: true, participants: { select: { id: true } } } });
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: { status: true, scheduledDate: true, trailId: true, paymentOption: true, packagePrice: true, downpaymentAmount: true, participants: { select: { id: true } } },
+      });
       if (!booking) return { refusal: "BOOKING_NOT_FOUND" };
       if (booking.status !== "CONFIRMED") return { refusal: "CHECK_IN_NOT_ALLOWED" };
       if (booking.scheduledDate !== today) return { refusal: "NOT_SCHEDULED_TODAY" };
       if (await activeRestriction(tx, booking.trailId, today)) return { refusal: "TRAIL_RESTRICTED" };
       const details = rosterErrors(booking.participants.map((participant) => participant.id), parsed.marks, parsed.walkIns);
+      // With a 50% downpayment, the rest is paid in cash at the registration desk.
+      const owesBalance = booking.paymentOption === "DOWNPAYMENT";
+      if (owesBalance && !parsed.balanceCollected) {
+        details.push({ field: "balanceCollected", code: "BALANCE_NOT_COLLECTED", message: `Collect the ₱${booking.packagePrice - booking.downpaymentAmount} cash balance before checking in.` });
+      }
       if (details.length) return { details };
 
       const now = new Date();
       const checkedIn = await tx.booking.updateMany({
         where: { id: bookingId, status: "CONFIRMED", scheduledDate: today },
-        data: { status: "CHECKED_IN", checkedInAt: now },
+        data: {
+          status: "CHECKED_IN", checkedInAt: now,
+          ...(owesBalance ? { balanceCollectedAt: now, balanceCollectedById: (request as RoleRequest).profile?.id ?? null } : {}),
+        },
       });
       if (!checkedIn.count) return { refusal: "CHECK_IN_NOT_ALLOWED" };
       for (const [present, attendance] of [[true, "PRESENT"], [false, "ABSENT"]] as const) {
@@ -194,6 +214,63 @@ coordinatorBookingsRouter.post("/:bookingId/check-in", async (request, response)
   } catch (error) {
     request.log?.error({ requestId: request.id, err: error }, "Booking check-in failed");
     return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not check in the booking.");
+  }
+});
+
+// Rejects the receipt awaiting review. The booking stays pending and the hiker
+// can upload a new screenshot (POST /api/v1/bookings/:id/payment-receipt).
+coordinatorBookingsRouter.post("/:bookingId/payment/reject", async (request, response) => {
+  const { bookingId } = request.params;
+  const { reason } = asObject(request.body);
+  if (!nonblank(reason) || reason.trim().length > 500) {
+    return fail(response, 422, "VALIDATION_ERROR", "Review the rejection and try again.", [
+      { field: "reason", code: nonblank(reason) ? "TOO_LONG" : "REQUIRED", message: nonblank(reason) ? "Keep the reason to 500 characters or fewer." : "Tell the hiker why the receipt was rejected." },
+    ]);
+  }
+  try {
+    const result = await prisma.$transaction(async (tx): Promise<{ refusal: Refusal } | { booking: unknown }> => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        select: { status: true, downpaymentStatus: true, paymentReceipts: { orderBy: { createdAt: "desc" }, take: 1, select: { id: true, status: true } } },
+      });
+      if (!booking) return { refusal: "BOOKING_NOT_FOUND" };
+      const latest = booking.paymentReceipts?.[0];
+      if (booking.status !== "PENDING_CONFIRMATION" || booking.downpaymentStatus !== "PENDING_VERIFICATION" || latest?.status !== "SUBMITTED") {
+        return { refusal: "PAYMENT_NOT_REJECTABLE" };
+      }
+      const reopened = await tx.booking.updateMany({
+        where: { id: bookingId, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION" },
+        data: { downpaymentStatus: "REJECTED" },
+      });
+      if (!reopened.count) return { refusal: "PAYMENT_NOT_REJECTABLE" };
+      const rejected = await tx.paymentReceipt.updateMany({
+        where: { id: latest.id, status: "SUBMITTED" },
+        data: { status: "REJECTED", rejectionReason: reason.trim(), reviewedAt: new Date(), reviewedById: (request as RoleRequest).profile?.id ?? null },
+      });
+      // Lost a race with an accept: roll back the booking change too.
+      if (!rejected.count) throw new PaymentRaceError();
+      return { booking: await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: coordinatorBookingInclude }) };
+    });
+    if ("refusal" in result) return refuse(response, result.refusal);
+    return response.status(200).json(await withTrailRestriction(prisma, result.booking as any, coordinatorBookingResponse));
+  } catch (error) {
+    if (error instanceof PaymentRaceError) return refuse(response, "PAYMENT_NOT_REJECTABLE");
+    request.log?.error({ requestId: request.id, err: error }, "Payment rejection failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not reject the payment.");
+  }
+});
+
+coordinatorBookingsRouter.get("/:bookingId/payment-receipts/:receiptId/file", async (request, response) => {
+  try {
+    const receipt = await prisma.paymentReceipt.findFirst({
+      where: { id: request.params.receiptId, bookingId: request.params.bookingId },
+      select: { storedFileName: true, mimeType: true },
+    });
+    if (!receipt) return fail(response, 404, "RECEIPT_NOT_FOUND", "Receipt was not found.");
+    return sendReceiptFile(response, receipt);
+  } catch (error) {
+    request.log?.error({ requestId: request.id, err: error }, "Payment receipt lookup failed");
+    return fail(response, 500, "INTERNAL_SERVER_ERROR", "Could not retrieve the receipt.");
   }
 });
 

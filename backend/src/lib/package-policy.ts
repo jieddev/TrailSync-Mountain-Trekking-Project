@@ -9,3 +9,22 @@ export const CURRENCY = "PHP";
 export function downpaymentFor(packagePrice: number) {
   return Math.round((packagePrice * DOWNPAYMENT_PERCENT) / 100);
 }
+
+export const PAYMENT_OPTIONS = ["DOWNPAYMENT", "FULL"] as const;
+export type PaymentOptionValue = (typeof PAYMENT_OPTIONS)[number];
+
+export function isPaymentOption(value: unknown): value is PaymentOptionValue {
+  return typeof value === "string" && (PAYMENT_OPTIONS as readonly string[]).includes(value);
+}
+
+type PricedBooking = { packagePrice: number; downpaymentAmount: number; paymentOption?: PaymentOptionValue | null };
+
+// What the hiker pays by GCash when booking: the downpayment or the full price.
+export function amountDueOnline(booking: PricedBooking) {
+  return booking.paymentOption === "FULL" ? booking.packagePrice : booking.downpaymentAmount;
+}
+
+// What is left to pay in cash at check-in.
+export function balanceDueOnSite(booking: PricedBooking) {
+  return booking.packagePrice - amountDueOnline(booking);
+}

@@ -12,7 +12,19 @@ const sulfatara: Trail = {
     maximumParticipants: 5,
     guideCount: 1,
   },
-  paymentRequirement: { downpaymentPercent: 50, amount: 275, currency: 'PHP' },
+  paymentRequirement: {
+    downpaymentPercent: 50,
+    amount: 275,
+    currency: 'PHP',
+    fullAmount: 550,
+    method: {
+      provider: 'GCASH',
+      accountName: 'TrailSync Tourism Office (TEST)',
+      accountNumber: '0917 000 0000',
+      qrImagePath: '/payments/gcash-qr-sample.png',
+      testMode: true,
+    },
+  },
 }
 
 describe('trails API', () => {

@@ -1,5 +1,5 @@
 // Clears test activity so the system can be tested from a fresh state. Deletes
-// bookings (with participants), incidents, trail restrictions and unapproved
+// bookings (with participants and payment receipt images), incidents, trail restrictions and unapproved
 // guide applications, and takes every guide off duty. Users, guides, trails and
 // approved guide applications are kept.
 //
@@ -7,11 +7,12 @@
 import "dotenv/config";
 
 import { prisma } from "../lib/prisma.js";
+import { deleteAllReceiptFiles } from "../lib/receipt-upload.js";
 
 async function main() {
   if (!process.argv.slice(2).includes("--yes")) {
     console.error("Usage: npm run reset-data -- --yes");
-    console.error("Deletes all bookings, participants, incidents, trail restrictions and unapproved guide applications.");
+    console.error("Deletes all bookings, participants, payment receipts (and their images), incidents, trail restrictions and unapproved guide applications.");
     console.error("Users, guides, trails and approved guide applications are kept.");
     process.exitCode = 1;
     return;
@@ -20,6 +21,7 @@ async function main() {
   // Incidents restrict deleting their booking, so they go first.
   const counts = await prisma.$transaction(async (tx) => ({
     incidents: (await tx.incident.deleteMany()).count,
+    paymentReceipts: (await tx.paymentReceipt.deleteMany()).count,
     bookingParticipants: (await tx.bookingParticipant.deleteMany()).count,
     bookings: (await tx.booking.deleteMany()).count,
     trailRestrictions: (await tx.trailRestriction.deleteMany()).count,
@@ -27,6 +29,8 @@ async function main() {
     guidesSetOffDuty: (await tx.guide.updateMany({ data: { dutyStatus: "OFF_DUTY", availableSince: null } })).count,
   }));
   console.table(counts);
+  await deleteAllReceiptFiles();
+  console.log("Deleted the uploaded receipt screenshots.");
 
   const [users, trails] = await Promise.all([prisma.user.count(), prisma.trail.count()]);
   console.log(`Kept ${users} users and ${trails} trails.`);

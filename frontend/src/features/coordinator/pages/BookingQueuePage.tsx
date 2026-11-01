@@ -91,9 +91,9 @@ export default function BookingQueuePage() {
   return (
     <>
       <PageHeader eyebrow="Coordinator" title="Booking queue">
-        Review new and rescheduled bookings, verify the downpayment, and confirm
-        the trek. Soonest treks are listed first; groups waiting for a guide are
-        listed by check-in time.
+        Review new and rescheduled bookings, check the GCash receipt, and
+        confirm the trek. Soonest treks are listed first; groups waiting for a
+        guide are listed by check-in time.
       </PageHeader>
 
       <div
@@ -142,7 +142,7 @@ export default function BookingQueuePage() {
                     Group
                   </th>
                   <th className="px-4 py-3" scope="col">
-                    Downpayment
+                    Payment
                   </th>
                   <th className="px-4 py-3" scope="col">
                     Status
@@ -191,9 +191,17 @@ function QueueRow({ booking }: { booking: CoordinatorBooking }) {
       </td>
       <td className="px-4 py-4">
         <p className="font-semibold text-[#173a2e]">
-          {formatMoney(booking.paymentRequirement)}
+          {formatMoney({
+            amount: booking.payment.amountDueOnline,
+            currency: booking.payment.currency,
+          })}{' '}
+          <span className="text-xs font-normal text-[#70857b]">
+            {booking.payment.option === 'FULL' ? 'full' : 'downpayment'}
+          </span>
         </p>
-        <p className="mt-1 text-xs text-[#70857b]">{downpayment.label}</p>
+        <div className="mt-1">
+          <StatusBadge label={downpayment.label} tone={downpayment.tone} />
+        </div>
       </td>
       <td className="px-4 py-4">
         <StatusBadge label={status.label} tone={status.tone} />
@@ -212,6 +220,7 @@ function QueueRow({ booking }: { booking: CoordinatorBooking }) {
 
 function QueueCard({ booking }: { booking: CoordinatorBooking }) {
   const status = bookingStatusLabel(booking)
+  const downpayment = downpaymentStatusLabel(booking)
   return (
     <li>
       <Link
@@ -229,7 +238,14 @@ function QueueCard({ booking }: { booking: CoordinatorBooking }) {
         <p className="mt-3 text-sm text-[#173a2e]">
           {booking.owner.fullName} · {booking.participantCount}{' '}
           {booking.participantCount === 1 ? 'person' : 'people'} ·{' '}
-          {formatMoney(booking.paymentRequirement)} downpayment
+          {formatMoney({
+            amount: booking.payment.amountDueOnline,
+            currency: booking.payment.currency,
+          })}{' '}
+          {booking.payment.option === 'FULL' ? 'full payment' : 'downpayment'}
+        </p>
+        <p className="mt-2 text-xs font-bold text-[#70857b]">
+          {downpayment.label}
         </p>
       </Link>
     </li>

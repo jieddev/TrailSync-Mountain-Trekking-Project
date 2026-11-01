@@ -12,6 +12,7 @@ import BookingRestrictionNotice from '../../booking/components/BookingRestrictio
 import PageHeader from '../../booking/components/PageHeader'
 import StatusCard from '../../booking/components/StatusCard'
 import {
+  formatMoney,
   formatSchedule,
   isOptionalEmail,
   manilaTodayIso,
@@ -80,6 +81,7 @@ export default function CheckInPage() {
   const navigate = useNavigate()
   const [state, setState] = useState<PageState>({ status: 'loading' })
   const [present, setPresent] = useState<Record<string, boolean>>({})
+  const [balanceCollected, setBalanceCollected] = useState(false)
   const [walkIns, setWalkIns] = useState<WalkInValues[]>([])
   const [errors, setErrors] = useState<Errors>({})
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -166,6 +168,11 @@ export default function CheckInPage() {
 
   const presentCount = booking.participants.filter((p) => present[p.id]).length
   const total = presentCount + walkIns.length
+  const balanceDue = booking.payment.balanceDueOnSite
+  const balanceText = formatMoney({
+    amount: balanceDue,
+    currency: booking.payment.currency,
+  })
 
   function updateWalkIn(
     index: number,
@@ -183,6 +190,9 @@ export default function CheckInPage() {
     event.preventDefault()
     setNotice(null)
     const found = validate(presentCount, walkIns, max)
+    if (balanceDue > 0 && !balanceCollected) {
+      found.balanceCollected = `Collect the ${balanceText} cash balance before checking in.`
+    }
     setErrors(found)
     if (Object.keys(found).length) return
 
@@ -200,6 +210,7 @@ export default function CheckInPage() {
           address: person.address.trim(),
           ...(person.email.trim() && { email: person.email.trim() }),
         })),
+        ...(balanceDue > 0 && { balanceCollected }),
       })
       navigate(detailPath, {
         state: {
@@ -384,6 +395,51 @@ export default function CheckInPage() {
               role="alert"
             >
               {errors.walkIns}
+            </p>
+          )}
+        </fieldset>
+
+        <fieldset className={cardClass}>
+          <legend className="sr-only">Payment</legend>
+          <h2 className="text-sm font-bold text-[#173a2e]">Payment</h2>
+          {balanceDue > 0 ? (
+            <>
+              <p className="mt-2 text-sm leading-6 text-[#52675e]">
+                This group paid the{' '}
+                {booking.paymentRequirement.downpaymentPercent}% downpayment by
+                GCash. Collect the{' '}
+                <span className="font-bold text-[#173a2e]">{balanceText}</span>{' '}
+                balance in cash before checking them in.
+              </p>
+              <label className="mt-3 flex items-start gap-3 text-sm font-semibold text-[#173a2e]">
+                <input
+                  aria-describedby="balance-error"
+                  aria-invalid={Boolean(errors.balanceCollected)}
+                  checked={balanceCollected}
+                  className="mt-0.5 size-4 accent-[#008755]"
+                  onChange={(event) => {
+                    setBalanceCollected(event.target.checked)
+                    setErrors((current) => {
+                      const next = { ...current }
+                      delete next.balanceCollected
+                      return next
+                    })
+                  }}
+                  type="checkbox"
+                />
+                Collected the {balanceText} balance in cash
+              </label>
+              <p
+                aria-live="polite"
+                className="min-h-5 pt-1 text-sm font-semibold text-rose-700"
+                id="balance-error"
+              >
+                {errors.balanceCollected}
+              </p>
+            </>
+          ) : (
+            <p className="mt-2 text-sm leading-6 text-[#52675e]">
+              Paid in full by GCash. Nothing to collect.
             </p>
           )}
         </fieldset>
