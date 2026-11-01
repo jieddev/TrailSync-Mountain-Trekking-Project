@@ -1,9 +1,24 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-import type { CoordinatorSummary } from '../../../lib/coordinator-api'
+import { useAuth } from '../../../app/AuthContext'
+import {
+  listCoordinatorBookings,
+  type CoordinatorSummary,
+} from '../../../lib/coordinator-api'
+import {
+  listTrailRestrictions,
+  type TrailRestriction,
+} from '../../../lib/trail-restrictions-api'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusCard from '../../booking/components/StatusCard'
+import { manilaTodayIso } from '../../booking/lib/booking-form'
+import WeatherCard from '../../weather/components/WeatherCard'
+import { useWeather } from '../../weather/lib/use-weather'
+import DashboardAlerts from '../components/DashboardAlerts'
+import TodaySchedule, { type ScheduleState } from '../components/TodaySchedule'
 import { useCoordinatorSummary } from '../lib/coordinator-summary'
+import { todaysThunderstorm } from '../lib/today-schedule'
 
 type Tone = 'neutral' | 'attention' | 'urgent'
 
@@ -65,6 +80,51 @@ function SummaryCard({
         </span>
       </Link>
     </li>
+  )
+}
+
+// The Today counts as short rows for the side column.
+function TodayStats({ cards }: { cards: SummaryCardProps[] }) {
+  return (
+    <section
+      aria-labelledby="today-title"
+      className="rounded-2xl border border-[#d5e1da] bg-white p-6"
+    >
+      <h2 className="text-sm font-bold text-[#173a2e]" id="today-title">
+        Today
+      </h2>
+      <ul className="mt-2 divide-y divide-[#e7ece8]">
+        {cards.map((card) => {
+          const highlight = card.count > 0 && card.tone === 'attention'
+          return (
+            <li key={card.title}>
+              <Link
+                className="flex items-center gap-3 rounded-lg py-3 hover:bg-[#f7f9f6] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#008755]"
+                to={card.to}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-[#173a2e]">
+                    {card.title}
+                  </span>
+                  <span className="block text-xs text-[#70857b]">
+                    {card.detail}
+                  </span>
+                </span>
+                <span
+                  className={`font-serif text-2xl font-bold ${highlight ? 'text-[#7a5300]' : 'text-[#002d20]'}`}
+                >
+                  {card.count}
+                  <span className="sr-only"> {card.countLabel}</span>
+                </span>
+                <span aria-hidden="true" className="text-[#007e4f]">
+                  →
+                </span>
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
   )
 }
 
@@ -214,7 +274,60 @@ function todayCards(summary: CoordinatorSummary): SummaryCardProps[] {
 }
 
 export default function CoordinatorDashboardPage() {
+  const { user } = useAuth()
   const { summary, failed } = useCoordinatorSummary()
+  const weather = useWeather()
+  const [schedule, setSchedule] = useState<ScheduleState>({
+    status: 'loading',
+  })
+  const [closures, setClosures] = useState<TrailRestriction[]>([])
+  const activeClosures = summary?.trailRestrictions.active ?? 0
+
+  // Reloads with every summary poll, so the list moves with the counts.
+  useEffect(() => {
+    let isCurrent = true
+    user!
+      .getIdToken()
+      .then((idToken) =>
+        listCoordinatorBookings(idToken, undefined, { today: true }),
+      )
+      .then((bookings) => {
+        if (isCurrent) setSchedule({ status: 'loaded', bookings })
+      })
+      .catch(() => {
+        // Keep the last list on a failed refresh; only a first load shows the error.
+        if (isCurrent) {
+          setSchedule((current) =>
+            current.status === 'loaded' ? current : { status: 'error' },
+          )
+        }
+      })
+    return () => {
+      isCurrent = false
+    }
+  }, [user, summary])
+
+  // Closures change rarely, so ask again only when today's count changes.
+  useEffect(() => {
+    if (activeClosures === 0) return
+    let isCurrent = true
+    user!
+      .getIdToken()
+      .then((idToken) => listTrailRestrictions(idToken))
+      .then((items) => {
+        if (isCurrent) {
+          setClosures(items.filter((item) => item.status === 'ACTIVE'))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      isCurrent = false
+    }
+  }, [user, activeClosures])
+
+  const thunderstorm =
+    weather.status === 'loaded' &&
+    todaysThunderstorm(weather.weather.daily, manilaTodayIso())
   const actions = summary ? actionCards(summary) : []
   const allClear = actions.every((card) => card.count === 0)
 
@@ -234,7 +347,7 @@ export default function CoordinatorDashboardPage() {
         </StatusCard>
       )}
       {summary && (
-        <div className="grid gap-8">
+        <div className="grid gap-6">
           {failed && (
             <p
               className="rounded-xl border border-[#e8c96a] bg-[#fff8e3] px-4 py-3 text-sm font-semibold text-[#7a5300]"
@@ -243,39 +356,39 @@ export default function CoordinatorDashboardPage() {
               Couldn’t refresh just now. These counts may be out of date.
             </p>
           )}
-          <section aria-labelledby="needs-action-title">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h2
-                className="text-lg font-bold text-[#173a2e]"
-                id="needs-action-title"
-              >
-                Needs your action
-              </h2>
-              {allClear && (
-                <p className="text-sm font-semibold text-[#006b43]">
-                  All caught up.
-                </p>
-              )}
+          <DashboardAlerts
+            closures={activeClosures > 0 ? closures : []}
+            thunderstorm={thunderstorm}
+          />
+          <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+            <div className="grid min-w-0 gap-6">
+              <section aria-labelledby="needs-action-title">
+                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2
+                    className="text-lg font-bold text-[#173a2e]"
+                    id="needs-action-title"
+                  >
+                    Needs your action
+                  </h2>
+                  {allClear && (
+                    <p className="text-sm font-semibold text-[#006b43]">
+                      All caught up.
+                    </p>
+                  )}
+                </div>
+                <ul className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-3">
+                  {actions.map((card) => (
+                    <SummaryCard key={card.title} {...card} />
+                  ))}
+                </ul>
+              </section>
+              <TodaySchedule state={schedule} />
             </div>
-            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {actions.map((card) => (
-                <SummaryCard key={card.title} {...card} />
-              ))}
-            </ul>
-          </section>
-          <section aria-labelledby="today-title">
-            <h2
-              className="mb-3 text-lg font-bold text-[#173a2e]"
-              id="today-title"
-            >
-              Today
-            </h2>
-            <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {todayCards(summary).map((card) => (
-                <SummaryCard key={card.title} {...card} />
-              ))}
-            </ul>
-          </section>
+            <aside className="grid gap-6 sm:grid-cols-2 xl:grid-cols-1">
+              <WeatherCard compact state={weather} />
+              <TodayStats cards={todayCards(summary)} />
+            </aside>
+          </div>
         </div>
       )}
     </>
