@@ -88,7 +88,14 @@ export default function LiveMapPage() {
           We couldn’t load the treks in progress. Please try again later.
         </StatusCard>
       )}
-      {state.status === 'loaded' && (
+      {/* No map until someone is on the trail; polling brings it back. */}
+      {state.status === 'loaded' && state.treks.length === 0 && (
+        <StatusCard title="No treks on the trail">
+          Guides appear here once they start a trek in the guide app. This page
+          checks every 10 seconds.
+        </StatusCard>
+      )}
+      {state.status === 'loaded' && state.treks.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <LiveTrekMap focus={focus} treks={state.treks} />
 
@@ -101,29 +108,23 @@ export default function LiveMapPage() {
                 Updated {timeFormat.format(state.loadedAt)}
               </p>
             </div>
-            {state.treks.length === 0 ? (
-              <p className="mt-3 text-sm text-[#52675e]">
-                No treks are in progress.
-              </p>
-            ) : (
-              <ul className="mt-3 grid gap-2">
-                {state.treks.map((trek) => (
-                  <li key={trek.bookingId}>
-                    <TrekEntry
-                      now={state.loadedAt}
-                      onSelect={() =>
-                        setPicked({
-                          bookingId: trek.bookingId,
-                          nonce: Date.now(),
-                        })
-                      }
-                      selected={focus?.bookingId === trek.bookingId}
-                      trek={trek}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
+            <ul className="mt-3 grid gap-2">
+              {state.treks.map((trek) => (
+                <li key={trek.bookingId}>
+                  <TrekEntry
+                    now={state.loadedAt}
+                    onSelect={() =>
+                      setPicked({
+                        bookingId: trek.bookingId,
+                        nonce: Date.now(),
+                      })
+                    }
+                    selected={focus?.bookingId === trek.bookingId}
+                    trek={trek}
+                  />
+                </li>
+              ))}
+            </ul>
           </section>
         </div>
       )}

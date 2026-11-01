@@ -33,6 +33,9 @@ export type MapFocus = { bookingId: string; nonce: number }
 // outline, on satellite imagery with labels.
 const TRAIL_COLOR = '#008755'
 const FOCUS_ZOOM = 17
+// Farthest the coordinator can zoom out: about the Cabintan area, so the
+// trails never shrink to a speck.
+const MIN_ZOOM = 18
 
 // Draw order: trail outline, trail, then each walked path. Markers always
 // draw above lines on a flat map.
@@ -93,6 +96,7 @@ export default function LiveTrekMap({
         const map = new maps.Map(mapHostRef.current, {
           center: { lat, lng },
           zoom: 14,
+          minZoom: MIN_ZOOM,
           mapTypeId: 'hybrid',
           streetViewControl: false,
           clickableIcons: false,

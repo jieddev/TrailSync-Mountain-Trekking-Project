@@ -54,6 +54,7 @@ export type GoogleMap = {
 export type MapOptions = {
   center: LatLng
   zoom: number
+  minZoom?: number
   mapTypeId?: 'roadmap' | 'satellite' | 'hybrid' | 'terrain'
   mapTypeControl?: boolean
   streetViewControl?: boolean
