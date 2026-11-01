@@ -14,6 +14,7 @@ import PageHeader from '../../booking/components/PageHeader'
 import StatusBadge from '../../booking/components/StatusBadge'
 import StatusCard from '../../booking/components/StatusCard'
 import type { StatusTone } from '../../booking/lib/booking-status'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
 
 const tabs: { status: GuideApplicationStatus; label: string; empty: string }[] =
   [
@@ -71,6 +72,7 @@ function formatDateTime(value: string) {
 
 export default function GuideApplicationsPage() {
   const { user } = useAuth()
+  const { refresh: refreshSummary } = useCoordinatorSummary()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab =
     tabs.find((tab) => tab.status === searchParams.get('status')) ?? tabs[0]
@@ -138,6 +140,7 @@ export default function GuideApplicationsPage() {
         text: 'This request was already reviewed. Showing the latest list.',
       })
       setReloadKey((key) => key + 1)
+      refreshSummary()
     } else {
       setNotice({
         tone: 'error',

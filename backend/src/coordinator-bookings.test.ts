@@ -81,6 +81,23 @@ describe("Coordinator bookings", () => {
     expect(findMany).toHaveBeenCalledTimes(1);
   });
 
+  it("filters by payment status so receipts to review and rejected receipts list separately", async () => {
+    findMany.mockResolvedValue([] as never);
+    const review = await get("/api/v1/coordinator/bookings?status=PENDING_CONFIRMATION&downpaymentStatus=PENDING_VERIFICATION,VERIFIED");
+    expect(review.status).toBe(200);
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { status: "PENDING_CONFIRMATION", downpaymentStatus: { in: ["PENDING_VERIFICATION", "VERIFIED"] } },
+    }));
+    await get("/api/v1/coordinator/bookings?status=PENDING_CONFIRMATION&downpaymentStatus=REJECTED");
+    expect(findMany).toHaveBeenLastCalledWith(expect.objectContaining({
+      where: { status: "PENDING_CONFIRMATION", downpaymentStatus: { in: ["REJECTED"] } },
+    }));
+    const invalid = await get("/api/v1/coordinator/bookings?downpaymentStatus=VERIFIED,PAID");
+    expect(invalid.status).toBe(422);
+    expect(invalid.body.error.details).toContainEqual(expect.objectContaining({ field: "downpaymentStatus", code: "INVALID_DOWNPAYMENT_STATUS" }));
+    expect(findMany).toHaveBeenCalledTimes(2);
+  });
+
   it("returns any booking by id and 404 for unknown bookings", async () => {
     findUnique.mockResolvedValueOnce(booking({ id: "booking-2" }) as never);
     const found = await get("/api/v1/coordinator/bookings/booking-2");

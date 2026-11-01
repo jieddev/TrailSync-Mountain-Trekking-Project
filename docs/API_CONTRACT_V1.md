@@ -362,10 +362,11 @@ With `status=CHECKED_IN` the order is by `checkedInAt` instead, so the group wai
 | `status`        | `PENDING_CONFIRMATION`, `CONFIRMED`, `CHECKED_IN`, `GUIDE_ASSIGNED`, `IN_PROGRESS`, `COMPLETED` | all statuses |
 | `scheduledDate` | `YYYY-MM-DD`                                                                    | all dates    |
 | `today`         | `true`: only bookings scheduled for today's Asia/Manila date                    | off          |
+| `downpaymentStatus` | One or more of `PENDING_VERIFICATION`, `VERIFIED`, `REJECTED`, comma-separated | all          |
 
 `today` and `scheduledDate` cannot be combined.
 
-Errors: `422 VALIDATION_ERROR` (detail codes `INVALID_STATUS`, `INVALID_DATE`, `INVALID_VALUE`, `CONFLICTING_FILTERS`), `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
+Errors: `422 VALIDATION_ERROR` (detail codes `INVALID_STATUS`, `INVALID_DOWNPAYMENT_STATUS`, `INVALID_DATE`, `INVALID_VALUE`, `CONFLICTING_FILTERS`), `401 UNAUTHORIZED`, `403 FORBIDDEN`, `404 PROFILE_NOT_FOUND`, `500`.
 
 ### `GET /api/v1/coordinator/bookings/:bookingId`
 
@@ -817,7 +818,42 @@ Errors: `401`, `403`, `500`.
 
 ---
 
-## 12. Planned APIs
+## 12. Coordinator summary
+
+### `GET /api/v1/coordinator/summary`
+
+Coordinator only. Counts for the coordinator dashboard and navigation badges, grouped by what the coordinator does next. "Today" is the Asia/Manila date.
+
+```json
+{
+  "bookings": { "needsReview": 3, "waitingOnHiker": 1, "upcoming": 8, "arrivingToday": 2, "completed": 40 },
+  "dispatch": { "waitingForGuide": 1, "onTrail": 2 },
+  "guides": { "available": 3, "onTrek": 2, "nextUp": { "id": "guide-1", "fullName": "Juan Dela Cruz" } },
+  "guideApplications": { "pending": 1 },
+  "incidents": { "open": 0 },
+  "trailRestrictions": { "active": 1 }
+}
+```
+
+| Field | Counts |
+| ----- | ------ |
+| `bookings.needsReview` | `PENDING_CONFIRMATION` with downpayment `PENDING_VERIFICATION` (receipt to review) or `VERIFIED` (reschedule to confirm) |
+| `bookings.waitingOnHiker` | `PENDING_CONFIRMATION` with downpayment `REJECTED` (the hiker must upload a new receipt) |
+| `bookings.upcoming` | `CONFIRMED` |
+| `bookings.arrivingToday` | `CONFIRMED` and scheduled today |
+| `bookings.completed` | `COMPLETED` |
+| `dispatch.waitingForGuide` | `CHECKED_IN` |
+| `dispatch.onTrail` | `GUIDE_ASSIGNED` + `IN_PROGRESS` |
+| `guides.available` / `guides.onTrek` | Guides `AVAILABLE` / `ASSIGNED`; `nextUp` is the front of the FIFO queue, or `null` |
+| `guideApplications.pending` | Guide account requests `PENDING` |
+| `incidents.open` | SOS incidents `OPEN` (not yet acknowledged) |
+| `trailRestrictions.active` | Restrictions not lifted whose date range covers today |
+
+Errors: `401`, `403`, `500`.
+
+---
+
+## 13. Planned APIs
 
 Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
 

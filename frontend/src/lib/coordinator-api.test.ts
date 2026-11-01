@@ -10,6 +10,7 @@ import {
   resendCertificates,
   declineGuideApplication,
   getCoordinatorBooking,
+  getCoordinatorSummary,
   listCoordinatorBookings,
   listGuideApplications,
   listGuides,
@@ -33,6 +34,51 @@ describe('coordinator API', () => {
     ).resolves.toEqual(items)
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:3000/api/v1/coordinator/bookings?status=PENDING_CONFIRMATION',
+      { method: 'GET', headers: { Authorization: 'Bearer private-token' } },
+    )
+  })
+
+  it('filters the queue by payment status', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ items: [] }, 200))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listCoordinatorBookings('private-token', 'PENDING_CONFIRMATION', {
+      downpaymentStatus: ['PENDING_VERIFICATION', 'VERIFIED'],
+    })
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      'http://localhost:3000/api/v1/coordinator/bookings?status=PENDING_CONFIRMATION&downpaymentStatus=PENDING_VERIFICATION%2CVERIFIED',
+    )
+  })
+
+  it('loads the dashboard summary', async () => {
+    const summary = {
+      bookings: {
+        needsReview: 3,
+        waitingOnHiker: 1,
+        upcoming: 8,
+        arrivingToday: 2,
+        completed: 40,
+      },
+      dispatch: { waitingForGuide: 1, onTrail: 2 },
+      guides: {
+        available: 3,
+        onTrek: 2,
+        nextUp: { id: 'guide-1', fullName: 'Juan' },
+      },
+      guideApplications: { pending: 1 },
+      incidents: { open: 0 },
+      trailRestrictions: { active: 1 },
+    }
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(summary, 200))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await expect(getCoordinatorSummary('private-token')).resolves.toEqual(
+      summary,
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:3000/api/v1/coordinator/summary',
       { method: 'GET', headers: { Authorization: 'Bearer private-token' } },
     )
   })

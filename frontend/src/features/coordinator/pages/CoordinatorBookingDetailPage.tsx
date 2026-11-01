@@ -27,7 +27,6 @@ import {
 } from '../../booking/lib/booking-form'
 import {
   balanceStatusLabel,
-  bookingStatusLabel,
   downpaymentStatusLabel,
 } from '../../booking/lib/booking-status'
 import ConfirmAction from '../components/ConfirmAction'
@@ -43,6 +42,11 @@ import {
   primaryButtonClass,
   secondaryButtonClass,
 } from '../lib/ui'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
+import {
+  bookingTabFor,
+  coordinatorStatusLabel,
+} from '../lib/coordinator-status'
 
 type BookingState =
   | { status: 'loading' }
@@ -52,6 +56,7 @@ type BookingState =
 
 export default function CoordinatorBookingDetailPage() {
   const { user } = useAuth()
+  const { refresh: refreshSummary } = useCoordinatorSummary()
   const { bookingId } = useParams()
   const [state, setState] = useState<BookingState>({ status: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
@@ -113,6 +118,7 @@ export default function CoordinatorBookingDetailPage() {
           text: 'This booking was already updated. Showing its latest status.',
         })
         setReloadKey((key) => key + 1)
+        refreshSummary()
       } else {
         setNotice({
           tone: 'error',
@@ -146,6 +152,7 @@ export default function CoordinatorBookingDetailPage() {
           text: 'This payment was already reviewed. Showing its latest status.',
         })
         setReloadKey((key) => key + 1)
+        refreshSummary()
       } else {
         setNotice({
           tone: 'error',
@@ -176,6 +183,7 @@ export default function CoordinatorBookingDetailPage() {
       setNotice({ tone: 'error', text: dispatchErrorMessage(error, fallback) })
       if (isStaleRefusal(error)) setReloadKey((key) => key + 1)
     }
+    refreshSummary()
   }
 
   if (state.status === 'loading') {
@@ -199,14 +207,18 @@ export default function CoordinatorBookingDetailPage() {
           className={`mt-4 inline-flex ${backLinkClass}`}
           to="/coordinator/bookings"
         >
-          Back to the booking queue
+          Back to bookings
         </Link>
       </StatusCard>
     )
   }
 
   const { booking } = state
-  const status = bookingStatusLabel(booking)
+  const status = coordinatorStatusLabel(booking)
+  const tab = bookingTabFor(booking)
+  const back = tab
+    ? { to: `/coordinator/bookings?tab=${tab}`, label: 'Bookings' }
+    : { to: '/coordinator/dispatch', label: 'Check-in & dispatch' }
   const downpayment = downpaymentStatusLabel(booking)
   const balance = balanceStatusLabel(booking)
   const isPending = booking.status === 'PENDING_CONFIRMATION'
@@ -221,8 +233,8 @@ export default function CoordinatorBookingDetailPage() {
 
   return (
     <>
-      <Link className={backLinkClass} to="/coordinator/bookings">
-        ← Booking queue
+      <Link className={backLinkClass} to={back.to}>
+        ← {back.label}
       </Link>
       <div className="mt-4">
         <PageHeader

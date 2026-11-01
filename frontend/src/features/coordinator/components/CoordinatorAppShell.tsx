@@ -3,17 +3,74 @@ import type { ReactNode } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 
 import type { CurrentUserProfile } from '../../../lib/users-api'
+import type { CoordinatorSummary } from '../../../lib/coordinator-api'
 import { auth } from '../../../lib/firebase'
-import { useOpenIncidentCount } from '../lib/use-open-incident-count'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
 
-const navItems = [
-  { to: '/coordinator/bookings', label: 'Booking queue' },
-  { to: '/coordinator/dispatch', label: 'Check-in & dispatch' },
-  { to: '/coordinator/live-map', label: 'Live map' },
-  { to: '/coordinator/guides', label: 'Guide queue' },
-  { to: '/coordinator/guide-applications', label: 'Guide requests' },
-  { to: '/coordinator/trail-restrictions', label: 'Trail restrictions' },
-  { to: '/coordinator/incidents', label: 'Incidents' },
+type NavItem = {
+  to: string
+  label: string
+  // Exact match only, so the dashboard isn't highlighted on every page.
+  end?: boolean
+  // A count that needs the coordinator, shown as a badge when above zero.
+  badge?: (summary: CoordinatorSummary) => number
+  badgeLabel?: string
+  urgent?: boolean
+}
+
+const navSections: { heading: string | null; items: NavItem[] }[] = [
+  {
+    heading: null,
+    items: [{ to: '/coordinator', label: 'Dashboard', end: true }],
+  },
+  {
+    heading: 'Today',
+    items: [
+      {
+        to: '/coordinator/dispatch',
+        label: 'Check-in & dispatch',
+        badge: (summary) => summary.dispatch.waitingForGuide,
+        badgeLabel: 'waiting for a guide',
+      },
+      { to: '/coordinator/live-map', label: 'Live map' },
+      {
+        to: '/coordinator/incidents',
+        label: 'Incidents',
+        badge: (summary) => summary.incidents.open,
+        badgeLabel: 'open SOS',
+        urgent: true,
+      },
+    ],
+  },
+  {
+    heading: 'Bookings',
+    items: [
+      {
+        to: '/coordinator/bookings',
+        label: 'Bookings',
+        badge: (summary) => summary.bookings.needsReview,
+        badgeLabel: 'to review',
+      },
+    ],
+  },
+  {
+    heading: 'Guides',
+    items: [
+      { to: '/coordinator/guides', label: 'Guide queue' },
+      {
+        to: '/coordinator/guide-applications',
+        label: 'Guide requests',
+        badge: (summary) => summary.guideApplications.pending,
+        badgeLabel: 'pending',
+      },
+    ],
+  },
+  {
+    heading: 'Trails',
+    items: [
+      { to: '/coordinator/trail-restrictions', label: 'Trail restrictions' },
+    ],
+  },
 ]
 
 type CoordinatorAppShellProps = {
@@ -26,7 +83,7 @@ export default function CoordinatorAppShell({
   profile,
 }: CoordinatorAppShellProps) {
   const navigate = useNavigate()
-  const openIncidents = useOpenIncidentCount(profile !== null)
+  const { summary } = useCoordinatorSummary()
 
   async function handleLogout() {
     await signOut(auth)
@@ -40,7 +97,7 @@ export default function CoordinatorAppShell({
           <div>
             <NavLink
               className="inline-flex rounded-sm text-[11px] font-bold uppercase tracking-[0.16em] text-[#7fd1a8] outline-none focus-visible:ring-2 focus-visible:ring-[#7fd1a8]"
-              to="/coordinator/bookings"
+              to="/coordinator"
             >
               TrailSync
             </NavLink>
@@ -58,24 +115,42 @@ export default function CoordinatorAppShell({
         </div>
         <nav
           aria-label="Coordinator navigation"
-          className="mt-5 flex gap-2 overflow-x-auto lg:mt-10 lg:flex-col"
+          className="mt-5 flex gap-2 overflow-x-auto lg:mt-10 lg:flex-col lg:gap-6 lg:overflow-visible"
         >
-          {navItems.map((item) => (
-            <NavLink
-              className={({ isActive }) =>
-                `shrink-0 rounded-lg px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-white text-[#002d20]' : 'text-[#d8efe2] hover:bg-white/10'}`
-              }
-              key={item.to}
-              to={item.to}
+          {navSections.map((section) => (
+            <div
+              className="flex shrink-0 gap-2 lg:flex-col lg:gap-1"
+              key={section.heading ?? 'home'}
             >
-              {item.label}
-              {item.to === '/coordinator/incidents' && openIncidents > 0 && (
-                <span className="ml-2 rounded-full bg-rose-600 px-2 py-0.5 text-xs font-bold text-white">
-                  {openIncidents}
-                  <span className="sr-only"> open SOS</span>
-                </span>
+              {section.heading && (
+                <p className="hidden px-3 pb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-[#9fc4b1] lg:block">
+                  {section.heading}
+                </p>
               )}
-            </NavLink>
+              {section.items.map((item) => {
+                const count = summary && item.badge ? item.badge(summary) : 0
+                return (
+                  <NavLink
+                    className={({ isActive }) =>
+                      `flex shrink-0 items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold ${isActive ? 'bg-white text-[#002d20]' : 'text-[#d8efe2] hover:bg-white/10'}`
+                    }
+                    end={item.end}
+                    key={item.to}
+                    to={item.to}
+                  >
+                    {item.label}
+                    {count > 0 && (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-bold ${item.urgent ? 'bg-rose-600 text-white' : 'bg-[#f2c94c] text-[#3d2c00]'}`}
+                      >
+                        {count}
+                        <span className="sr-only"> {item.badgeLabel}</span>
+                      </span>
+                    )}
+                  </NavLink>
+                )
+              })}
+            </div>
           ))}
         </nav>
         {profile && (

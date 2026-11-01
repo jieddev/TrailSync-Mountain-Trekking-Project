@@ -17,6 +17,7 @@ import {
   type Notice,
 } from '../lib/dispatch'
 import { cardClass, primaryButtonClass } from '../lib/ui'
+import { useCoordinatorSummary } from '../lib/coordinator-summary'
 
 type GuidesState =
   | { status: 'loading' }
@@ -25,6 +26,7 @@ type GuidesState =
 
 export default function GuideQueuePage() {
   const { user } = useAuth()
+  const { refresh: refreshSummary } = useCoordinatorSummary()
   const [state, setState] = useState<GuidesState>({ status: 'loading' })
   const [reloadKey, setReloadKey] = useState(0)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -76,6 +78,7 @@ export default function GuideQueuePage() {
     } finally {
       setBusyGuideId(null)
       setReloadKey((key) => key + 1)
+      refreshSummary()
     }
   }
 

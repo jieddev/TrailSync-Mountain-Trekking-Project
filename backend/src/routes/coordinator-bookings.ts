@@ -1,5 +1,5 @@
 import { Router, type Response } from "express";
-import type { BookingStatus, Prisma } from "@prisma/client";
+import type { BookingStatus, DownpaymentStatus, Prisma } from "@prisma/client";
 
 import { bookingInclude, bookingResponse, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
 import { sendTrekCertificates } from "../lib/certificates.js";
@@ -15,6 +15,7 @@ import { requireFirebaseAuth } from "../middleware/require-firebase-auth.js";
 import { requireRole, type RoleRequest } from "../middleware/require-role.js";
 
 const BOOKING_STATUSES: BookingStatus[] = ["PENDING_CONFIRMATION", "CONFIRMED", "CHECKED_IN", "GUIDE_ASSIGNED", "IN_PROGRESS", "COMPLETED"];
+const DOWNPAYMENT_STATUSES: DownpaymentStatus[] = ["PENDING_VERIFICATION", "VERIFIED", "REJECTED"];
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 const coordinatorBookingInclude = { ...bookingInclude, owner: { select: { id: true, fullName: true, email: true } } } satisfies Prisma.BookingInclude;
@@ -119,8 +120,13 @@ export const coordinatorBookingsRouter = Router();
 coordinatorBookingsRouter.use(requireFirebaseAuth, requireRole("COORDINATOR"));
 
 coordinatorBookingsRouter.get("/", async (request, response) => {
-  const { status, scheduledDate, today } = request.query;
+  const { status, scheduledDate, today, downpaymentStatus } = request.query;
   const details: ErrorDetail[] = [];
+  // Comma-separated, e.g. PENDING_VERIFICATION,VERIFIED for receipts to review.
+  const downpaymentStatuses = typeof downpaymentStatus === "string" ? downpaymentStatus.split(",") : [];
+  if (downpaymentStatus !== undefined && (typeof downpaymentStatus !== "string" || !downpaymentStatuses.every((value) => DOWNPAYMENT_STATUSES.includes(value as DownpaymentStatus)))) {
+    details.push({ field: "downpaymentStatus", code: "INVALID_DOWNPAYMENT_STATUS", message: `Use one or more of ${DOWNPAYMENT_STATUSES.join(", ")}, separated by commas.` });
+  }
   if (status !== undefined && !BOOKING_STATUSES.includes(status as BookingStatus)) {
     details.push({ field: "status", code: "INVALID_STATUS", message: `Use one of ${BOOKING_STATUSES.join(", ")}.` });
   }
@@ -133,6 +139,7 @@ coordinatorBookingsRouter.get("/", async (request, response) => {
 
   const where: Prisma.BookingWhereInput = {};
   if (status !== undefined) where.status = status as BookingStatus;
+  if (downpaymentStatus !== undefined) where.downpaymentStatus = { in: downpaymentStatuses as DownpaymentStatus[] };
   if (scheduledDate !== undefined) where.scheduledDate = scheduledDate as string;
   if (today === "true") where.scheduledDate = manilaToday();
   try {

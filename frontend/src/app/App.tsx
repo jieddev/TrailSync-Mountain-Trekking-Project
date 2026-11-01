@@ -13,6 +13,7 @@ import CoordinatorLayout from '../features/coordinator/components/CoordinatorLay
 import BookingQueuePage from '../features/coordinator/pages/BookingQueuePage'
 import CheckInPage from '../features/coordinator/pages/CheckInPage'
 import CoordinatorBookingDetailPage from '../features/coordinator/pages/CoordinatorBookingDetailPage'
+import CoordinatorDashboardPage from '../features/coordinator/pages/CoordinatorDashboardPage'
 import DispatchPage from '../features/coordinator/pages/DispatchPage'
 import GuideApplicationsPage from '../features/coordinator/pages/GuideApplicationsPage'
 import GuideQueuePage from '../features/coordinator/pages/GuideQueuePage'
@@ -166,7 +167,7 @@ export default function App() {
             />
           </Route>
           <Route path="/coordinator" element={<ProtectedCoordinatorLayout />}>
-            <Route index element={<Navigate to="bookings" replace />} />
+            <Route index element={<CoordinatorDashboardPage />} />
             <Route path="bookings" element={<BookingQueuePage />} />
             <Route
               path="bookings/:bookingId"
