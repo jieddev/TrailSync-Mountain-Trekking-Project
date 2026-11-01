@@ -8,6 +8,7 @@ import AuthSubmitButton from '../components/AuthSubmitButton'
 import {
   type FormErrors,
   getPasswordStrength,
+  MIN_ACCOUNT_AGE,
   type RegisterFormValues,
   validateRegisterForm,
 } from '../validation'
@@ -25,6 +26,7 @@ import AgreementCheckbox from '../../legal/components/AgreementCheckbox'
 
 const initialValues: RegisterFormValues = {
   acceptedTerms: false,
+  age: '',
   confirmPassword: '',
   email: '',
   fullName: '',
@@ -119,6 +121,7 @@ export default function RegisterPage() {
 
       await createUser({
         acceptedTermsVersion: TERMS_VERSION,
+        age: Number(values.age),
         fullName: values.fullName.trim(),
         idToken: await credential.user.getIdToken(),
       })
@@ -202,6 +205,19 @@ export default function RegisterPage() {
           placeholder="Enter your full name"
           type="text"
           value={values.fullName}
+        />
+        <AuthFormField
+          autoComplete="off"
+          error={errors.age}
+          hint={`You must be ${MIN_ACCOUNT_AGE} or older. We use this when you book a trek.`}
+          id="age"
+          inputMode="numeric"
+          label="Age"
+          name="age"
+          onChange={handleChange}
+          placeholder="Enter your age"
+          type="text"
+          value={values.age}
         />
         <AuthFormField
           autoComplete="email"

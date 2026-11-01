@@ -20,7 +20,6 @@ export type BookingFormValues = {
   trailId: string
   scheduledDate: string
   scheduledTime: string
-  ownerAge: string
   ownerAddress: string
   additionalParticipants: ParticipantFormValues[]
   paymentOption: PaymentOption | ''
@@ -31,12 +30,13 @@ export type BookingFormValues = {
 
 export type ScheduleFormValues = ScheduleInput
 
-// Keys: 'trailId', 'ownerAge', 'additionalParticipants.0.name', etc.
+// Keys: 'trailId', 'ownerAddress', 'additionalParticipants.0.name', etc.
 export type BookingFormErrors = Record<string, string>
 
-// Must match MIN_BOOKING_OWNER_AGE in backend/src/lib/package-policy.ts.
-// Only the person booking must be an adult; participants may be minors.
-export const MIN_BOOKING_OWNER_AGE = 18
+// Must match MIN_PARTICIPANT_AGE in backend/src/lib/package-policy.ts.
+// Every additional participant must be an adult; the owner's age is checked at
+// registration and by the server.
+export const MIN_PARTICIPANT_AGE = 18
 
 // Must match the receipt rules in backend/src/lib/receipt-upload.ts.
 export const MAX_RECEIPT_BYTES = 5 * 1024 * 1024
@@ -129,11 +129,6 @@ export function validateBookingForm(
 
   if (!values.trailId) errors.trailId = 'Select a trail.'
   Object.assign(errors, validateSchedule(values, today))
-  if (!isPositiveInteger(values.ownerAge)) {
-    errors.ownerAge = 'Enter your age as a whole number.'
-  } else if (Number(values.ownerAge) < MIN_BOOKING_OWNER_AGE) {
-    errors.ownerAge = `You must be ${MIN_BOOKING_OWNER_AGE} or older to book. Ask an adult in your group to book instead.`
-  }
   if (!values.ownerAddress.trim()) errors.ownerAddress = 'Enter your address.'
 
   if (values.additionalParticipants.length > maxAdditionalParticipants) {
@@ -144,6 +139,9 @@ export function validateBookingForm(
     if (!person.name.trim()) errors[`${prefix}.name`] = 'Enter a name.'
     if (!isPositiveInteger(person.age)) {
       errors[`${prefix}.age`] = 'Enter the age as a whole number.'
+    } else if (Number(person.age) < MIN_PARTICIPANT_AGE) {
+      errors[`${prefix}.age`] =
+        `Every participant must be ${MIN_PARTICIPANT_AGE} or older.`
     }
     if (!person.address.trim())
       errors[`${prefix}.address`] = 'Enter an address.'
@@ -170,10 +168,7 @@ export function toCreateBookingInput(
     trailId: values.trailId,
     scheduledDate: values.scheduledDate,
     scheduledTime: values.scheduledTime,
-    ownerDetails: {
-      age: Number(values.ownerAge),
-      address: values.ownerAddress.trim(),
-    },
+    ownerDetails: { address: values.ownerAddress.trim() },
     additionalParticipants: values.additionalParticipants.map((person) => ({
       name: person.name.trim(),
       age: Number(person.age),
@@ -186,7 +181,6 @@ export function toCreateBookingInput(
 }
 
 const apiFieldToFormField: Record<string, string> = {
-  'ownerDetails.age': 'ownerAge',
   'ownerDetails.address': 'ownerAddress',
   acceptedWaiverVersion: 'acceptedWaiver',
 }

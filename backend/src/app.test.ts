@@ -52,6 +52,7 @@ describe('POST /users', () => {
         email: 'attacker@example.com',
         firebaseUid: 'attacker-uid',
         fullName: ' Trail Hiker ',
+        age: 28,
         role: 'COORDINATOR',
         acceptedTermsVersion: CURRENT_TERMS_VERSION,
       });
@@ -62,6 +63,7 @@ describe('POST /users', () => {
         email: 'hiker@example.com',
         firebaseUid: 'firebase-hiker-uid',
         fullName: 'Trail Hiker',
+        age: 28,
         termsAcceptedAt: expect.any(Date),
         termsVersion: CURRENT_TERMS_VERSION,
       },
@@ -122,6 +124,26 @@ describe('POST /users', () => {
 
   it.each([
     ['missing', undefined],
+    ['not a whole number', 28.5],
+    ['given as text', '28'],
+    ['under 18', 17],
+  ])('rejects a profile whose age is %s', async (_label, age) => {
+    verifyIdToken.mockResolvedValue({
+      email: 'hiker@example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+
+    const response = await request(app)
+      .post('/users')
+      .set('Authorization', 'Bearer valid-token')
+      .send({ fullName: 'Trail Hiker', age, acceptedTermsVersion: CURRENT_TERMS_VERSION });
+
+    expect(response.status).toBe(400);
+    expect(createUser).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['missing', undefined],
     ['outdated', '2000-01-01'],
   ])('rejects a profile whose terms acceptance is %s', async (_label, acceptedTermsVersion) => {
     verifyIdToken.mockResolvedValue({
@@ -132,7 +154,7 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: 'Trail Hiker', acceptedTermsVersion });
+      .send({ fullName: 'Trail Hiker', age: 28, acceptedTermsVersion });
 
     expect(response.status).toBe(400);
     expect(createUser).not.toHaveBeenCalled();
@@ -150,6 +172,7 @@ describe('POST /users', () => {
       .set('Authorization', 'Bearer valid-token')
       .send({
         fullName: 'Trail Hiker',
+        age: 28,
         acceptedTermsVersion: CURRENT_TERMS_VERSION,
       });
 
@@ -170,6 +193,7 @@ describe('GET /users/me', () => {
     findUniqueUser.mockResolvedValue({
       email: 'hiker@example.com',
       fullName: 'Trail Hiker',
+      age: 28,
       id: 'user-id',
       role: 'HIKER',
     } as never);
@@ -186,6 +210,7 @@ describe('GET /users/me', () => {
     expect(response.body).toEqual({
       email: 'hiker@example.com',
       fullName: 'Trail Hiker',
+      age: 28,
       id: 'user-id',
       role: 'HIKER',
     });
@@ -195,6 +220,7 @@ describe('GET /users/me', () => {
         id: true,
         fullName: true,
         email: true,
+        age: true,
         role: true,
       },
     });

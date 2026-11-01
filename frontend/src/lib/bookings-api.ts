@@ -97,7 +97,8 @@ export type CreateBookingInput = {
   trailId: string
   scheduledDate: string
   scheduledTime: string
-  ownerDetails: { age: number; address: string }
+  // The owner's name and age come from their profile.
+  ownerDetails: { address: string }
   additionalParticipants: ParticipantInput[]
   paymentOption: PaymentOption
   // The Trek Waiver version the owner agreed to for the whole group.

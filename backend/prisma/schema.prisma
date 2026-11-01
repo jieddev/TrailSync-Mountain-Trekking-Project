@@ -70,6 +70,8 @@ model User {
   firebaseUid               String             @unique
   fullName                  String
   email                     String             @unique
+  // Entered at registration; null for accounts made before it was asked (they give it when booking).
+  age                       Int?
   role                      UserRole           @default(HIKER)
   // Terms of Use and Privacy Policy accepted at registration; null for accounts made before agreements existed.
   termsAcceptedAt           DateTime?

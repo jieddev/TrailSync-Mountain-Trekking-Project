@@ -1,7 +1,9 @@
 // Shared package rules for every supported trail. Only the package price varies per trail.
 export const MAX_PARTICIPANTS = 5;
-// The person who books (and pays) must be an adult; other participants may be minors.
+// Everyone on a booking must be an adult: the person who books (and pays) and
+// each additional participant.
 export const MIN_BOOKING_OWNER_AGE = 18;
+export const MIN_PARTICIPANT_AGE = 18;
 export const GUIDE_COUNT = 1;
 export const DOWNPAYMENT_PERCENT = 50;
 export const CURRENCY = "PHP";

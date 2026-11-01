@@ -54,14 +54,14 @@ const postBooking = (body: Record<string, unknown>, { receipt = PNG, filename = 
   return receipt ? req.attach("receipt", receipt, filename) : req;
 };
 const transaction = vi.mocked(prisma.$transaction);
-const owner = { id: "owner-1", fullName: "Hiker One", email: "hiker@example.com", role: "HIKER" };
+const owner = { id: "owner-1", fullName: "Hiker One", email: "hiker@example.com", age: 28, role: "HIKER" };
 const booking = (overrides: Record<string, unknown> = {}) => ({
   id: "booking-1", trailId: "trl_sulfatara", trail: { id: "trl_sulfatara", name: "Sulfatara" }, scheduledDate: "2026-11-20", scheduledTime: "08:00",
   packagePrice: 550, downpaymentAmount: 275, status: "PENDING_CONFIRMATION", downpaymentStatus: "PENDING_VERIFICATION",
   createdAt: new Date("2026-10-07T00:00:00Z"), updatedAt: new Date("2026-10-07T00:00:00Z"),
   participants: [{ id: "participant-owner", kind: "BOOKING_OWNER", name: "Hiker One", age: 28, address: "Ormoc" }], ...overrides,
 });
-const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_sulfatara", scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { age: 28, address: "Ormoc City" }, additionalParticipants, paymentOption: "DOWNPAYMENT", acceptedWaiverVersion: CURRENT_WAIVER_VERSION });
+const createBody = (additionalParticipants: unknown[] = []) => ({ trailId: "trl_sulfatara", scheduledDate: "2026-11-20", scheduledTime: "08:00", ownerDetails: { address: "Ormoc City" }, additionalParticipants, paymentOption: "DOWNPAYMENT", acceptedWaiverVersion: CURRENT_WAIVER_VERSION });
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -131,21 +131,43 @@ describe("Booking Foundation", () => {
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
+  it("takes the owner's age from their profile and ignores a client-sent age", async () => {
+    tx.booking.create.mockResolvedValue(booking() as never);
+    const response = await postBooking({ ...createBody(), ownerDetails: { age: 5, address: "Ormoc City" } });
+    expect(response.status).toBe(201);
+    expect((tx.booking.create.mock.calls[0]![0] as any).data.participants.create[0]).toMatchObject({ kind: "BOOKING_OWNER", age: 28 });
+  });
+
+  it("refuses an account with no saved age", async () => {
+    userLookup.mockResolvedValue({ ...owner, age: null } as never);
+    const response = await postBooking({ ...createBody(), ownerDetails: { age: 30, address: "Ormoc City" } });
+    expect(response.status).toBe(422);
+    expect(response.body.error.details).toContainEqual(expect.objectContaining({ field: "ownerAge", code: "PROFILE_AGE_MISSING" }));
+    expect(tx.booking.create).not.toHaveBeenCalled();
+  });
+
   it("requires the booking owner to be 18 or older", async () => {
-    const minor = await postBooking({ ...createBody(), ownerDetails: { age: 17, address: "Ormoc City" } });
+    userLookup.mockResolvedValue({ ...owner, age: 17 } as never);
+    const minor = await postBooking(createBody());
     expect(minor.status).toBe(422);
-    expect(minor.body.error.details).toContainEqual(expect.objectContaining({ field: "ownerDetails.age", code: "OWNER_UNDERAGE" }));
+    expect(minor.body.error.details).toContainEqual(expect.objectContaining({ field: "ownerAge", code: "OWNER_UNDERAGE" }));
     expect(tx.booking.create).not.toHaveBeenCalled();
 
+    userLookup.mockResolvedValue({ ...owner, age: 18 } as never);
     tx.booking.create.mockResolvedValue(booking() as never);
-    const adult = await postBooking({ ...createBody(), ownerDetails: { age: 18, address: "Ormoc City" } });
+    const adult = await postBooking(createBody());
     expect(adult.status).toBe(201);
   });
 
-  it("still lets the owner bring participants under 18", async () => {
+  it("requires every additional participant to be 18 or older", async () => {
+    const minor = await postBooking(createBody([{ name: "Adult", age: 18, address: "Ormoc" }, { name: "Teen", age: 17, address: "Ormoc" }]));
+    expect(minor.status).toBe(422);
+    expect(minor.body.error.details).toEqual([expect.objectContaining({ field: "additionalParticipants.1.age", code: "PARTICIPANT_UNDERAGE" })]);
+    expect(tx.booking.create).not.toHaveBeenCalled();
+
     tx.booking.create.mockResolvedValue(booking() as never);
-    const response = await postBooking(createBody([{ name: "Child", age: 10, address: "Ormoc" }]));
-    expect(response.status).toBe(201);
+    const adults = await postBooking(createBody([{ name: "Adult", age: 18, address: "Ormoc" }]));
+    expect(adults.status).toBe(201);
   });
 
   it("records the trek waiver the owner accepted for the group", async () => {

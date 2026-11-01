@@ -4,6 +4,7 @@ export { ApiError }
 
 type CreateUserInput = {
   acceptedTermsVersion: string
+  age: number
   fullName: string
   idToken: string
 }
@@ -12,6 +13,8 @@ export type CurrentUserProfile = {
   id: string
   fullName: string
   email: string
+  // Null for accounts made before registration asked for it; they cannot book.
+  age: number | null
   role: string
 }
 

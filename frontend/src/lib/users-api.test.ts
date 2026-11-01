@@ -10,6 +10,7 @@ describe('getCurrentUserProfile', () => {
       id: 'profile-1',
       fullName: 'Mark Jasper',
       email: 'mark@example.com',
+      age: 28,
       role: 'HIKER',
     }
     const fetchMock = vi
