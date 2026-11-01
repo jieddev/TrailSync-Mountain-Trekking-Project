@@ -362,6 +362,7 @@ export default function CoordinatorDashboardPage() {
           />
           <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
             <div className="grid min-w-0 gap-6">
+              <TodaySchedule state={schedule} />
               <section aria-labelledby="needs-action-title">
                 <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                   <h2
@@ -382,11 +383,10 @@ export default function CoordinatorDashboardPage() {
                   ))}
                 </ul>
               </section>
-              <TodaySchedule state={schedule} />
             </div>
             <aside className="grid gap-6 sm:grid-cols-2 xl:grid-cols-1">
-              <WeatherCard compact state={weather} />
               <TodayStats cards={todayCards(summary)} />
+              <WeatherCard compact state={weather} />
             </aside>
           </div>
         </div>
