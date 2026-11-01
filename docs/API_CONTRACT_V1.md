@@ -694,13 +694,62 @@ Errors: `422 VALIDATION_ERROR` (`INVALID_LOCATION`, `INVALID_DATE`, `INVALID_NOT
 
 ---
 
-## 11. Planned APIs
+## 11. Live guide tracking
+
+While a trek is `IN_PROGRESS`, the guide app uploads the guide's GPS fixes so a coordinator can follow the group on the live map. Every fix is stored, so the map shows the latest position and the path walked so far. The app uploads about every 15 seconds and queues fixes while it has no signal, then sends them in batches when it reconnects.
+
+### `POST /api/v1/guides/me/hike-requests/:bookingId/locations`
+
+**Role:** `GUIDE`, for their own booking while it is `IN_PROGRESS`.
+
+```json
+{
+  "points": [
+    { "latitude": 11.0812, "longitude": 124.7301, "accuracyM": 8, "recordedAt": "2026-11-01T01:59:30Z" }
+  ]
+}
+```
+
+- `points` holds 1 to 50 fixes. `latitude` (−90…90), `longitude` (−180…180) and `recordedAt` (when the phone took the fix) are required; `accuracyM` is optional, zero or more metres.
+- A `recordedAt` in the future is replaced by the server's time. Fixes taken before the trek started are dropped without an error.
+- `202` returns `{ "accepted": 1 }`, the number of fixes stored.
+
+Errors: `422 VALIDATION_ERROR` (`REQUIRED`, `TOO_MANY`, `INVALID_LOCATION`, `INVALID_DATE`, with fields such as `points[1].latitude`), `409 TREK_NOT_IN_PROGRESS` (not started, or already completed — the app stops uploading), `404 BOOKING_NOT_FOUND` (also for another guide's booking), `401`, `403`, `500`.
+
+### `GET /api/v1/coordinator/live-treks`
+
+**Role:** `COORDINATOR`. Returns every `IN_PROGRESS` trek, longest on the trail first. The web app's live map checks every 10 seconds.
+
+```json
+{
+  "items": [
+    {
+      "bookingId": "booking-id",
+      "trail": { "id": "trl_sulfatara", "slug": "sulfatara", "name": "Sulfatara" },
+      "guide": { "id": "guide-id", "fullName": "Juan Dela Cruz" },
+      "trekStartedAt": "2026-11-01T01:00:00.000Z",
+      "participantCount": 4,
+      "latest": { "latitude": 11.0812, "longitude": 124.7301, "accuracyM": 8, "recordedAt": "2026-11-01T01:59:30.000Z" },
+      "path": [{ "latitude": 11.0801, "longitude": 124.7290, "recordedAt": "2026-11-01T01:00:15.000Z" }]
+    }
+  ]
+}
+```
+
+- `latest` is `null` until the first fix arrives.
+- `path` is in time order and thinned to at most 500 points; it always ends at `latest`.
+
+Errors: `401`, `403`, `500`.
+
+---
+
+## 12. Planned APIs
 
 Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
 
 | Resource                     | Purpose                                                              |
 | ---------------------------- | -------------------------------------------------------------------- |
-| `/api/v1/guides/me/hike-requests/:bookingId/locations`, checkpoints | Group location updates and offline-synced checkpoint events for an `IN_PROGRESS` trek (Phase 7). Trek start/complete is in §6. |
+| Checkpoints for `/api/v1/guides/me/hike-requests/:bookingId` | Offline-synced checkpoint events for an `IN_PROGRESS` trek (Phase 7). Location updates are in §11; trek start/complete is in §6. |
 | `/api/v1/certificates`       | Downloading certificates. Emailing them on completion is in §5 and §6. |
 | `/api/v1/analytics`          | Coordinator tourism and operations analytics                         |
 | `PATCH /api/v1/users/me`     | Profile edits (never `role`), once editable fields are confirmed     |

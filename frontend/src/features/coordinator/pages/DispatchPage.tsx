@@ -200,6 +200,14 @@ export default function DispatchPage() {
                 detail={`Guide: ${booking.guide?.fullName ?? '—'} · ${onTrailDetail(booking)}`}
                 key={booking.id}
               >
+                {booking.trekStartedAt && (
+                  <Link
+                    className={linkButtonClass}
+                    to={`/coordinator/live-map?booking=${encodeURIComponent(booking.id)}`}
+                  >
+                    Track on live map
+                  </Link>
+                )}
                 <ConfirmAction
                   busyLabel="Completing…"
                   confirmLabel="Yes, completed"
