@@ -1,5 +1,5 @@
 import { onAuthStateChanged, type User } from 'firebase/auth'
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 
@@ -31,6 +31,11 @@ import {
 } from './role-routes'
 import { auth } from '../lib/firebase'
 import { ApiError, getCurrentUserProfile } from '../lib/users-api'
+
+// Charts are heavy, so the analytics page loads only when opened.
+const AnalyticsPage = lazy(
+  () => import('../features/coordinator/pages/AnalyticsPage'),
+)
 
 function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ user: null, isLoading: true })
@@ -189,6 +194,14 @@ export default function App() {
               element={<GuideApplicationsPage />}
             />
             <Route path="incidents" element={<IncidentsPage />} />
+            <Route
+              path="analytics"
+              element={
+                <Suspense fallback={null}>
+                  <AnalyticsPage />
+                </Suspense>
+              }
+            />
           </Route>
           <Route path="/" element={<RoleHome />} />
           <Route path="*" element={<Navigate to="/" replace />} />

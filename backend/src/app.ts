@@ -9,6 +9,7 @@ import { prisma } from "./lib/prisma.js";
 import { isPrismaUniqueConstraintError } from "./lib/prisma-errors.js";
 import { validAge } from "./lib/validation.js";
 import { bookingsRouter } from "./routes/bookings.js";
+import { coordinatorAnalyticsRouter } from "./routes/coordinator-analytics.js";
 import { coordinatorBookingsRouter } from "./routes/coordinator-bookings.js";
 import { coordinatorGuideApplicationsRouter } from "./routes/coordinator-guide-applications.js";
 import { coordinatorGuidesRouter } from "./routes/coordinator-guides.js";
@@ -47,6 +48,7 @@ app.use("/api/v1/coordinator/trail-restrictions", coordinatorTrailRestrictionsRo
 app.use("/api/v1/coordinator/incidents", coordinatorIncidentsRouter);
 app.use("/api/v1/coordinator/live-treks", coordinatorLiveTreksRouter);
 app.use("/api/v1/coordinator/summary", coordinatorSummaryRouter);
+app.use("/api/v1/coordinator/analytics", coordinatorAnalyticsRouter);
 app.use("/api/v1/guides", guidesRouter);
 app.use("/api/v1/weather", weatherRouter);
 
