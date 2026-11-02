@@ -853,7 +853,86 @@ Errors: `401`, `403`, `500`.
 
 ---
 
-## 13. Planned APIs
+## 13. Coordinator analytics
+
+### `GET /api/v1/coordinator/analytics`
+
+Coordinator only (`401` without a token, `403` for other roles). Read-only tourism and operations figures for a range of Asia/Manila dates, computed from stored records.
+
+Query:
+
+| Parameter | Format       | Default                                 |
+| --------- | ------------ | --------------------------------------- |
+| `from`    | `YYYY-MM-DD` | First day of the month five months back |
+| `to`      | `YYYY-MM-DD` | Today (Manila)                          |
+
+`400 VALIDATION_ERROR` (with `details[0].field`) when a date is not a real date, `from` is after `to`, or the range is longer than 366 days.
+
+What the range applies to:
+
+- Bookings, visitors, guide activity, and booked value use the booking's `scheduledDate`.
+- Incidents use when the SOS was raised (`createdAt`, Manila midnight to Manila midnight).
+- Closures count the days they overlap the range.
+
+Rules:
+
+- **Visitor:** a participant on a `COMPLETED` booking who is not marked `ABSENT`, walk-ins included. This is the same rule as certificates.
+- **Trails:** every active trail, plus retired trails that have treks or closures in the range. The list is in a stable order (by name).
+- **Guides:** every account with the `GUIDE` role, including guides with no treks; most treks first.
+- **Response times:** medians in whole minutes from the SOS to acknowledgement and to resolution; `null` when there is none.
+- **Closure days:** inclusive days of each restriction inside the range. A lifted closure stops counting on the Manila day it was lifted.
+- **Booked value:** the sum of `packagePrice` of completed bookings. `testMode` is `true` while GCash runs in test mode; it is not money received.
+
+`200`:
+
+```json
+{
+  "range": { "from": "2026-06-01", "to": "2026-11-02" },
+  "months": ["2026-06", "2026-07", "2026-08", "2026-09", "2026-10", "2026-11"],
+  "trails": [
+    {
+      "id": "trl_sulfatara",
+      "name": "Sulfatara",
+      "completedTreks": 2,
+      "visitors": 7,
+      "averageGroupSize": 3.5
+    }
+  ],
+  "visitors": {
+    "total": 7,
+    "walkIns": 1,
+    "byMonth": [
+      {
+        "month": "2026-06",
+        "byTrail": { "trl_sulfatara": 3, "trl_mt_malingatong": 0 }
+      }
+    ]
+  },
+  "completedTreks": 2,
+  "bookingsByStatus": { "CONFIRMED": 3, "COMPLETED": 2 },
+  "guides": [
+    { "id": "guide-id", "fullName": "Juan Dela Cruz", "completedTreks": 2 }
+  ],
+  "safety": {
+    "incidents": 1,
+    "openIncidents": 0,
+    "medianMinutesToAcknowledge": 3,
+    "medianMinutesToResolve": 42,
+    "closureDaysByTrail": [
+      { "trailId": "trl_sulfatara", "name": "Sulfatara", "days": 2 }
+    ]
+  },
+  "bookedValue": {
+    "testMode": true,
+    "total": 1100,
+    "byMonth": [{ "month": "2026-06", "amount": 550 }]
+  }
+}
+```
+
+`averageGroupSize` is `null` for a trail with no completed treks. `bookingsByStatus` lists only statuses that have bookings.
+
+## 14. Planned APIs
 
 Not implemented. Each will be specified here once its business rules are confirmed (see the TBD list in `PROJECT_CONTEXT.md`); do not build against these names yet.
 
@@ -861,5 +940,4 @@ Not implemented. Each will be specified here once its business rules are confirm
 | ---------------------------- | -------------------------------------------------------------------- |
 | Checkpoints for `/api/v1/guides/me/hike-requests/:bookingId` | Offline-synced checkpoint events for an `IN_PROGRESS` trek (Phase 7). Location updates are in §11; trek start/complete is in §6. |
 | `/api/v1/certificates`       | Downloading certificates. Emailing them on completion is in §5 and §6. |
-| `/api/v1/analytics`          | Coordinator tourism and operations analytics                         |
 | `PATCH /api/v1/users/me`     | Profile edits (never `role`), once editable fields are confirmed     |

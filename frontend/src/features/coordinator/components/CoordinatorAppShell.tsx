@@ -71,6 +71,10 @@ const navSections: { heading: string | null; items: NavItem[] }[] = [
       { to: '/coordinator/trail-restrictions', label: 'Trail restrictions' },
     ],
   },
+  {
+    heading: 'Reports',
+    items: [{ to: '/coordinator/analytics', label: 'Analytics' }],
+  },
 ]
 
 type CoordinatorAppShellProps = {
