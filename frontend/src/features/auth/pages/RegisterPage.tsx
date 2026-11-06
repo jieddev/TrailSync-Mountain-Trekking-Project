@@ -6,6 +6,7 @@ import AuthFormField from '../components/AuthFormField'
 import AuthPageLayout from '../components/AuthPageLayout'
 import AuthSubmitButton from '../components/AuthSubmitButton'
 import {
+  composeFullName,
   type FormErrors,
   getPasswordStrength,
   MIN_ACCOUNT_AGE,
@@ -47,8 +48,11 @@ const initialValues: RegisterFormValues = {
   age: '',
   confirmPassword: '',
   email: '',
-  fullName: '',
+  firstName: '',
+  lastName: '',
+  middleName: '',
   password: '',
+  suffix: '',
 }
 
 export default function RegisterPage() {
@@ -255,13 +259,16 @@ export default function RegisterPage() {
       )
 
       await updateProfile(credential.user, {
-        displayName: values.fullName.trim(),
+        displayName: composeFullName(values),
       })
 
       await createUser({
         acceptedTermsVersion: TERMS_VERSION,
         age: Number(values.age),
-        fullName: values.fullName.trim(),
+        firstName: values.firstName,
+        middleName: values.middleName,
+        lastName: values.lastName,
+        suffix: values.suffix,
         idToken: await credential.user.getIdToken(),
       })
 
@@ -374,17 +381,54 @@ export default function RegisterPage() {
           </>
         ) : (
           <>
-            <AuthFormField
-              autoComplete="name"
-              error={errors.fullName}
-              id="full-name"
-              label="Full name"
-              name="fullName"
-              onChange={handleChange}
-              placeholder="Enter your full name"
-              type="text"
-              value={values.fullName}
-            />
+            <div className="grid gap-x-3 sm:grid-cols-2">
+              <AuthFormField
+                autoComplete="given-name"
+                error={errors.firstName}
+                id="first-name"
+                label="First name"
+                name="firstName"
+                onChange={handleChange}
+                placeholder="e.g. Juan"
+                type="text"
+                value={values.firstName}
+              />
+              <AuthFormField
+                autoComplete="family-name"
+                error={errors.lastName}
+                id="last-name"
+                label="Last name"
+                name="lastName"
+                onChange={handleChange}
+                placeholder="e.g. Dela Cruz"
+                type="text"
+                value={values.lastName}
+              />
+            </div>
+            <div className="grid gap-x-3 sm:grid-cols-[1fr_7rem]">
+              <AuthFormField
+                autoComplete="additional-name"
+                error={errors.middleName}
+                id="middle-name"
+                label="Middle name (optional)"
+                name="middleName"
+                onChange={handleChange}
+                placeholder="e.g. Santos"
+                type="text"
+                value={values.middleName}
+              />
+              <AuthFormField
+                autoComplete="honorific-suffix"
+                error={errors.suffix}
+                id="suffix"
+                label="Suffix (optional)"
+                name="suffix"
+                onChange={handleChange}
+                placeholder="Jr., III"
+                type="text"
+                value={values.suffix}
+              />
+            </div>
             <AuthFormField
               autoComplete="off"
               error={errors.age}

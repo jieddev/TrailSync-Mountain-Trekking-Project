@@ -36,7 +36,8 @@ export default function HikerHomePage() {
   const preview =
     TRAIL_PREVIEWS.find((trail) => trail.id === previewId) ?? TRAIL_PREVIEWS[0]
   const trail = trails.find((item) => item.slug === preview.id)
-  const firstName = profile.fullName.trim().split(/\s+/)[0]
+  // Older accounts only have fullName, so fall back to its first word.
+  const firstName = profile.firstName ?? profile.fullName.trim().split(/\s+/)[0]
 
   useEffect(() => {
     let isCurrent = true

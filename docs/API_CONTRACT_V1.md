@@ -131,10 +131,23 @@ Errors:
 Creates the TrailSync profile for the verified Firebase account. **Auth:** Bearer token. **Role:** any. The token's email must have passed sign-up email verification (above) within the last 30 minutes.
 
 ```json
-{ "fullName": "Juan Dela Cruz", "age": 28, "acceptedTermsVersion": "2026-10-30" }
+{
+  "firstName": "Juan",
+  "middleName": "Santos",
+  "lastName": "Dela Cruz",
+  "suffix": "Jr.",
+  "age": 28,
+  "acceptedTermsVersion": "2026-10-30"
+}
 ```
 
 `201` returns the created user. Email and Firebase UID come from the token; the role is always `HIKER`.
+
+The name comes in parts:
+- `firstName` and `lastName` are required, at most 50 characters each.
+- `middleName` (at most 50) and `suffix` (at most 10, e.g. `Jr.`, `III`) are optional. Leaving one out, `null`, or blank saves it as `null`.
+- Each part is trimmed and its inner spaces collapsed.
+- The server builds `fullName` from the parts present, in order: `"Juan Santos Dela Cruz Jr."`. A `fullName` in the body is ignored. Every other endpoint keeps showing `fullName`.
 
 `age` is a whole number of at least 18 (`MIN_BOOKING_OWNER_AGE`). It is saved on the profile and used as the owner's age on their bookings.
 
@@ -142,7 +155,8 @@ Creates the TrailSync profile for the verified Firebase account. **Auth:** Beare
 
 | Status | Body                                                              |
 | ------ | ----------------------------------------------------------------- |
-| `400`  | `{ "message": "fullName is required and must be a non-empty string." }` |
+| `400`  | `{ "message": "firstName is required and must be a non-empty string." }`; likewise for `lastName` |
+| `400`  | A name part is too long, or `middleName` / `suffix` is not a string |
 | `400`  | `age` missing, not a whole number, or under 18                    |
 | `400`  | Current terms not accepted (`acceptedTermsVersion` missing or outdated) |
 | `400`  | Verified account has no email                                     |
@@ -157,8 +171,20 @@ Creates the TrailSync profile for the verified Firebase account. **Auth:** Beare
 Returns the caller's profile. **Auth:** Bearer token. **Role:** any. (Also served at the legacy alias `/users/me`.)
 
 ```json
-{ "id": "user-id", "fullName": "Juan Dela Cruz", "email": "juan@example.com", "age": 28, "role": "HIKER" }
+{
+  "id": "user-id",
+  "fullName": "Juan Santos Dela Cruz Jr.",
+  "firstName": "Juan",
+  "middleName": "Santos",
+  "lastName": "Dela Cruz",
+  "suffix": "Jr.",
+  "email": "juan@example.com",
+  "age": 28,
+  "role": "HIKER"
+}
 ```
+
+`firstName`, `middleName`, `lastName` and `suffix` are `null` for accounts made before sign-up asked for name parts, and for guides; those accounts have only `fullName`.
 
 `age` is `null` for accounts made before registration asked for it; those accounts cannot book.
 
