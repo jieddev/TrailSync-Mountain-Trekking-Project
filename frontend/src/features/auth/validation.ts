@@ -126,3 +126,10 @@ export function validateRegisterForm(
 
   return errors
 }
+
+// The one-time code emailed at sign-up: exactly 6 digits.
+export function validateOtpCode(code: string): string | undefined {
+  if (!code.trim()) return 'Enter the 6-digit code we emailed you.'
+  if (!/^\d{6}$/.test(code.trim())) return 'The code is 6 digits.'
+  return undefined
+}

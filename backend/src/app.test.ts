@@ -9,6 +9,11 @@ vi.mock('./lib/firebase-admin.js', () => ({
 
 vi.mock('./lib/prisma.js', () => ({
   prisma: {
+    $transaction: vi.fn(),
+    emailVerification: {
+      delete: vi.fn(),
+      findUnique: vi.fn(),
+    },
     user: {
       create: vi.fn(),
       findUnique: vi.fn(),
@@ -24,10 +29,20 @@ import { prisma } from './lib/prisma.js';
 const verifyIdToken = vi.mocked(firebaseAuth.verifyIdToken);
 const createUser = vi.mocked(prisma.user.create);
 const findUniqueUser = vi.mocked(prisma.user.findUnique);
+const findVerification = vi.mocked(prisma.emailVerification.findUnique);
+const deleteVerification = vi.mocked(prisma.emailVerification.delete);
+const transaction = vi.mocked(prisma.$transaction);
 
 describe('POST /users', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    transaction.mockImplementation(((operations: Promise<unknown>[]) =>
+      Promise.all(operations)) as never);
+    // A hiker who just entered the emailed code.
+    findVerification.mockResolvedValue({
+      email: 'hiker@example.com',
+      verifiedAt: new Date(),
+    } as never);
   });
 
   it('creates a HIKER profile from verified token claims', async () => {
@@ -177,6 +192,47 @@ describe('POST /users', () => {
       });
 
     expect(response.status).toBe(409);
+  });
+
+  it('deletes the email verification once the profile is created', async () => {
+    verifyIdToken.mockResolvedValue({
+      email: 'Hiker@Example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+    createUser.mockResolvedValue({ id: 'user-id', role: 'HIKER' } as never);
+
+    const response = await request(app)
+      .post('/users')
+      .set('Authorization', 'Bearer valid-token')
+      .send({ fullName: 'Trail Hiker', age: 28, acceptedTermsVersion: CURRENT_TERMS_VERSION });
+
+    expect(response.status).toBe(201);
+    expect(findVerification).toHaveBeenCalledWith({ where: { email: 'hiker@example.com' } });
+    expect(deleteVerification).toHaveBeenCalledWith({ where: { email: 'hiker@example.com' } });
+  });
+
+  it.each([
+    ['was never requested', null],
+    ['was not confirmed with the code', { email: 'hiker@example.com', verifiedAt: null }],
+    [
+      'was confirmed too long ago',
+      { email: 'hiker@example.com', verifiedAt: new Date(Date.now() - 31 * 60 * 1000) },
+    ],
+  ])('refuses to create a profile when the email verification %s', async (_label, verification) => {
+    verifyIdToken.mockResolvedValue({
+      email: 'hiker@example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+    findVerification.mockResolvedValue(verification as never);
+
+    const response = await request(app)
+      .post('/users')
+      .set('Authorization', 'Bearer valid-token')
+      .send({ fullName: 'Trail Hiker', age: 28, acceptedTermsVersion: CURRENT_TERMS_VERSION });
+
+    expect(response.status).toBe(403);
+    expect(response.body.code).toBe('EMAIL_NOT_VERIFIED');
+    expect(createUser).not.toHaveBeenCalled();
   });
 });
 

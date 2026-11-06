@@ -67,7 +67,7 @@ TrailSync has three primary user roles.
 
 **Responsibilities:**
 
-- Register and log in
+- Register (confirming their email with a one-time code) and log in
 - View the initially supported trail and, as approved trails are added, browse the supported catalog
 - Make a booking
 - Provide booking/group information

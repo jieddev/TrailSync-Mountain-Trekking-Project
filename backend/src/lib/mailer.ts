@@ -42,3 +42,24 @@ export async function sendCertificateEmail(to: string, recipient: string, trailN
     attachments: [{ filename, content: Buffer.from(pdf), contentType: "application/pdf" }],
   });
 }
+
+// Emails the one-time code a new hiker enters to confirm their address.
+export async function sendVerificationCodeEmail(to: string, code: string) {
+  const subject = `Your TrailSync verification code: ${code}`;
+  const text = `Your TrailSync verification code is ${code}.\n\nEnter it on the sign-up page to create your account. It expires in 10 minutes.\n\nIf you didn't try to create a TrailSync account, you can ignore this email.\n\nTrailSync`;
+  const html = `<p>Your TrailSync verification code is:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">${escapeHtml(code)}</p><p>Enter it on the sign-up page to create your account. It expires in 10 minutes.</p><p>If you didn't try to create a TrailSync account, you can ignore this email.</p><p>TrailSync</p>`;
+
+  const mailer = smtp();
+  if (!mailer) {
+    // Dev and tests only: without SMTP the code is logged so sign-up still works.
+    logger.info({ to, code }, "SMTP_USER not set; verification code email not sent");
+    return;
+  }
+  await mailer.sendMail({
+    from: process.env.MAIL_FROM ?? `TrailSync <${process.env.SMTP_USER}>`,
+    to,
+    subject,
+    text,
+    html,
+  });
+}

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   getPasswordStrength,
   validateLoginForm,
+  validateOtpCode,
   validateRegisterForm,
 } from './validation'
 
@@ -130,5 +131,19 @@ describe('validateRegisterForm', () => {
       fullName: 'Enter your full name.',
       password: 'Password must be at least 8 characters',
     })
+  })
+})
+
+describe('validateOtpCode', () => {
+  it('accepts exactly 6 digits', () => {
+    expect(validateOtpCode('012345')).toBeUndefined()
+  })
+
+  it('asks for a missing code', () => {
+    expect(validateOtpCode('')).toBe('Enter the 6-digit code we emailed you.')
+  })
+
+  it.each(['12345', '1234567', '12a456'])('rejects %j', (code) => {
+    expect(validateOtpCode(code)).toBe('The code is 6 digits.')
   })
 })

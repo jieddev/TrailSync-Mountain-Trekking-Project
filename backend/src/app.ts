@@ -3,6 +3,7 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 
 import { CURRENT_TERMS_VERSION } from "./lib/agreements.js";
+import { VERIFIED_WINDOW_MS } from "./lib/email-verification.js";
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { MIN_BOOKING_OWNER_AGE } from "./lib/package-policy.js";
 import { prisma } from "./lib/prisma.js";
@@ -17,6 +18,7 @@ import { coordinatorIncidentsRouter } from "./routes/coordinator-incidents.js";
 import { coordinatorLiveTreksRouter } from "./routes/coordinator-live-treks.js";
 import { coordinatorSummaryRouter } from "./routes/coordinator-summary.js";
 import { coordinatorTrailRestrictionsRouter } from "./routes/coordinator-trail-restrictions.js";
+import { emailVerificationsRouter } from "./routes/email-verifications.js";
 import { guideApplicationsRouter } from "./routes/guide-applications.js";
 import { guidesRouter } from "./routes/guides.js";
 import { trailsRouter } from "./routes/trails.js";
@@ -51,6 +53,7 @@ app.use("/api/v1/coordinator/summary", coordinatorSummaryRouter);
 app.use("/api/v1/coordinator/analytics", coordinatorAnalyticsRouter);
 app.use("/api/v1/guides", guidesRouter);
 app.use("/api/v1/weather", weatherRouter);
+app.use("/api/v1/email-verifications", emailVerificationsRouter);
 
 type RequestWithLogger = Request & {
   id?: string;
@@ -112,22 +115,44 @@ app.post("/users", requireFirebaseAuth, async (request, response) => {
     });
   }
 
+  const email = authUser.email.trim().toLowerCase();
+
   try {
     log.info(
       { requestId: requestId(request), firebaseUid: authUser.firebaseUid },
       "User profile creation requested",
     );
 
-    const user = await prisma.user.create({
-      data: {
-        firebaseUid: authUser.firebaseUid,
-        fullName: fullName.trim(),
-        age,
-        email: authUser.email.trim().toLowerCase(),
-        termsAcceptedAt: new Date(),
-        termsVersion: CURRENT_TERMS_VERSION,
-      },
-    });
+    // The email must have passed the one-time code check at sign-up, recently.
+    const verification = await prisma.emailVerification.findUnique({ where: { email } });
+    if (
+      !verification?.verifiedAt ||
+      Date.now() - verification.verifiedAt.getTime() > VERIFIED_WINDOW_MS
+    ) {
+      log.warn(
+        { requestId: requestId(request), firebaseUid: authUser.firebaseUid },
+        "User profile creation rejected because the email was not verified",
+      );
+
+      return response.status(403).json({
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Verify your email address before creating an account.",
+      });
+    }
+
+    const [user] = await prisma.$transaction([
+      prisma.user.create({
+        data: {
+          firebaseUid: authUser.firebaseUid,
+          fullName: fullName.trim(),
+          age,
+          email,
+          termsAcceptedAt: new Date(),
+          termsVersion: CURRENT_TERMS_VERSION,
+        },
+      }),
+      prisma.emailVerification.delete({ where: { email } }),
+    ]);
 
     log.info(
       { requestId: requestId(request), userId: user.id, role: user.role },
