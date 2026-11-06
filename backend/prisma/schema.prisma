@@ -301,3 +301,18 @@ model GuideLocation {
   @@index([bookingId, recordedAt])
   @@map("guide_locations")
 }
+
+// A one-time code emailed to a new hiker before their account is created.
+// Only the code's hash is stored; the row is deleted once the account exists.
+model EmailVerification {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  codeHash   String
+  expiresAt  DateTime
+  attempts   Int       @default(0)
+  lastSentAt DateTime
+  verifiedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@map("email_verifications")
+}
