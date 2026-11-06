@@ -8,8 +8,30 @@ export type RegisterFormValues = {
   age: string
   confirmPassword: string
   email: string
-  fullName: string
+  firstName: string
+  lastName: string
+  middleName: string
   password: string
+  suffix: string
+}
+
+// Must match backend/src/lib/person-name.ts, which POST /users also enforces.
+export const NAME_PART_MAX_LENGTH = 50
+export const SUFFIX_MAX_LENGTH = 10
+
+const cleanNamePart = (value: string) => value.trim().replace(/\s+/g, ' ')
+
+// "Juan Santos Dela Cruz Jr.", the same way the backend builds fullName.
+export function composeFullName(
+  values: Pick<
+    RegisterFormValues,
+    'firstName' | 'middleName' | 'lastName' | 'suffix'
+  >,
+) {
+  return [values.firstName, values.middleName, values.lastName, values.suffix]
+    .map(cleanNamePart)
+    .filter(Boolean)
+    .join(' ')
 }
 
 // Must match MIN_BOOKING_OWNER_AGE in backend/src/lib/package-policy.ts, which
@@ -95,8 +117,24 @@ export function validateRegisterForm(
   const errors: FormErrors<RegisterFormValues> = {}
   const emailError = validateEmail(values.email)
 
-  if (!values.fullName.trim()) {
-    errors.fullName = 'Enter your full name.'
+  if (!values.firstName.trim()) {
+    errors.firstName = 'Enter your first name.'
+  } else if (cleanNamePart(values.firstName).length > NAME_PART_MAX_LENGTH) {
+    errors.firstName = `First name must be at most ${NAME_PART_MAX_LENGTH} characters.`
+  }
+
+  if (cleanNamePart(values.middleName).length > NAME_PART_MAX_LENGTH) {
+    errors.middleName = `Middle name must be at most ${NAME_PART_MAX_LENGTH} characters.`
+  }
+
+  if (!values.lastName.trim()) {
+    errors.lastName = 'Enter your last name.'
+  } else if (cleanNamePart(values.lastName).length > NAME_PART_MAX_LENGTH) {
+    errors.lastName = `Last name must be at most ${NAME_PART_MAX_LENGTH} characters.`
+  }
+
+  if (cleanNamePart(values.suffix).length > SUFFIX_MAX_LENGTH) {
+    errors.suffix = `Suffix must be at most ${SUFFIX_MAX_LENGTH} characters.`
   }
 
   if (!/^\d+$/.test(values.age.trim()) || Number(values.age) <= 0) {

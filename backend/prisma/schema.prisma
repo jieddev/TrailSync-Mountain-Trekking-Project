@@ -68,7 +68,13 @@ enum GuideApplicationStatus {
 model User {
   id                        String             @id @default(cuid())
   firebaseUid               String             @unique
+  // Shown everywhere. For hikers who signed up with name parts, the server builds it from them.
   fullName                  String
+  // Name parts entered at sign-up; null for accounts made before they were asked, and for guides.
+  firstName                 String?
+  middleName                String?
+  lastName                  String?
+  suffix                    String?
   email                     String             @unique
   // Entered at registration; null for accounts made before it was asked (they give it when booking).
   age                       Int?
