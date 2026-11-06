@@ -56,7 +56,9 @@ The backend verifies the token with Firebase Admin, takes the Firebase UID from 
 | `403`  | Authenticated but not allowed (`FORBIDDEN`)                         |
 | `404`  | Resource missing or not visible to the caller                       |
 | `409`  | Request conflicts with the resource's current state                 |
+| `410`  | Resource has expired (e.g. a sign-up code, `CODE_EXPIRED`)          |
 | `422`  | Well-formed request that fails validation (`VALIDATION_ERROR`)      |
+| `429`  | Too many requests or attempts; may carry a `Retry-After` header     |
 | `500`  | Unexpected server error (`INTERNAL_SERVER_ERROR`)                   |
 
 ### Roles and authorization
@@ -71,9 +73,62 @@ Any new or changed endpoint must be documented here in the same PR: method, path
 
 ## 2. Users
 
+### Sign-up email verification
+
+A new hiker proves they own their email before the account exists. The web sign-up form sends the code, the hiker enters it, and only then are the Firebase login and `POST /users` called. These two routes take **no token**, because there is no account yet.
+
+- A code is 6 digits. It expires after **10 minutes**, and only its SHA-256 hash is stored (`email_verifications` table).
+- A new code may be requested **60 seconds** after the last one. Requesting a new code replaces the old one and resets the attempt count.
+- After **5** wrong tries the code is locked, and the hiker must request a new one.
+- A verified email may be used by `POST /users` for **30 minutes**. The verification is deleted once the profile is created.
+- Emails are normalized (trimmed, lowercased) the same way as `POST /users`.
+- Without `SMTP_USER`, no email is sent and the code is written to the server log (dev and tests only).
+
+Rules live in `backend/src/lib/email-verification.ts`.
+
+### `POST /api/v1/email-verifications`
+
+Emails a new code. **Auth:** none.
+
+```json
+{ "email": "juan@example.com" }
+```
+
+`201`:
+
+```json
+{ "email": "juan@example.com", "expiresAt": "2026-11-06T06:10:00.000Z", "resendAvailableAt": "2026-11-06T06:01:00.000Z" }
+```
+
+The code is never returned.
+
+Errors:
+- `422 VALIDATION_ERROR`: `INVALID` on `email`.
+- `409 ACCOUNT_EXISTS`: a TrailSync account already uses this email; no code is sent.
+- `429 RESEND_TOO_SOON`: within 60 seconds of the last code. `Retry-After` gives the seconds left, and the earlier code still works.
+- `500`.
+
+### `POST /api/v1/email-verifications/verify`
+
+Checks a code. **Auth:** none.
+
+```json
+{ "email": "juan@example.com", "code": "123456" }
+```
+
+`200` returns `{ "email": "juan@example.com", "verified": true }`. Verifying an email that is already verified also returns `200`, so a hiker can retry account creation after a network error.
+
+Errors:
+- `422 VALIDATION_ERROR`: `INVALID` on `email`, or on `code` if it isn't exactly 6 digits. Neither counts as an attempt.
+- `404 CODE_NOT_FOUND`: no code was requested for this email.
+- `400 CODE_INCORRECT`: wrong code; counts as an attempt.
+- `410 CODE_EXPIRED`: older than 10 minutes.
+- `429 TOO_MANY_ATTEMPTS`: 5 wrong tries; request a new code.
+- `500`.
+
 ### `POST /users`
 
-Creates the TrailSync profile for the verified Firebase account. **Auth:** Bearer token. **Role:** any.
+Creates the TrailSync profile for the verified Firebase account. **Auth:** Bearer token. **Role:** any. The token's email must have passed sign-up email verification (above) within the last 30 minutes.
 
 ```json
 { "fullName": "Juan Dela Cruz", "age": 28, "acceptedTermsVersion": "2026-10-30" }
@@ -92,6 +147,7 @@ Creates the TrailSync profile for the verified Firebase account. **Auth:** Beare
 | `400`  | Current terms not accepted (`acceptedTermsVersion` missing or outdated) |
 | `400`  | Verified account has no email                                     |
 | `401`  | `UNAUTHORIZED`                                                    |
+| `403`  | `{ "code": "EMAIL_NOT_VERIFIED", "message": "…" }`: email not verified, or verified more than 30 minutes ago |
 | `409`  | Profile with this Firebase UID or email already exists            |
 
 > Legacy: this route is unversioned and returns a top-level `message` instead of the error envelope. Move it to `/api/v1/users` with the standard envelope when it is next changed.
