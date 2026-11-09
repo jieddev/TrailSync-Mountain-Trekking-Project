@@ -1,6 +1,6 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 
-import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, amountDueOnline, balanceDueOnSite } from "./package-policy.js";
+import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, amountDueOnline, balanceDueOnSite, bookingTotal } from "./package-policy.js";
 import { paymentMethod } from "./payment-config.js";
 import { restrictionsForBookings } from "./trail-restrictions.js";
 
@@ -54,6 +54,8 @@ function paymentResponse(booking: any) {
   return {
     option,
     currency: CURRENCY,
+    fees: { garbage: booking.garbageFee ?? 0, environmental: booking.environmentalFee ?? 0, entrance: booking.entranceFee ?? 0 },
+    totalAmount: bookingTotal(booking),
     amountDueOnline: amountDueOnline({ ...booking, paymentOption: option }),
     balanceDueOnSite: balanceDueOnSite({ ...booking, paymentOption: option }),
     balanceCollectedAt: booking.balanceCollectedAt ?? null,

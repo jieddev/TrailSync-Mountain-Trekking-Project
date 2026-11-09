@@ -68,7 +68,7 @@ beforeEach(() => {
   vi.mocked(prisma.trailRestriction.findMany).mockResolvedValue([] as never);
   verify.mockResolvedValue({ uid: "verified-uid" } as never);
   userLookup.mockResolvedValue(owner as never);
-  trailLookup.mockResolvedValue({ id: "trl_sulfatara", packagePrice: 550 } as never);
+  trailLookup.mockResolvedValue({ id: "trl_sulfatara", packagePrice: 550, garbageFee: 0, environmentalFee: 0, entranceFeePerPerson: 0 } as never);
   transaction.mockImplementation(async (callback: any) => callback(tx) as never);
 });
 
@@ -193,8 +193,21 @@ describe("Booking Foundation", () => {
     expect(tx.booking.create).not.toHaveBeenCalled();
   });
 
+  it("adds the flat fees and a per-person entrance fee for a five-person group", async () => {
+    trailLookup.mockResolvedValue({ id: "trl_mt_malingatong", packagePrice: 680, garbageFee: 20, environmentalFee: 30, entranceFeePerPerson: 50 } as never);
+    tx.booking.create.mockResolvedValue(booking({ packagePrice: 680, garbageFee: 20, environmentalFee: 30, entranceFee: 250, downpaymentAmount: 490, paymentOption: "FULL" }) as never);
+    const others = [1, 2, 3, 4].map((n) => ({ name: `Hiker ${n}`, age: 30, address: "Ormoc City" }));
+    const response = await postBooking({ ...createBody(others), trailId: "trl_mt_malingatong", paymentOption: "FULL" });
+    expect(response.status).toBe(201);
+    expect(tx.booking.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({
+      packagePrice: 680, garbageFee: 20, environmentalFee: 30, entranceFee: 250, downpaymentAmount: 490,
+      paymentReceipts: { create: [expect.objectContaining({ amount: 980 })] },
+    }) }));
+    expect(response.body.payment).toMatchObject({ fees: { garbage: 20, environmental: 30, entrance: 250 }, totalAmount: 980, amountDueOnline: 980, balanceDueOnSite: 0 });
+  });
+
   it("snapshots the selected trail's price and downpayment", async () => {
-    trailLookup.mockResolvedValue({ id: "trl_other", packagePrice: 1200 } as never);
+    trailLookup.mockResolvedValue({ id: "trl_other", packagePrice: 1200, garbageFee: 0, environmentalFee: 0, entranceFeePerPerson: 0 } as never);
     tx.booking.create.mockResolvedValue(booking({ trailId: "trl_other", trail: { id: "trl_other", name: "Other Trail" }, packagePrice: 1200, downpaymentAmount: 600 }) as never);
     const response = await postBooking({ ...createBody(), trailId: "trl_other", price: 1 });
     expect(response.status).toBe(201);

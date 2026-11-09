@@ -12,6 +12,7 @@ const sulfatara: Trail = {
     maximumParticipants: 5,
     guideCount: 1,
   },
+  fees: { garbage: 0, environmental: 0, entrancePerPerson: 0 },
   paymentRequirement: {
     downpaymentPercent: 50,
     amount: 275,

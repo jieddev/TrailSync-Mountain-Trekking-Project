@@ -75,6 +75,12 @@ function TrailCard({
   trail: Trail
   closures: TrailClosure[]
 }) {
+  const hasFees =
+    trail.fees.garbage + trail.fees.environmental + trail.fees.entrancePerPerson >
+    0
+  const money = (amount: number) =>
+    formatMoney({ amount, currency: trail.package.price.currency })
+
   return (
     <article className="flex h-full flex-col rounded-2xl border border-[#d5e1da] bg-white p-6">
       <h2 className="font-serif text-2xl font-bold tracking-[-0.03em] text-[#002d20]">
@@ -95,12 +101,23 @@ function TrailCard({
         </div>
         <div>
           <dt className="font-semibold text-[#70857b]">
-            Downpayment ({trail.paymentRequirement.downpaymentPercent}%)
+            Downpayment{hasFees && ' from'} (
+            {trail.paymentRequirement.downpaymentPercent}%)
           </dt>
           <dd className="mt-1 text-lg font-bold text-[#173a2e]">
             {formatMoney(trail.paymentRequirement)}
           </dd>
         </div>
+        {hasFees && (
+          <div className="col-span-2">
+            <dt className="sr-only">Additional fees</dt>
+            <dd className="text-[#52675e]">
+              Plus {money(trail.fees.garbage)} garbage fee,{' '}
+              {money(trail.fees.environmental)} environmental fee and{' '}
+              {money(trail.fees.entrancePerPerson)} entrance fee per person
+            </dd>
+          </div>
+        )}
         <div className="col-span-2">
           <dt className="sr-only">Group size</dt>
           <dd className="text-[#52675e]">

@@ -21,10 +21,18 @@ export type PaymentMethod = {
 
 export type PaymentRequirement = Money & { downpaymentPercent: number }
 
-// The trail catalog also offers paying the full price up front.
+// The trail catalog also offers paying the full price up front. Amounts quote
+// a one-hiker booking, since the entrance fee depends on group size.
 export type TrailPaymentRequirement = PaymentRequirement & {
   fullAmount: number
   method: PaymentMethod
+}
+
+// Added to the package price, once per booking except the per-person entrance.
+export type TrailFees = {
+  garbage: number
+  environmental: number
+  entrancePerPerson: number
 }
 
 export type Trail = {
@@ -33,6 +41,7 @@ export type Trail = {
   name: string
   description: string | null
   package: TrailPackage
+  fees: TrailFees
   paymentRequirement: TrailPaymentRequirement
 }
 

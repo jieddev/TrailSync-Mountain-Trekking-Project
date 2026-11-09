@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  bookingCosts,
   type BookingFormValues,
   fieldErrorsFromApi,
   formatMoney,
@@ -255,5 +256,21 @@ describe('manilaTodayIso', () => {
   it('uses the Asia/Manila date whatever the browser timezone', () => {
     expect(manilaTodayIso(new Date('2026-10-20T15:59:00Z'))).toBe('2026-10-20')
     expect(manilaTodayIso(new Date('2026-10-20T16:00:00Z'))).toBe('2026-10-21')
+  })
+})
+
+describe('bookingCosts', () => {
+  const trail = {
+    package: { price: { amount: 680, currency: 'PHP' } },
+    fees: { garbage: 20, environmental: 30, entrancePerPerson: 50 },
+    paymentRequirement: { downpaymentPercent: 50 },
+  } as never
+
+  it('charges the entrance fee per person on top of the flat fees', () => {
+    expect(bookingCosts(trail, 5)).toEqual({
+      fees: { garbage: 20, environmental: 30, entrance: 250 },
+      total: 980,
+      downpayment: 490,
+    })
   })
 })

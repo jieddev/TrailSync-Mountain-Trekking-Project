@@ -9,6 +9,7 @@ import {
   type Booking,
 } from '../../../lib/bookings-api'
 import Alert from '../components/Alert'
+import BookingFeeRows from '../components/BookingFeeRows'
 import BookingRestrictionNotice from '../components/BookingRestrictionNotice'
 import PageHeader from '../components/PageHeader'
 import PaymentReceiptList from '../components/PaymentReceiptList'
@@ -243,6 +244,11 @@ export default function BookingDetailPage() {
                 {formatMoney(booking.package.price)}
               </dd>
             </div>
+            <BookingFeeRows
+              currency={booking.payment.currency}
+              fees={booking.payment.fees}
+              total={booking.payment.totalAmount}
+            />
             <div className="flex justify-between gap-3">
               <dt className="text-[#70857b]">
                 {booking.payment.option === 'FULL'

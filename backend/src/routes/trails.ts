@@ -1,25 +1,31 @@
 import { Router } from "express";
 import { fail } from "../lib/http-errors.js";
 import { manilaToday } from "../lib/manila-date.js";
-import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, downpaymentFor } from "../lib/package-policy.js";
+import { CURRENCY, DOWNPAYMENT_PERCENT, GUIDE_COUNT, MAX_PARTICIPANTS, pricingFor } from "../lib/package-policy.js";
 import { paymentMethod } from "../lib/payment-config.js";
 import { prisma } from "../lib/prisma.js";
 import { publicRestrictionResponse } from "../lib/trail-restrictions.js";
 
-type TrailRecord = { id: string; slug: string; name: string; description: string | null; packagePrice: number };
+type TrailRecord = {
+  id: string; slug: string; name: string; description: string | null;
+  packagePrice: number; garbageFee: number; environmentalFee: number; entranceFeePerPerson: number;
+};
 
-const trailSelect = { id: true, slug: true, name: true, description: true, packagePrice: true } as const;
+const trailSelect = { id: true, slug: true, name: true, description: true, packagePrice: true, garbageFee: true, environmentalFee: true, entranceFeePerPerson: true } as const;
 
 function trailResponse(trail: TrailRecord) {
+  // The entrance fee depends on group size, so catalog amounts quote one hiker.
+  const quote = pricingFor(trail, 1);
   return {
     id: trail.id,
     slug: trail.slug,
     name: trail.name,
     description: trail.description,
     package: { price: { amount: trail.packagePrice, currency: CURRENCY }, maximumParticipants: MAX_PARTICIPANTS, guideCount: GUIDE_COUNT },
+    fees: { garbage: trail.garbageFee, environmental: trail.environmentalFee, entrancePerPerson: trail.entranceFeePerPerson },
     paymentRequirement: {
-      downpaymentPercent: DOWNPAYMENT_PERCENT, amount: downpaymentFor(trail.packagePrice), currency: CURRENCY,
-      fullAmount: trail.packagePrice, method: paymentMethod(),
+      downpaymentPercent: DOWNPAYMENT_PERCENT, amount: quote.downpaymentAmount, currency: CURRENCY,
+      fullAmount: quote.totalAmount, method: paymentMethod(),
     },
   };
 }

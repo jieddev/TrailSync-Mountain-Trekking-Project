@@ -134,6 +134,10 @@ model Trail {
   name         String
   description  String?
   packagePrice Int
+  // Added to the package price. The entrance fee is charged per participant.
+  garbageFee           Int        @default(0)
+  environmentalFee     Int        @default(0)
+  entranceFeePerPerson Int        @default(0)
   isActive     Boolean            @default(true)
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
@@ -175,6 +179,10 @@ model Booking {
   scheduledDate        String
   scheduledTime        String
   packagePrice         Int
+  // Fees snapshotted when booking; entranceFee is the total for the booked group.
+  garbageFee           Int                  @default(0)
+  environmentalFee     Int                  @default(0)
+  entranceFee          Int                  @default(0)
   downpaymentAmount    Int
   status               BookingStatus        @default(PENDING_CONFIRMATION)
   downpaymentStatus    DownpaymentStatus    @default(PENDING_VERIFICATION)

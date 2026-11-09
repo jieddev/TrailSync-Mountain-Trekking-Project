@@ -127,7 +127,8 @@ Lists active trails, ordered by name. **Auth:** none.
       "name": "Mt. Malingatong",
       "description": null,
       "package": { "price": { "amount": 680, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
-      "paymentRequirement": { "downpaymentPercent": 50, "amount": 340, "currency": "PHP", "fullAmount": 680, "method": { "provider": "GCASH", "accountName": "TrailSync Tourism Office (TEST)", "accountNumber": "0917 000 0000", "qrImagePath": "/payments/gcash-qr-sample.png", "testMode": true } }
+      "fees": { "garbage": 20, "environmental": 30, "entrancePerPerson": 50 },
+      "paymentRequirement": { "downpaymentPercent": 50, "amount": 390, "currency": "PHP", "fullAmount": 780, "method": { "provider": "GCASH", "accountName": "TrailSync Tourism Office (TEST)", "accountNumber": "0917 000 0000", "qrImagePath": "/payments/gcash-qr-sample.png", "testMode": true } }
     },
     {
       "id": "trl_sulfatara",
@@ -135,7 +136,8 @@ Lists active trails, ordered by name. **Auth:** none.
       "name": "Sulfatara",
       "description": null,
       "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
-      "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP", "fullAmount": 550, "method": { "…": "as above" } }
+      "fees": { "garbage": 20, "environmental": 30, "entrancePerPerson": 50 },
+      "paymentRequirement": { "downpaymentPercent": 50, "amount": 325, "currency": "PHP", "fullAmount": 650, "method": { "…": "as above" } }
     }
   ]
 }
@@ -194,16 +196,18 @@ Returned by every booking endpoint:
   "trekStartedAt": null,
   "completedAt": null,
   "package": { "price": { "amount": 550, "currency": "PHP" }, "maximumParticipants": 5, "guideCount": 1 },
-  "paymentRequirement": { "downpaymentPercent": 50, "amount": 275, "currency": "PHP" },
+  "paymentRequirement": { "downpaymentPercent": 50, "amount": 350, "currency": "PHP" },
   "payment": {
     "option": "DOWNPAYMENT",
     "currency": "PHP",
-    "amountDueOnline": 275,
-    "balanceDueOnSite": 275,
+    "fees": { "garbage": 20, "environmental": 30, "entrance": 100 },
+    "totalAmount": 700,
+    "amountDueOnline": 350,
+    "balanceDueOnSite": 350,
     "balanceCollectedAt": null,
     "method": { "provider": "GCASH", "accountName": "TrailSync Tourism Office (TEST)", "accountNumber": "0917 000 0000", "qrImagePath": "/payments/gcash-qr-sample.png", "testMode": true },
     "receipts": [
-      { "id": "receipt-id", "amount": 275, "referenceNumber": null, "status": "SUBMITTED", "rejectionReason": null, "reviewedAt": null, "createdAt": "2026-10-07T01:00:00.000Z" }
+      { "id": "receipt-id", "amount": 350, "referenceNumber": null, "status": "SUBMITTED", "rejectionReason": null, "reviewedAt": null, "createdAt": "2026-10-07T01:00:00.000Z" }
     ]
   },
   "trailRestriction": null,
@@ -215,7 +219,8 @@ Returned by every booking endpoint:
 - `participants` are ordered owner first, then additional participants, then walk-ins. `kind` is `BOOKING_OWNER`, `ADDITIONAL_PARTICIPANT`, or `WALK_IN` (added at check-in). `attendance` is `PRESENT`, `ABSENT`, or `null` before check-in. `email` is where the participant's certificate goes (`null`: it goes to the booking owner); `certificateSentAt` is when it was emailed (§5).
 - `guide` is `{ "id", "fullName" }` once a guide is assigned at check-in, otherwise `null`. It stays set after completion.
 - `checkedInAt`, `guideAssignedAt`, `trekStartedAt`, and `completedAt` are ISO timestamps, or `null` until that step happens. `trekStartedAt` stays `null` when the coordinator completes a trek the guide never started.
-- `payment.option` is `DOWNPAYMENT` or `FULL`. `amountDueOnline` is what the hiker pays by GCash (the downpayment, or the full price); `balanceDueOnSite` is the cash due at check-in (`0` for `FULL`). `balanceCollectedAt` is set when the coordinator records the cash balance at check-in.
+- `payment.fees` (`garbage`, `environmental`, `entrance`) are snapshotted at booking; `entrance` is the per-person fee times the booked participants. `payment.totalAmount` is the package price plus those fees, and the downpayment is 50% of it. In the trail catalog, `paymentRequirement.amount` and `fullAmount` quote a one-person booking.
+- `payment.option` is `DOWNPAYMENT` or `FULL`. `amountDueOnline` is what the hiker pays by GCash (the downpayment, or the full total); `balanceDueOnSite` is the cash due at check-in (`0` for `FULL`). `balanceCollectedAt` is set when the coordinator records the cash balance at check-in.
 - `payment.receipts` lists every uploaded GCash screenshot, newest first. `status` is `SUBMITTED` (awaiting review), `ACCEPTED`, or `REJECTED` (with the coordinator's `rejectionReason`). `referenceNumber` is the optional 13-digit GCash Ref. No. The image itself is read from the receipt file routes below; its stored file name is never returned.
 - `downpaymentStatus` describes the GCash payment as a whole, despite its name: `PENDING_VERIFICATION` (a receipt awaits review), `VERIFIED`, or `REJECTED` (the last receipt was rejected; the hiker must upload a new one).
 - `trailRestriction` is `{ "startDate", "endDate", "reason" }` when a coordinator has closed the booking's trail on its `scheduledDate` (§8), otherwise `null`. The booking itself is not changed by a closure; the hiker can reschedule.

@@ -6,7 +6,7 @@ import { sendTrekCertificates } from "../lib/certificates.js";
 import { completeTrek, dispatchFrontGuide, lockGuideQueue } from "../lib/guide-queue.js";
 import { fail, type ErrorDetail } from "../lib/http-errors.js";
 import { manilaToday } from "../lib/manila-date.js";
-import { MAX_PARTICIPANTS } from "../lib/package-policy.js";
+import { MAX_PARTICIPANTS, balanceDueOnSite } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
 import { sendReceiptFile } from "../lib/receipt-upload.js";
 import { activeRestriction } from "../lib/trail-restrictions.js";
@@ -180,7 +180,7 @@ coordinatorBookingsRouter.post("/:bookingId/check-in", async (request, response)
     const result = await prisma.$transaction(async (tx): Promise<{ refusal: Refusal } | { details: ErrorDetail[] } | { booking: unknown }> => {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
-        select: { status: true, scheduledDate: true, trailId: true, paymentOption: true, packagePrice: true, downpaymentAmount: true, participants: { select: { id: true } } },
+        select: { status: true, scheduledDate: true, trailId: true, paymentOption: true, packagePrice: true, garbageFee: true, environmentalFee: true, entranceFee: true, downpaymentAmount: true, participants: { select: { id: true } } },
       });
       if (!booking) return { refusal: "BOOKING_NOT_FOUND" };
       if (booking.status !== "CONFIRMED") return { refusal: "CHECK_IN_NOT_ALLOWED" };
@@ -190,7 +190,7 @@ coordinatorBookingsRouter.post("/:bookingId/check-in", async (request, response)
       // With a 50% downpayment, the rest is paid in cash at the registration desk.
       const owesBalance = booking.paymentOption === "DOWNPAYMENT";
       if (owesBalance && !parsed.balanceCollected) {
-        details.push({ field: "balanceCollected", code: "BALANCE_NOT_COLLECTED", message: `Collect the ₱${booking.packagePrice - booking.downpaymentAmount} cash balance before checking in.` });
+        details.push({ field: "balanceCollected", code: "BALANCE_NOT_COLLECTED", message: `Collect the ₱${balanceDueOnSite(booking)} cash balance before checking in.` });
       }
       if (details.length) return { details };
 
