@@ -7,6 +7,7 @@ import { ApiError } from '../../../lib/api'
 import { createBooking } from '../../../lib/bookings-api'
 import { closureOn } from '../../../lib/trail-restrictions-api'
 import { listTrails, type Trail } from '../../../lib/trails-api'
+import BookingFeeRows from '../components/BookingFeeRows'
 import AuthFormField from '../../auth/components/AuthFormField'
 import AuthSubmitButton from '../../auth/components/AuthSubmitButton'
 import AgreementCheckbox from '../../legal/components/AgreementCheckbox'
@@ -20,6 +21,7 @@ import PageHeader from '../components/PageHeader'
 import StatusCard from '../components/StatusCard'
 import {
   amountDueOnline,
+  bookingCosts,
   type BookingFormErrors,
   type BookingFormValues,
   emptyParticipant,
@@ -124,6 +126,7 @@ export default function BookingFormPage() {
     : Math.min(...trails.map((trail) => trail.package.maximumParticipants))
   const maxAdditional = maxParticipants - 1
   const groupSize = 1 + values.additionalParticipants.length
+  const costs = selectedTrail ? bookingCosts(selectedTrail, groupSize) : null
   const today = todayLocalIso()
   const closureOnDate =
     selectedTrail && values.scheduledDate
@@ -486,12 +489,12 @@ export default function BookingFormPage() {
             <legend className="px-1 text-sm font-bold text-[#173a2e]">
               Payment
             </legend>
-            {selectedTrail ? (
+            {selectedTrail && costs ? (
               <>
                 <p className="mt-1 text-sm text-[#52675e]">
                   Pay the {selectedTrail.paymentRequirement.downpaymentPercent}%
                   downpayment now and the rest in cash at check-in, or pay the
-                  full package now.
+                  full amount now.
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   {(
@@ -499,13 +502,13 @@ export default function BookingFormPage() {
                       {
                         option: 'DOWNPAYMENT',
                         title: `${selectedTrail.paymentRequirement.downpaymentPercent}% downpayment`,
-                        amount: selectedTrail.paymentRequirement.amount,
-                        note: `${formatMoney({ amount: selectedTrail.package.price.amount - selectedTrail.paymentRequirement.amount, currency: selectedTrail.package.price.currency })} cash balance at check-in`,
+                        amount: costs.downpayment,
+                        note: `${formatMoney({ amount: costs.total - costs.downpayment, currency: selectedTrail.package.price.currency })} cash balance at check-in`,
                       },
                       {
                         option: 'FULL',
                         title: 'Full payment',
-                        amount: selectedTrail.paymentRequirement.fullAmount,
+                        amount: costs.total,
                         note: 'Nothing to pay at check-in',
                       },
                     ] as const
@@ -551,7 +554,7 @@ export default function BookingFormPage() {
                     <GcashPaymentPanel
                       amount={{
                         amount: amountDueOnline(
-                          selectedTrail,
+                          costs,
                           values.paymentOption,
                         ),
                         currency: selectedTrail.paymentRequirement.currency,
@@ -583,7 +586,7 @@ export default function BookingFormPage() {
 
         <aside className="rounded-2xl border border-[#d5e1da] bg-white p-6 lg:sticky lg:top-6">
           <h2 className="text-sm font-bold text-[#173a2e]">Summary</h2>
-          {selectedTrail ? (
+          {selectedTrail && costs ? (
             <dl className="mt-4 grid gap-3 text-sm">
               <div className="flex justify-between gap-3">
                 <dt className="text-[#70857b]">Trail</dt>
@@ -603,6 +606,11 @@ export default function BookingFormPage() {
                   {formatMoney(selectedTrail.package.price)}
                 </dd>
               </div>
+              <BookingFeeRows
+                currency={selectedTrail.package.price.currency}
+                fees={costs.fees}
+                total={costs.total}
+              />
               <div className="flex justify-between gap-3">
                 <dt className="text-[#70857b]">
                   {values.paymentOption === 'FULL'
@@ -612,7 +620,7 @@ export default function BookingFormPage() {
                 <dd className="font-bold text-[#006b43]">
                   {formatMoney({
                     amount: amountDueOnline(
-                      selectedTrail,
+                      costs,
                       values.paymentOption || 'DOWNPAYMENT',
                     ),
                     currency: selectedTrail.paymentRequirement.currency,
@@ -624,9 +632,9 @@ export default function BookingFormPage() {
                 <dd className="font-semibold text-[#173a2e]">
                   {formatMoney({
                     amount:
-                      selectedTrail.package.price.amount -
+                      costs.total -
                       amountDueOnline(
-                        selectedTrail,
+                        costs,
                         values.paymentOption || 'DOWNPAYMENT',
                       ),
                     currency: selectedTrail.package.price.currency,

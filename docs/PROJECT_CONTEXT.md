@@ -690,9 +690,13 @@ Guide assignment: automatic after check-in, based on guide availability
 
 Package rules for every supported trail: one booking/package, one guide, up to 5 participants including the booking owner, 50% downpayment
 Sulfatara package price: ₱550
-Sulfatara downpayment: ₱275
+Sulfatara fees: ₱20 garbage + ₱30 environmental + ₱50 entrance per participant
+Sulfatara total: ₱650 for one participant, ₱850 for five
+Sulfatara downpayment: 50% of the total (₱325 for one participant, ₱425 for five)
 Mt. Malingatong package price: ₱680
-Mt. Malingatong downpayment: ₱340
+Mt. Malingatong fees: ₱20 garbage + ₱30 environmental + ₱50 entrance per participant
+Mt. Malingatong total: ₱780 for one participant, ₱980 for five
+Mt. Malingatong downpayment: 50% of the total (₱390 for one participant, ₱490 for five)
 For every supported trail, participants 1 through 5 pay that trail’s full package price
 ```
 
@@ -702,7 +706,7 @@ The booking owner provides their own information and may list other participants
 
 Groups exceeding five require additional package/guide arrangements. Exact grouping for 6–10 or larger groups, whether each additional group is capped at five, whether each package requires a guide, independent payment, multiple-package pricing, and database representation are **TBD**. Differences between booked guests and actual arrivals at check-in follow the rules in §5.2: booked 5/arrived 3 marks absentees, booked 3/arrived 5 adds walk-ins, and booked 3/arrived 7 checks in at most 5. The arrangement for the extra people remains **TBD**.
 
-Every supported trail requires a 50% downpayment calculated from that selected trail’s package price. Sulfatara’s ₱550 price therefore requires ₱275, and Mt. Malingatong’s ₱680 price requires ₱340. When booking, the hiker chooses to pay either the 50% downpayment or the full package price by GCash (QR code or manual transfer to the tourism office account) and must upload a screenshot of the GCash receipt. With the downpayment option, the remaining balance is paid in cash at check-in, where the coordinator records it. A coordinator views the screenshot and either accepts it (confirming the booking) or rejects it with a reason; the hiker then uploads a new screenshot. This runs in **test mode** for now: no money moves through TrailSync, any image is accepted as a receipt, and the GCash account details and QR code are placeholders until the tourism office provides its real account. Payment deadline, refund rules, and an automated payment provider remain **TBD**.
+Every supported trail requires a 50% downpayment calculated from that selected trail’s package price. Both trails add fees to their package price (₱550 for Sulfatara, ₱680 for Mt. Malingatong): ₱20 garbage, ₱30 environmental, and ₱50 entrance per participant. The downpayment is 50% of that total. When booking, the hiker chooses to pay either the 50% downpayment or the full package price by GCash (QR code or manual transfer to the tourism office account) and must upload a screenshot of the GCash receipt. With the downpayment option, the remaining balance is paid in cash at check-in, where the coordinator records it. A coordinator views the screenshot and either accepts it (confirming the booking) or rejects it with a reason; the hiker then uploads a new screenshot. This runs in **test mode** for now: no money moves through TrailSync, any image is accepted as a receipt, and the GCash account details and QR code are placeholders until the tourism office provides its real account. Payment deadline, refund rules, and an automated payment provider remain **TBD**.
 
 Daily booking/visitor capacity is determined operationally by the Tourism Officer and is also constrained by available guide capacity. No fixed numeric capacity is confirmed. The formal capacity rule and the relationship between visitor capacity, group/package capacity, and guide availability are **TBD**.
 
@@ -1697,7 +1701,7 @@ The following are currently **confirmed**:
 - Physical check-in, coordinator review, and guide assignment are common workflow concepts; per-trail operating differences need confirmation.
 - One booking represents one trekking group/package in the existing contract.
 - Every supported trail has one guide per package and a five-participant maximum including the owner. Participants one through five pay the selected trail’s full package price.
-- Sulfatara costs ₱550 (₱275 downpayment) and Mt. Malingatong costs ₱680 (₱340 downpayment). Other trail prices are set when those trails are approved. Larger-group rules remain TBD.
+- Sulfatara costs ₱550 and Mt. Malingatong costs ₱680, each plus ₱20 garbage, ₱30 environmental, and ₱50 entrance per participant, with a 50% downpayment on the total. Other trail prices are set when those trails are approved. Larger-group rules remain TBD.
 - Guide assignment occurs at physical check-in from the FIFO queue of `AVAILABLE` guides (§5.2–5.3). Hikers do not choose guides under the established flow.
 - Group tracking is based on the assigned guide's device rather than individual hiker devices.
 
@@ -2063,7 +2067,7 @@ Do not invent:
 
 when the actual rule has not been confirmed.
 
-The confirmed shared package rules are one guide, up to five participants including the owner, and a 50% downpayment. Participants one through five pay the full price for their selected trail. Sulfatara costs ₱550, with a ₱275 downpayment, and Mt. Malingatong costs ₱680, with a ₱340 downpayment; other approved trails may have different prices.
+The confirmed shared package rules are one guide, up to five participants including the owner, and a 50% downpayment. Participants one through five pay the full price for their selected trail. Sulfatara costs ₱550 and Mt. Malingatong costs ₱680, each plus fees (₱20 garbage, ₱30 environmental, ₱50 entrance per participant), with a 50% downpayment on the total; other approved trails may have different prices.
 
 If a rule is not confirmed, use:
 

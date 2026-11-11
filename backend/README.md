@@ -93,7 +93,8 @@ the trail's `packagePrice` and its 50% downpayment onto the booking, so later
 price changes do not affect existing bookings.
 
 The active catalog trails are Sulfatara (`trl_sulfatara`, ₱550) and Mt. Malingatong
-(`trl_mt_malingatong`, ₱680).
+(`trl_mt_malingatong`, ₱680). Both add ₱20 garbage, ₱30 environmental and ₱50
+entrance per participant, snapshotted on each booking.
 Lake Janagdan (`trl_lake_janagdan`) was retired (`isActive = false`).
 There is no trail admin API. To add a trail, create a migration that inserts a
 row with verified data:

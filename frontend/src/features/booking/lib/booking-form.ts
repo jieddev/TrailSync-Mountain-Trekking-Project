@@ -63,11 +63,30 @@ export function validateReceipt(
   return errors
 }
 
+// Mirrors pricingFor in backend/src/lib/package-policy.ts, which sets the
+// amounts actually charged.
+export function bookingCosts(trail: Trail, groupSize: number) {
+  const fees = {
+    garbage: trail.fees.garbage,
+    environmental: trail.fees.environmental,
+    entrance: trail.fees.entrancePerPerson * groupSize,
+  }
+  const total =
+    trail.package.price.amount +
+    fees.garbage +
+    fees.environmental +
+    fees.entrance
+  const downpayment = Math.round(
+    (total * trail.paymentRequirement.downpaymentPercent) / 100,
+  )
+  return { fees, total, downpayment }
+}
+
+type BookingCosts = ReturnType<typeof bookingCosts>
+
 // What the hiker sends by GCash now for the chosen option.
-export function amountDueOnline(trail: Trail, option: PaymentOption) {
-  return option === 'FULL'
-    ? trail.paymentRequirement.fullAmount
-    : trail.paymentRequirement.amount
+export function amountDueOnline(costs: BookingCosts, option: PaymentOption) {
+  return option === 'FULL' ? costs.total : costs.downpayment
 }
 
 export const emptyParticipant: ParticipantFormValues = {

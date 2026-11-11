@@ -2,7 +2,7 @@ import { Router, type Response } from "express";
 import { CURRENT_WAIVER_VERSION } from "../lib/agreements.js";
 import { fail, type ErrorDetail as Details } from "../lib/http-errors.js";
 import { bookingInclude, withTrailRestriction, withTrailRestrictions } from "../lib/booking-representation.js";
-import { MAX_PARTICIPANTS, MIN_BOOKING_OWNER_AGE, MIN_PARTICIPANT_AGE, PAYMENT_OPTIONS, amountDueOnline, downpaymentFor, isPaymentOption } from "../lib/package-policy.js";
+import { MAX_PARTICIPANTS, MIN_BOOKING_OWNER_AGE, MIN_PARTICIPANT_AGE, PAYMENT_OPTIONS, amountDueOnline, isPaymentOption, pricingFor } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
 import { deleteReceiptFile, parseReceiptSubmission, receiptUpload, saveReceiptFile, sendReceiptFile } from "../lib/receipt-upload.js";
 import { activeRestriction } from "../lib/trail-restrictions.js";
@@ -105,10 +105,10 @@ bookingsRouter.post("/", receiptUpload, async (request, response) => {
     if (details.length || "details" in submission) return validation(response, details);
     const paymentOption = body.paymentOption as "DOWNPAYMENT" | "FULL";
 
-    const trail = await prisma.trail.findFirst({ where: { id: body.trailId as string, isActive: true }, select: { id: true, packagePrice: true } });
+    const trail = await prisma.trail.findFirst({ where: { id: body.trailId as string, isActive: true }, select: { id: true, packagePrice: true, garbageFee: true, environmentalFee: true, entranceFeePerPerson: true } });
     if (!trail) return validation(response, [{ field: "trailId", code: "UNSUPPORTED_TRAIL", message: "Select a supported trail." }]);
 
-    const downpaymentAmount = downpaymentFor(trail.packagePrice);
+    const { totalAmount: _totalAmount, ...pricing } = pricingFor(trail, 1 + (additional as unknown[]).length);
     storedFileName = await saveReceiptFile(submission.receipt);
     const receiptFile = { storedFileName, mimeType: submission.receipt.mimeType, sizeBytes: submission.receipt.sizeBytes };
     const booking = await prisma.$transaction(async (tx) => {
@@ -120,12 +120,12 @@ bookingsRouter.post("/", receiptUpload, async (request, response) => {
           scheduledDate: body.scheduledDate as string,
           scheduledTime: body.scheduledTime as string,
           packagePrice: trail.packagePrice,
-          downpaymentAmount,
+          ...pricing,
           paymentOption,
           status: "PENDING_CONFIRMATION",
           downpaymentStatus: "PENDING_VERIFICATION",
           paymentReceipts: { create: [{
-            amount: amountDueOnline({ packagePrice: trail.packagePrice, downpaymentAmount, paymentOption }),
+            amount: amountDueOnline({ packagePrice: trail.packagePrice, ...pricing, paymentOption }),
             referenceNumber: submission.receipt.referenceNumber,
             ...receiptFile,
           }] },
@@ -266,7 +266,7 @@ bookingsRouter.post("/:bookingId/payment-receipt", receiptUpload, async (request
     const bookingId = request.params.bookingId as string;
     const owned = await prisma.booking.findFirst({
       where: { id: bookingId, ownerId: profile.id },
-      select: { status: true, downpaymentStatus: true, packagePrice: true, downpaymentAmount: true, paymentOption: true },
+      select: { status: true, downpaymentStatus: true, packagePrice: true, garbageFee: true, environmentalFee: true, entranceFee: true, downpaymentAmount: true, paymentOption: true },
     });
     if (!owned) return fail(response, 404, "BOOKING_NOT_FOUND", "Booking was not found.");
     const uploadNotAllowed = () => fail(response, 409, "RECEIPT_UPLOAD_NOT_ALLOWED", "A new receipt can be uploaded only after the coordinator rejects the last one.");

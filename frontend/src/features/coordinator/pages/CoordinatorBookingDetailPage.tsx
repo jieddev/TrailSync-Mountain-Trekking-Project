@@ -14,6 +14,7 @@ import {
   resendCertificates,
   type CoordinatorBooking,
 } from '../../../lib/coordinator-api'
+import BookingFeeRows from '../../booking/components/BookingFeeRows'
 import BookingRestrictionNotice from '../../booking/components/BookingRestrictionNotice'
 import PageHeader from '../../booking/components/PageHeader'
 import PaymentReceiptList from '../../booking/components/PaymentReceiptList'
@@ -387,6 +388,11 @@ export default function CoordinatorBookingDetailPage() {
                   {formatMoney(booking.package.price)}
                 </dd>
               </div>
+              <BookingFeeRows
+                currency={booking.payment.currency}
+                fees={booking.payment.fees}
+                total={booking.payment.totalAmount}
+              />
               <div className="flex justify-between gap-3">
                 <dt className="text-[#70857b]">Paid by GCash</dt>
                 <dd className="font-bold text-[#006b43]">

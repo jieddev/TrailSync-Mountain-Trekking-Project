@@ -31,9 +31,18 @@ export type PaymentReceipt = {
   createdAt: string
 }
 
+// Snapshotted on the booking; entrance is the total for the booked group.
+export type BookingFees = {
+  garbage: number
+  environmental: number
+  entrance: number
+}
+
 export type BookingPayment = {
   option: PaymentOption
   currency: string
+  fees: BookingFees
+  totalAmount: number
   amountDueOnline: number
   balanceDueOnSite: number
   balanceCollectedAt: string | null
