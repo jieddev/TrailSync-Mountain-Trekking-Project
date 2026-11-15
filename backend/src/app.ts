@@ -6,9 +6,10 @@ import { CURRENT_TERMS_VERSION } from "./lib/agreements.js";
 import { VERIFIED_WINDOW_MS } from "./lib/email-verification.js";
 import { httpLogger, logger, type AppLogger } from "./lib/logger.js";
 import { MIN_BOOKING_OWNER_AGE } from "./lib/package-policy.js";
+import { composeFullName, parseNameParts } from "./lib/person-name.js";
 import { prisma } from "./lib/prisma.js";
 import { isPrismaUniqueConstraintError } from "./lib/prisma-errors.js";
-import { validAge } from "./lib/validation.js";
+import { asObject, validAge } from "./lib/validation.js";
 import { bookingsRouter } from "./routes/bookings.js";
 import { coordinatorAnalyticsRouter } from "./routes/coordinator-analytics.js";
 import { coordinatorBookingsRouter } from "./routes/coordinator-bookings.js";
@@ -68,18 +69,19 @@ const requestId = (request: Request): string | undefined =>
 
 app.post("/users", requireFirebaseAuth, async (request, response) => {
   const log = requestLogger(request);
-  const { fullName, age, acceptedTermsVersion } = request.body as Record<string, unknown>;
+  const body = asObject(request.body);
+  const { age, acceptedTermsVersion } = body;
   const { authUser } = request as AuthenticatedRequest;
 
-  if (typeof fullName !== "string" || !fullName.trim()) {
+  // The name comes in parts; fullName is built here and never taken from the client.
+  const name = parseNameParts(body);
+  if ("error" in name) {
     log.warn(
       { requestId: requestId(request) },
-      "User profile creation rejected because full name was missing",
+      "User profile creation rejected because a name part was missing or invalid",
     );
 
-    return response.status(400).json({
-      message: "fullName is required and must be a non-empty string.",
-    });
+    return response.status(400).json({ message: name.error });
   }
 
   if (!validAge(age) || age < MIN_BOOKING_OWNER_AGE) {
@@ -144,7 +146,8 @@ app.post("/users", requireFirebaseAuth, async (request, response) => {
       prisma.user.create({
         data: {
           firebaseUid: authUser.firebaseUid,
-          fullName: fullName.trim(),
+          ...name.parts,
+          fullName: composeFullName(name.parts),
           age,
           email,
           termsAcceptedAt: new Date(),
@@ -207,6 +210,10 @@ app.get(["/users/me", "/api/v1/users/me"], requireFirebaseAuth, async (request, 
       select: {
         id: true,
         fullName: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        suffix: true,
         email: true,
         age: true,
         role: true,

@@ -5,13 +5,23 @@ export { ApiError }
 type CreateUserInput = {
   acceptedTermsVersion: string
   age: number
-  fullName: string
+  firstName: string
+  // Blank is saved as no middle name / no suffix.
+  middleName: string
+  lastName: string
+  suffix: string
   idToken: string
 }
 
 export type CurrentUserProfile = {
   id: string
+  // Built by the backend from the name parts.
   fullName: string
+  // Null for accounts made before sign-up asked for name parts, and for guides.
+  firstName: string | null
+  middleName: string | null
+  lastName: string | null
+  suffix: string | null
   email: string
   // Null for accounts made before registration asked for it; they cannot book.
   age: number | null

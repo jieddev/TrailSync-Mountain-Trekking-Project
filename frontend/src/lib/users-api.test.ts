@@ -9,6 +9,10 @@ describe('getCurrentUserProfile', () => {
     const profile = {
       id: 'profile-1',
       fullName: 'Mark Jasper',
+      firstName: 'Mark',
+      middleName: null,
+      lastName: 'Jasper',
+      suffix: null,
       email: 'mark@example.com',
       age: 28,
       role: 'HIKER',

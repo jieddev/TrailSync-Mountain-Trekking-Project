@@ -66,7 +66,11 @@ describe('POST /users', () => {
       .send({
         email: 'attacker@example.com',
         firebaseUid: 'attacker-uid',
-        fullName: ' Trail Hiker ',
+        fullName: 'Forged Name',
+        firstName: ' Juan ',
+        middleName: 'Santos',
+        lastName: 'Dela  Cruz',
+        suffix: 'Jr.',
         age: 28,
         role: 'COORDINATOR',
         acceptedTermsVersion: CURRENT_TERMS_VERSION,
@@ -77,7 +81,11 @@ describe('POST /users', () => {
       data: {
         email: 'hiker@example.com',
         firebaseUid: 'firebase-hiker-uid',
-        fullName: 'Trail Hiker',
+        firstName: 'Juan',
+        middleName: 'Santos',
+        lastName: 'Dela Cruz',
+        suffix: 'Jr.',
+        fullName: 'Juan Santos Dela Cruz Jr.',
         age: 28,
         termsAcceptedAt: expect.any(Date),
         termsVersion: CURRENT_TERMS_VERSION,
@@ -93,7 +101,7 @@ describe('POST /users', () => {
   it('rejects a request without a bearer token', async () => {
     const response = await request(app)
       .post('/users')
-      .send({ fullName: 'Trail Hiker' });
+      .send({ firstName: 'Trail', lastName: 'Hiker' });
 
     expect(response.status).toBe(401);
     expect(verifyIdToken).not.toHaveBeenCalled();
@@ -105,7 +113,7 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer invalid-token')
-      .send({ fullName: 'Trail Hiker' });
+      .send({ firstName: 'Trail', lastName: 'Hiker' });
 
     expect(response.status).toBe(401);
   });
@@ -116,13 +124,21 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: 'Trail Hiker' });
+      .send({ firstName: 'Trail', lastName: 'Hiker' });
 
     expect(response.status).toBe(400);
     expect(createUser).not.toHaveBeenCalled();
   });
 
-  it('rejects a missing profile name', async () => {
+  it.each([
+    ['first name is missing', { lastName: 'Dela Cruz' }, 'firstName is required'],
+    ['first name is blank', { firstName: '   ', lastName: 'Dela Cruz' }, 'firstName is required'],
+    ['last name is missing', { firstName: 'Juan' }, 'lastName is required'],
+    ['only fullName is sent', { fullName: 'Juan Dela Cruz' }, 'firstName is required'],
+    ['middle name is not text', { firstName: 'Juan', lastName: 'Dela Cruz', middleName: 5 }, 'middleName must be a string'],
+    ['first name is too long', { firstName: 'J'.repeat(51), lastName: 'Dela Cruz' }, 'firstName must be at most 50'],
+    ['suffix is too long', { firstName: 'Juan', lastName: 'Dela Cruz', suffix: 'S'.repeat(11) }, 'suffix must be at most 10'],
+  ])('rejects a profile when the %s', async (_label, name, message) => {
     verifyIdToken.mockResolvedValue({
       email: 'hiker@example.com',
       uid: 'firebase-hiker-uid',
@@ -131,10 +147,42 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: '   ' });
+      .send({ ...name, age: 28, acceptedTermsVersion: CURRENT_TERMS_VERSION });
 
     expect(response.status).toBe(400);
+    expect(response.body.message).toContain(message);
     expect(createUser).not.toHaveBeenCalled();
+  });
+
+  it('saves a blank middle name and suffix as null', async () => {
+    verifyIdToken.mockResolvedValue({
+      email: 'hiker@example.com',
+      uid: 'firebase-hiker-uid',
+    } as never);
+    createUser.mockResolvedValue({ id: 'user-id', role: 'HIKER' } as never);
+
+    const response = await request(app)
+      .post('/users')
+      .set('Authorization', 'Bearer valid-token')
+      .send({
+        firstName: 'Maria Clara',
+        middleName: '  ',
+        lastName: 'Reyes',
+        suffix: '',
+        age: 28,
+        acceptedTermsVersion: CURRENT_TERMS_VERSION,
+      });
+
+    expect(response.status).toBe(201);
+    expect(createUser).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        firstName: 'Maria Clara',
+        middleName: null,
+        lastName: 'Reyes',
+        suffix: null,
+        fullName: 'Maria Clara Reyes',
+      }),
+    });
   });
 
   it.each([
@@ -151,7 +199,7 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: 'Trail Hiker', age, acceptedTermsVersion: CURRENT_TERMS_VERSION });
+      .send({ firstName: 'Trail', lastName: 'Hiker', age, acceptedTermsVersion: CURRENT_TERMS_VERSION });
 
     expect(response.status).toBe(400);
     expect(createUser).not.toHaveBeenCalled();
@@ -169,7 +217,7 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: 'Trail Hiker', age: 28, acceptedTermsVersion });
+      .send({ firstName: 'Trail', lastName: 'Hiker', age: 28, acceptedTermsVersion });
 
     expect(response.status).toBe(400);
     expect(createUser).not.toHaveBeenCalled();
@@ -186,7 +234,8 @@ describe('POST /users', () => {
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
       .send({
-        fullName: 'Trail Hiker',
+        firstName: 'Trail',
+        lastName: 'Hiker',
         age: 28,
         acceptedTermsVersion: CURRENT_TERMS_VERSION,
       });
@@ -204,7 +253,7 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: 'Trail Hiker', age: 28, acceptedTermsVersion: CURRENT_TERMS_VERSION });
+      .send({ firstName: 'Trail', lastName: 'Hiker', age: 28, acceptedTermsVersion: CURRENT_TERMS_VERSION });
 
     expect(response.status).toBe(201);
     expect(findVerification).toHaveBeenCalledWith({ where: { email: 'hiker@example.com' } });
@@ -228,7 +277,7 @@ describe('POST /users', () => {
     const response = await request(app)
       .post('/users')
       .set('Authorization', 'Bearer valid-token')
-      .send({ fullName: 'Trail Hiker', age: 28, acceptedTermsVersion: CURRENT_TERMS_VERSION });
+      .send({ firstName: 'Trail', lastName: 'Hiker', age: 28, acceptedTermsVersion: CURRENT_TERMS_VERSION });
 
     expect(response.status).toBe(403);
     expect(response.body.code).toBe('EMAIL_NOT_VERIFIED');
@@ -249,6 +298,10 @@ describe('GET /users/me', () => {
     findUniqueUser.mockResolvedValue({
       email: 'hiker@example.com',
       fullName: 'Trail Hiker',
+      firstName: 'Trail',
+      middleName: null,
+      lastName: 'Hiker',
+      suffix: null,
       age: 28,
       id: 'user-id',
       role: 'HIKER',
@@ -266,6 +319,10 @@ describe('GET /users/me', () => {
     expect(response.body).toEqual({
       email: 'hiker@example.com',
       fullName: 'Trail Hiker',
+      firstName: 'Trail',
+      middleName: null,
+      lastName: 'Hiker',
+      suffix: null,
       age: 28,
       id: 'user-id',
       role: 'HIKER',
@@ -275,6 +332,10 @@ describe('GET /users/me', () => {
       select: {
         id: true,
         fullName: true,
+        firstName: true,
+        middleName: true,
+        lastName: true,
+        suffix: true,
         email: true,
         age: true,
         role: true,

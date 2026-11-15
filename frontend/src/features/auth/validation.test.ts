@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  composeFullName,
   getPasswordStrength,
   validateLoginForm,
   validateOtpCode,
@@ -52,7 +53,10 @@ describe('validateRegisterForm', () => {
   const validValues = {
     confirmPassword: 'TrailSync1!',
     email: 'hiker@example.com',
-    fullName: 'Trail Hiker',
+    firstName: 'Trail',
+    middleName: '',
+    lastName: 'Hiker',
+    suffix: '',
     age: '28',
     password: 'TrailSync1!',
     acceptedTerms: true,
@@ -103,6 +107,33 @@ describe('validateRegisterForm', () => {
     ).toEqual({ confirmPassword: 'Passwords do not match.' })
   })
 
+  it('accepts a middle name and suffix but does not require them', () => {
+    expect(
+      validateRegisterForm({
+        ...validValues,
+        middleName: 'Santos',
+        suffix: 'Jr.',
+      }),
+    ).toEqual({})
+  })
+
+  it('limits the length of each name part', () => {
+    expect(
+      validateRegisterForm({
+        ...validValues,
+        firstName: 'J'.repeat(51),
+        middleName: 'M'.repeat(51),
+        lastName: 'C'.repeat(51),
+        suffix: 'S'.repeat(11),
+      }),
+    ).toEqual({
+      firstName: 'First name must be at most 50 characters.',
+      middleName: 'Middle name must be at most 50 characters.',
+      lastName: 'Last name must be at most 50 characters.',
+      suffix: 'Suffix must be at most 10 characters.',
+    })
+  })
+
   it('requires agreeing to the Terms of Use and Privacy Policy', () => {
     expect(
       validateRegisterForm({ ...validValues, acceptedTerms: false }),
@@ -117,7 +148,10 @@ describe('validateRegisterForm', () => {
       validateRegisterForm({
         confirmPassword: '',
         email: 'invalid-email',
-        fullName: '   ',
+        firstName: '   ',
+        middleName: '',
+        lastName: '',
+        suffix: '',
         age: '',
         password: '',
         acceptedTerms: false,
@@ -128,7 +162,8 @@ describe('validateRegisterForm', () => {
         'Confirm you are 18 or older and agree to the Terms of Use and Privacy Policy.',
       confirmPassword: 'Confirm your password.',
       email: 'Enter a valid email address.',
-      fullName: 'Enter your full name.',
+      firstName: 'Enter your first name.',
+      lastName: 'Enter your last name.',
       password: 'Password must be at least 8 characters',
     })
   })
@@ -145,5 +180,26 @@ describe('validateOtpCode', () => {
 
   it.each(['12345', '1234567', '12a456'])('rejects %j', (code) => {
     expect(validateOtpCode(code)).toBe('The code is 6 digits.')
+  })
+})
+
+describe('composeFullName', () => {
+  it('joins the parts that are present, in order', () => {
+    expect(
+      composeFullName({
+        firstName: ' Juan ',
+        middleName: 'Santos',
+        lastName: 'Dela  Cruz',
+        suffix: 'Jr.',
+      }),
+    ).toBe('Juan Santos Dela Cruz Jr.')
+    expect(
+      composeFullName({
+        firstName: 'Maria Clara',
+        middleName: '',
+        lastName: 'Reyes',
+        suffix: ' ',
+      }),
+    ).toBe('Maria Clara Reyes')
   })
 })
