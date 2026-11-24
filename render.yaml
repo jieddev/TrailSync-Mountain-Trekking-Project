@@ -1,0 +1,78 @@
+# Render Blueprint: the web app and the API on Render's free plan.
+# Render dashboard > New > Blueprint > pick this repo. Values marked
+# `sync: false` are asked for once during setup. See docs/DEPLOYMENT.md.
+# The database is on Neon (Render's free Postgres is deleted after 30 days).
+services:
+  - type: web
+    name: trailsync-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    # --include=dev: tsx and prisma are dev dependencies and NODE_ENV is production.
+    buildCommand: npm ci --include=dev && npx prisma generate && npx prisma migrate deploy
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_PRETTY
+        value: "false"
+      # Neon's direct (not -pooler) connection string, ending in ?sslmode=require.
+      - key: DATABASE_URL
+        sync: false
+      # The web app's URL, e.g. https://trailsync-web.onrender.com (no trailing slash).
+      - key: CORS_ORIGIN
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      # Paste the private key on one line with \n for line breaks, as in .env.
+      - key: FIREBASE_PRIVATE_KEY
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      # A sender verified in Brevo, e.g. TrailSync <you@gmail.com>.
+      - key: MAIL_FROM
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: GCASH_ACCOUNT_NAME
+        sync: false
+      - key: GCASH_ACCOUNT_NUMBER
+        sync: false
+
+  - type: web
+    name: trailsync-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci --include=dev && npm run build
+    staticPublishPath: dist
+    autoDeploy: true
+    # React Router: every path loads the app.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # The API's URL, e.g. https://trailsync-api.onrender.com (no trailing slash).
+      - key: VITE_API_BASE_URL
+        sync: false
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false
+      - key: VITE_GOOGLE_MAPS_API_KEY
+        sync: false

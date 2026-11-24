@@ -29,9 +29,12 @@ The health check is available at `GET /health`.
 
 When a trek is completed, each hiker gets a PDF certificate by email
 (`src/lib/certificates.ts`). The template and fonts are in
-`assets/certificates/`, matching the guide app's certificate card. Set
-`SMTP_USER`, `SMTP_PASS` (a Gmail app password) and `MAIL_FROM` in `.env`.
-Without `SMTP_USER`, emails are only logged.
+`assets/certificates/`, matching the guide app's certificate card.
+
+Mail goes through Brevo's HTTP API when `BREVO_API_KEY` is set (production:
+Render's free tier blocks SMTP), otherwise through SMTP when `SMTP_USER` is set
+(`SMTP_PASS` is a Gmail app password). `MAIL_FROM` is the sender. With neither,
+emails are only logged. See `docs/DEPLOYMENT.md`.
 
 ## Weather
 

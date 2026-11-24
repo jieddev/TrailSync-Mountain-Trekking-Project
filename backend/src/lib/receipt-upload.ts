@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, rm, unlink, writeFile } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import path from "node:path";
 import type { NextFunction, Request, Response } from "express";
 import multer from "multer";
@@ -61,20 +61,21 @@ export function parseReceiptSubmission(file: Express.Multer.File | undefined, re
   return { receipt: { buffer: file.buffer, mimeType: type.mimeType, extension: type.extension, sizeBytes: file.size, referenceNumber: reference || null } };
 }
 
-export async function saveReceiptFile(receipt: ReceiptSubmission) {
-  const directory = receiptsDir();
-  await mkdir(directory, { recursive: true });
-  const storedFileName = `${randomUUID()}.${receipt.extension}`;
-  await writeFile(path.join(directory, storedFileName), receipt.buffer, { flag: "wx" });
-  return storedFileName;
+// The receipt row's file fields. The image goes into the database, not the
+// disk, because hosts such as Render's free tier wipe the disk on restart.
+export function receiptFileData(receipt: ReceiptSubmission) {
+  return {
+    storedFileName: `${randomUUID()}.${receipt.extension}`,
+    mimeType: receipt.mimeType,
+    sizeBytes: receipt.sizeBytes,
+    file: { create: { data: new Uint8Array(receipt.buffer) } },
+  };
 }
 
-export async function deleteReceiptFile(storedFileName: string) {
-  await unlink(receiptFilePath(storedFileName)).catch((error: NodeJS.ErrnoException) => {
-    if (error.code !== "ENOENT") throw error;
-  });
-}
+// Selects what sendReceiptFile needs.
+export const receiptFileSelect = { storedFileName: true, mimeType: true, file: { select: { data: true } } } as const;
 
+// Receipts uploaded before images moved into the database still live on disk.
 export async function deleteAllReceiptFiles() {
   await rm(receiptsDir(), { recursive: true, force: true });
 }
@@ -83,12 +84,15 @@ export function receiptFilePath(storedFileName: string) {
   return path.join(receiptsDir(), path.basename(storedFileName));
 }
 
-// Streams a stored screenshot. It is never cached and never sniffed as another type.
-export function sendReceiptFile(response: Response, receipt: { storedFileName: string; mimeType: string }) {
+type StoredReceipt = { storedFileName: string; mimeType: string; file?: { data: Uint8Array } | null };
+
+// Sends a stored screenshot. It is never cached and never sniffed as another type.
+export function sendReceiptFile(response: Response, receipt: StoredReceipt) {
   response.setHeader("Content-Type", receipt.mimeType);
   response.setHeader("Cache-Control", "private, no-store");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Content-Disposition", "inline");
+  if (receipt.file) return response.status(200).end(Buffer.from(receipt.file.data));
   return response.sendFile(receiptFilePath(receipt.storedFileName), (error) => {
     if (!error || response.headersSent) return;
     response.removeHeader("Content-Type");

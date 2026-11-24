@@ -194,7 +194,7 @@ Agreed approach: weather is advisory only; a coordinator closes a trail by hand.
 ## 9. Certificates and analytics 🟡
 
 - [x] PDF completion certificate for each participant (`pdf-lib`, `backend/src/lib/certificate-pdf.ts`):
-  - emailed over SMTP when the trek is completed by the guide or the coordinator (`backend/src/lib/certificates.ts`, `mailer.ts`)
+  - emailed (Brevo API or SMTP) when the trek is completed by the guide or the coordinator (`backend/src/lib/certificates.ts`, `mailer.ts`)
   - absent participants are skipped
   - `certificateSentAt` stops a second send
   - the coordinator can resend from the booking detail

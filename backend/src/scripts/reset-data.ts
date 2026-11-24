@@ -30,7 +30,7 @@ async function main() {
   }));
   console.table(counts);
   await deleteAllReceiptFiles();
-  console.log("Deleted the uploaded receipt screenshots.");
+  console.log("Deleted receipt screenshots left on disk from before they moved into the database.");
 
   const [users, trails] = await Promise.all([prisma.user.count(), prisma.trail.count()]);
   console.log(`Kept ${users} users and ${trails} trails.`);

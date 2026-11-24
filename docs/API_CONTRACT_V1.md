@@ -82,7 +82,7 @@ A new hiker proves they own their email before the account exists. The web sign-
 - After **5** wrong tries the code is locked, and the hiker must request a new one.
 - A verified email may be used by `POST /users` for **30 minutes**. The verification is deleted once the profile is created.
 - Emails are normalized (trimmed, lowercased) the same way as `POST /users`.
-- Without `SMTP_USER`, no email is sent and the code is written to the server log (dev and tests only).
+- Without `BREVO_API_KEY` or `SMTP_USER`, no email is sent and the code is written to the server log (dev and tests only).
 
 Rules live in `backend/src/lib/email-verification.ts`.
 
