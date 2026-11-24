@@ -8,7 +8,7 @@ import { fail, type ErrorDetail } from "../lib/http-errors.js";
 import { manilaToday } from "../lib/manila-date.js";
 import { MAX_PARTICIPANTS, balanceDueOnSite } from "../lib/package-policy.js";
 import { prisma } from "../lib/prisma.js";
-import { sendReceiptFile } from "../lib/receipt-upload.js";
+import { receiptFileSelect, sendReceiptFile } from "../lib/receipt-upload.js";
 import { activeRestriction } from "../lib/trail-restrictions.js";
 import { asObject, nonblank, optionalEmail, validAge, validOptionalEmail } from "../lib/validation.js";
 import { requireFirebaseAuth } from "../middleware/require-firebase-auth.js";
@@ -271,7 +271,7 @@ coordinatorBookingsRouter.get("/:bookingId/payment-receipts/:receiptId/file", as
   try {
     const receipt = await prisma.paymentReceipt.findFirst({
       where: { id: request.params.receiptId, bookingId: request.params.bookingId },
-      select: { storedFileName: true, mimeType: true },
+      select: receiptFileSelect,
     });
     if (!receipt) return fail(response, 404, "RECEIPT_NOT_FOUND", "Receipt was not found.");
     return sendReceiptFile(response, receipt);

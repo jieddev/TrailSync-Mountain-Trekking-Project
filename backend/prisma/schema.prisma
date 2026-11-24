@@ -256,9 +256,20 @@ model PaymentReceipt {
   reviewedById    String?
   reviewedBy      User?         @relation("PaymentReceiptReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   createdAt       DateTime      @default(now())
+  file            PaymentReceiptFile?
 
   @@index([bookingId, createdAt])
   @@map("payment_receipts")
+}
+
+// The screenshot bytes, kept apart so loading receipts never loads the images.
+// Hosts like Render's free tier wipe the disk, so the database holds them.
+model PaymentReceiptFile {
+  receiptId String         @id
+  receipt   PaymentReceipt @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  data      Bytes
+
+  @@map("payment_receipt_files")
 }
 
 enum IncidentStatus {

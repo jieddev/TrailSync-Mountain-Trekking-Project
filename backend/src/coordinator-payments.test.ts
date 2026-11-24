@@ -101,7 +101,16 @@ describe("Rejecting a payment receipt", () => {
 });
 
 describe("Viewing a receipt image", () => {
-  it("streams the stored screenshot to coordinators", async () => {
+  it("sends the screenshot stored in the database to coordinators", async () => {
+    findReceipt.mockResolvedValue({ storedFileName: "db.png", mimeType: "image/png", file: { data: new Uint8Array([0x89, 0x50, 0x4e, 0x47]) } } as never);
+    const response = await request(app).get(`${base}/booking-1/payment-receipts/receipt-1/file`).set("Authorization", "Bearer token");
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toBe("image/png");
+    expect(response.headers["content-length"]).toBe("4");
+    expect(findReceipt).toHaveBeenCalledWith(expect.objectContaining({ select: expect.objectContaining({ file: { select: { data: true } } }) }));
+  });
+
+  it("still streams a screenshot saved on disk before images moved into the database", async () => {
     mkdirSync(path.join(uploadDir, "receipts"), { recursive: true });
     writeFileSync(path.join(uploadDir, "receipts", "abc.png"), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
     findReceipt.mockResolvedValue({ storedFileName: "abc.png", mimeType: "image/png" } as never);

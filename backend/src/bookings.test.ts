@@ -1,8 +1,5 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import request from "supertest";
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./lib/firebase-admin.js", () => ({ firebaseAuth: { verifyIdToken: vi.fn() } }));
 vi.mock("./lib/prisma.js", () => ({
@@ -39,11 +36,6 @@ const tx = {
     updateMany: vi.mocked(prisma.paymentReceipt.updateMany),
   },
 };
-// Receipt screenshots go to a throwaway folder.
-const uploadDir = mkdtempSync(path.join(tmpdir(), "trailsync-receipts-"));
-process.env.UPLOAD_DIR = uploadDir;
-const receiptsOnDisk = () => (existsSync(path.join(uploadDir, "receipts")) ? readdirSync(path.join(uploadDir, "receipts")) : []);
-afterAll(() => rmSync(uploadDir, { recursive: true, force: true }));
 // Smallest file with a PNG signature; content is not otherwise checked.
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 type Upload = { receipt?: Buffer | null; filename?: string; referenceNumber?: string };
@@ -314,8 +306,7 @@ describe("Booking Foundation", () => {
 describe("Trail restrictions on hiker bookings", () => {
   const closure = { startDate: "2026-11-20", endDate: "2026-11-21", reason: "Heavy rain advisory" };
 
-  it("refuses a booking on a trail closed that date, discarding the screenshot", async () => {
-    const before = receiptsOnDisk().length;
+  it("refuses a booking on a trail closed that date", async () => {
     tx.trailRestriction.findFirst.mockResolvedValue(closure as never);
     const response = await postBooking(createBody());
     expect(response.status).toBe(409);
@@ -324,7 +315,6 @@ describe("Trail restrictions on hiker bookings", () => {
       where: { trailId: "trl_sulfatara", liftedAt: null, startDate: { lte: "2026-11-20" }, endDate: { gte: "2026-11-20" } },
     }));
     expect(tx.booking.create).not.toHaveBeenCalled();
-    expect(receiptsOnDisk().length).toBe(before);
   });
 
   it("refuses rescheduling onto a closed date and leaves the booking unchanged", async () => {
@@ -357,7 +347,8 @@ describe("GCash payment receipts", () => {
     expect(data).toMatchObject({ paymentOption: "FULL", downpaymentAmount: 275, downpaymentStatus: "PENDING_VERIFICATION" });
     const [receipt] = data.paymentReceipts.create;
     expect(receipt).toMatchObject({ amount: 550, referenceNumber: "1234567890123", mimeType: "image/png", sizeBytes: PNG.length });
-    expect(receiptsOnDisk()).toContain(receipt.storedFileName);
+    expect(receipt.storedFileName).toMatch(/^[0-9a-f-]{36}\.png$/);
+    expect(Buffer.from(receipt.file.create.data)).toEqual(PNG);
     expect(response.body.payment).toMatchObject({ option: "FULL", amountDueOnline: 550, balanceDueOnSite: 0, method: { provider: "GCASH", testMode: true } });
   });
 
@@ -390,11 +381,9 @@ describe("GCash payment receipts", () => {
     ]));
   });
 
-  it("removes the saved screenshot when the booking cannot be stored", async () => {
-    const before = receiptsOnDisk().length;
+  it("answers 500 when the booking cannot be stored", async () => {
     tx.booking.create.mockRejectedValue(new Error("database down"));
     expect((await postBooking(createBody())).status).toBe(500);
-    expect(receiptsOnDisk().length).toBe(before);
   });
 
   it("lets the owner upload a new receipt only after a rejection", async () => {
@@ -426,10 +415,15 @@ describe("GCash payment receipts", () => {
   it("serves a receipt image only to the booking owner", async () => {
     tx.booking.create.mockResolvedValue(booking() as never);
     await postBooking(createBody());
-    const { storedFileName } = (tx.booking.create.mock.calls[0]![0] as any).data.paymentReceipts.create[0];
-    tx.paymentReceipt.findFirst.mockResolvedValue({ storedFileName, mimeType: "image/png" } as never);
-    const own = await request(app).get("/api/v1/bookings/booking-1/payment-receipts/r1/file").set("Authorization", "Bearer token");
+    const { storedFileName, file } = (tx.booking.create.mock.calls[0]![0] as any).data.paymentReceipts.create[0];
+    tx.paymentReceipt.findFirst.mockResolvedValue({ storedFileName, mimeType: "image/png", file: file.create } as never);
+    const own = await request(app).get("/api/v1/bookings/booking-1/payment-receipts/r1/file").set("Authorization", "Bearer token").buffer(true).parse((res, done) => {
+      const chunks: Buffer[] = [];
+      res.on("data", (chunk: Buffer) => chunks.push(chunk));
+      res.on("end", () => done(null, Buffer.concat(chunks)));
+    });
     expect(own.status).toBe(200);
+    expect(own.body).toEqual(PNG);
     expect(own.headers["content-type"]).toBe("image/png");
     expect(own.headers["cache-control"]).toBe("private, no-store");
     expect(tx.paymentReceipt.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "r1", bookingId: "booking-1", booking: { ownerId: "owner-1" } } }));
