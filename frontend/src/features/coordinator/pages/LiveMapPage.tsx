@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
 import { useAuth } from '../../../app/AuthContext'
 import { listLiveTreks, type LiveTrek } from '../../../lib/live-treks-api'
 import PageHeader from '../../booking/components/PageHeader'
 import StatusCard from '../../booking/components/StatusCard'
-import LiveTrekMap, { type MapFocus } from '../components/LiveTrekMap'
+import LiveTrekMap from '../components/LiveTrekMap'
 import {
   formatAgo,
   isStale,
@@ -30,7 +30,7 @@ export default function LiveMapPage() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const [state, setState] = useState<PageState>({ status: 'loading' })
-  const [picked, setPicked] = useState<MapFocus | null>(null)
+  const [picked, setPicked] = useState<string | null>(null)
   const tick = usePollingTick(LIVE_MAP_POLL_MS)
 
   useEffect(() => {
@@ -57,20 +57,9 @@ export default function LiveMapPage() {
     }
   }, [user, tick])
 
-  // Opened from "Track on live map": fly to that trek once it has a fix,
-  // until the coordinator picks one from the list.
-  const linkedBookingId = searchParams.get('booking')
-  const linkedHasFix =
-    state.status === 'loaded' &&
-    state.treks.some((t) => t.bookingId === linkedBookingId && t.latest)
-  const linkedFocus = useMemo<MapFocus | null>(
-    () =>
-      linkedBookingId && linkedHasFix
-        ? { bookingId: linkedBookingId, nonce: 0 }
-        : null,
-    [linkedBookingId, linkedHasFix],
-  )
-  const focus = picked ?? linkedFocus
+  // The map view stays fixed on the trails; picking a trek (or opening the
+  // page from "Track on live map") highlights it in the list.
+  const selected = picked ?? searchParams.get('booking')
 
   return (
     <>
@@ -97,7 +86,7 @@ export default function LiveMapPage() {
       )}
       {state.status === 'loaded' && state.treks.length > 0 && (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-          <LiveTrekMap focus={focus} treks={state.treks} />
+          <LiveTrekMap treks={state.treks} />
 
           <section aria-live="polite" className={cardClass}>
             <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -113,13 +102,8 @@ export default function LiveMapPage() {
                 <li key={trek.bookingId}>
                   <TrekEntry
                     now={state.loadedAt}
-                    onSelect={() =>
-                      setPicked({
-                        bookingId: trek.bookingId,
-                        nonce: Date.now(),
-                      })
-                    }
-                    selected={focus?.bookingId === trek.bookingId}
+                    onSelect={() => setPicked(trek.bookingId)}
+                    selected={selected === trek.bookingId}
                     trek={trek}
                   />
                 </li>

@@ -45,22 +45,31 @@ export type LatLngBoundsLiteral = {
   west: number
 }
 
+export type MapsEventListener = { remove: () => void }
+
 export type GoogleMap = {
   fitBounds: (bounds: LatLngBoundsLiteral, padding?: number) => void
-  panTo: (position: LatLng) => void
-  setZoom: (zoom: number) => void
+  getZoom: () => number | undefined
+  setOptions: (options: Partial<MapOptions>) => void
+  addListener: (eventName: string, handler: () => void) => MapsEventListener
 }
 
 export type MapOptions = {
   center: LatLng
   zoom: number
-  minZoom?: number
+  minZoom?: number | null
+  maxZoom?: number | null
+  zoomControl?: boolean
+  scrollwheel?: boolean
+  disableDoubleClickZoom?: boolean
+  keyboardShortcuts?: boolean
   mapTypeId?: 'roadmap' | 'satellite' | 'hybrid' | 'terrain'
   mapTypeControl?: boolean
   streetViewControl?: boolean
   fullscreenControl?: boolean
   clickableIcons?: boolean
   gestureHandling?: 'cooperative' | 'greedy' | 'none' | 'auto'
+  draggable?: boolean
 }
 
 export type Polyline = {

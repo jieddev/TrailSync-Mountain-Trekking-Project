@@ -7,6 +7,7 @@ import {
   type LatLng,
   type LatLngBoundsLiteral,
   type Maps2DLibrary,
+  type MapsEventListener,
   type Marker,
   type MarkerLabel,
   type Polyline,
@@ -26,16 +27,11 @@ type LoadedMap = { map: GoogleMap; maps: Maps2DLibrary }
 // What the map draws for one trek: the path walked and the guide's dot.
 type TrekOverlay = { path: Polyline; marker: Marker }
 
-// Asks the map to pan to a trek; [nonce] lets the same trek be picked again.
-export type MapFocus = { bookingId: string; nonce: number }
-
 // Same look as the guide app's map: the trail in TrailSync green with a white
 // outline, on satellite imagery with labels.
 const TRAIL_COLOR = '#008755'
-const FOCUS_ZOOM = 17
-// Farthest the coordinator can zoom out: about the Cabintan area, so the
-// trails never shrink to a speck.
-const MIN_ZOOM = 18
+// Space kept between the trail routes and the map's edge, in pixels.
+const ROUTE_PADDING = 40
 
 // Draw order: trail outline, trail, then each walked path. Markers always
 // draw above lines on a flat map.
@@ -59,25 +55,14 @@ const markerLabel = (text: string): MarkerLabel => ({
 
 // All live treks on one flat satellite map: the bundled trail routes, each
 // trek's walked path in its own colour, and a dot on its guide.
-export default function LiveTrekMap({
-  treks,
-  focus,
-}: {
-  treks: LiveTrek[]
-  focus: MapFocus | null
-}) {
+export default function LiveTrekMap({ treks }: { treks: LiveTrek[] }) {
   const mapHostRef = useRef<HTMLDivElement>(null)
   const overlaysRef = useRef(new Map<string, TrekOverlay>())
-  const treksRef = useRef(treks)
   const apiKey = googleMapsApiKey
   const [mapState, setMapState] = useState<MapState>(
     apiKey ? { status: 'loading' } : { status: 'error', reason: 'missing-key' },
   )
   const [loadedMap, setLoadedMap] = useState<LoadedMap | null>(null)
-
-  useEffect(() => {
-    treksRef.current = treks
-  }, [treks])
 
   // The map and the trail routes are created once.
   useEffect(() => {
@@ -86,6 +71,8 @@ export default function LiveTrekMap({
     let isCurrent = true
     const overlays = overlaysRef.current
     const trailLines: Polyline[] = []
+    let resizeObserver: ResizeObserver | null = null
+    let idleListener: MapsEventListener | null = null
 
     async function initializeMap(key: string) {
       try {
@@ -96,11 +83,16 @@ export default function LiveTrekMap({
         const map = new maps.Map(mapHostRef.current, {
           center: { lat, lng },
           zoom: 14,
-          minZoom: MIN_ZOOM,
           mapTypeId: 'hybrid',
           streetViewControl: false,
           clickableIcons: false,
-          gestureHandling: 'greedy',
+          // The view is fixed to the whole route: no dragging or zooming.
+          gestureHandling: 'none',
+          draggable: false,
+          zoomControl: false,
+          scrollwheel: false,
+          disableDoubleClickZoom: true,
+          keyboardShortcuts: false,
         })
         setMapState({ status: 'ready' })
         setLoadedMap({ map, maps })
@@ -137,7 +129,27 @@ export default function LiveTrekMap({
           )
         }
         const bounds = boundsOf(lines.flat())
-        if (bounds) map.fitBounds(bounds, 40)
+        if (!bounds) return
+
+        // Fits every route from start to end, then pins the zoom there so
+        // pinch gestures can't change it either. Re-fits when the map resizes.
+        const fitRoute = () => {
+          idleListener?.remove()
+          map.setOptions({ minZoom: null, maxZoom: null })
+          map.fitBounds(bounds, ROUTE_PADDING)
+          idleListener = map.addListener('idle', () => {
+            idleListener?.remove()
+            idleListener = null
+            const zoom = map.getZoom()
+            if (zoom !== undefined)
+              map.setOptions({ minZoom: zoom, maxZoom: zoom })
+          })
+        }
+        fitRoute()
+        if (mapHostRef.current) {
+          resizeObserver = new ResizeObserver(fitRoute)
+          resizeObserver.observe(mapHostRef.current)
+        }
       } catch (error) {
         console.error('Live map failed to load:', error)
         if (isCurrent) setMapState({ status: 'error', reason: 'load-failed' })
@@ -148,6 +160,8 @@ export default function LiveTrekMap({
 
     return () => {
       isCurrent = false
+      resizeObserver?.disconnect()
+      idleListener?.remove()
       for (const line of trailLines) line.setMap(null)
       for (const overlay of overlays.values()) {
         overlay.path.setMap(null)
@@ -219,14 +233,6 @@ export default function LiveTrekMap({
       overlays.delete(bookingId)
     }
   }, [loadedMap, treks])
-
-  useEffect(() => {
-    if (!loadedMap || !focus) return
-    const trek = treksRef.current.find((t) => t.bookingId === focus.bookingId)
-    if (!trek?.latest) return
-    loadedMap.map.setZoom(FOCUS_ZOOM)
-    loadedMap.map.panTo(toLatLng(trek.latest))
-  }, [loadedMap, focus])
 
   return (
     <div className="relative h-[28rem] overflow-hidden rounded-xl border border-[#d5e1da] bg-[#e8f1eb] lg:h-[36rem]">
