@@ -31,6 +31,10 @@ These free-tier limits shaped the setup:
 3. Go to **SMTP & API → API keys → Generate a new API key**. This is `BREVO_API_KEY`.
 4. `MAIL_FROM` is `TrailSync <that-verified-address@gmail.com>`.
 
+5. Go to **Security → Authorized IPs** and turn IP blocking off. Render's free tier has no fixed outbound IP, so with it on Brevo answers `401 unrecognised IP address` and sign-up shows "Could not send the verification code."
+
+Use an API key (it starts with `xkeysib-`), not the SMTP key (`xsmtpsib-`). If sign-up still fails, search the API logs for `Verification code request failed`; the error shows Brevo's answer.
+
 Brevo may ask you to finish your profile before it sends. Mail from a free Gmail sender can land in spam, so tell testers to check there.
 
 ## 3. Render
