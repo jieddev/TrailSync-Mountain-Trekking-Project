@@ -87,6 +87,28 @@ There is deliberately no API endpoint for changing roles. Coordinators use the s
 Coordinator-only routes use the `requireRole` middleware
 (`src/middleware/require-role.ts`) after `requireFirebaseAuth`.
 
+## Delete all accounts (local)
+
+To start testing from zero accounts, run from `backend/`:
+
+```bash
+npm run delete-accounts -- --yes
+```
+
+This deletes every user (hikers, guides, and coordinators) from the local
+database. It also deletes their bookings, participants, payment receipts,
+incidents, guide locations, trail restrictions, guide applications, and email
+codes. Then it deletes their Firebase logins so the emails can be registered
+again. Trails are kept. The script refuses to run unless `DATABASE_URL` points
+at `localhost`.
+
+Local and Render use the same Firebase project, so these logins also stop
+working on the live site. Afterwards, register again and run
+`npm run set-role -- <email> COORDINATOR` to get a coordinator back.
+
+To clear only bookings and other activity while keeping accounts, use
+`npm run reset-data -- --yes` instead.
+
 ## Trails
 
 TrailSync supports multiple trails. The `trails` table is the approved catalog;
